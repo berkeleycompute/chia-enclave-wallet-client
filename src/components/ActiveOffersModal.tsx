@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SavedOffer } from './types.ts';
+import { bech32 } from 'bech32';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
@@ -18,6 +19,69 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
   loadingMetadata, 
   onOfferUpdate 
 }) => {
+  
+  // Styles for address components
+  const addressStyles = `
+    .nft-address-container {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .address-label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+    
+    .address-copy-btn {
+      background: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      font-family: monospace;
+    }
+    
+    .address-copy-btn:hover {
+      background-color: #f0f0f0;
+    }
+    
+    .address-text {
+      color: #666;
+      font-size: 12px;
+      font-family: monospace;
+    }
+    
+    .address-copy-btn svg {
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    
+    .address-copy-btn:hover svg {
+      opacity: 1;
+    }
+    
+    .payment-address-btn {
+      margin-left: auto;
+    }
+  `;
+
+  // Add styles to document head
+  React.useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = addressStyles;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, [addressStyles]);
   const [activeOffers, setActiveOffers] = useState<SavedOffer[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<SavedOffer | null>(null);
@@ -72,6 +136,29 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     } catch (err) {
       console.error('Failed to copy offer:', err);
     }
+  }, []);
+
+  // Copy address to clipboard
+  const copyAddressToClipboard = useCallback(async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      console.log('Address copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+    }
+  }, []);
+
+  // Compact address for display
+  const compactAddress = useCallback((address: string): string => {
+    if (!address || address.length <= 20) return address;
+    return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
+  }, []);
+
+  const encodeNftAddress = useCallback((puzzlehashStr: string): string => {
+    // Convert hex string to Uint8Array without using Buffer
+    const puzzleHash = new Uint8Array(puzzlehashStr.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+    const encoded = bech32.encode('nft', bech32.toWords(puzzleHash));
+    return encoded;
   }, []);
 
   // Format time
@@ -164,6 +251,25 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
                     <h5>{selectedOffer.nft.name}</h5>
                     <p>{selectedOffer.nft.collection}</p>
                     {selectedOffer.nft.edition && <p className="nft-edition">{selectedOffer.nft.edition}</p>}
+                    {selectedOffer.nft.coin?.coin?.puzzleHash && (
+                      <div className="nft-address-container">
+                        <span className="address-label">NFT Address:</span>
+                        <button 
+                          className="address-copy-btn" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyAddressToClipboard(selectedOffer.nft.coin.coin.puzzleHash);
+                          }}
+                          title="Click to copy full address"
+                        >
+                          <span className="address-text">{compactAddress(selectedOffer.nft.coin.parentSpendInfo.driverInfo?.info?.launcherId ? encodeNftAddress(selectedOffer.nft.coin.parentSpendInfo.driverInfo?.info?.launcherId) : '')}</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -181,9 +287,20 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
                   </div>
                   <div className="payment-item">
                     <span className="payment-label">Deposit Address:</span>
-                    <span className="payment-value address-value">
-                      {selectedOffer.requestedPayment.depositAddress.substring(0, 20)}...{selectedOffer.requestedPayment.depositAddress.substring(selectedOffer.requestedPayment.depositAddress.length - 20)}
-                    </span>
+                    <button 
+                      className="address-copy-btn payment-address-btn" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyAddressToClipboard(selectedOffer.requestedPayment.depositAddress);
+                      }}
+                      title="Click to copy full address"
+                    >
+                      <span className="address-text">{compactAddress(selectedOffer.requestedPayment.depositAddress)}</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -282,7 +399,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
                     <div className="offer-nft-name">{offer.nft.name}</div>
                     <div className="offer-nft-collection">{offer.nft.collection}</div>
                     <div className="offer-payment">
-                      Asking: {offer.requestedPayment.amount} {offer.requestedPayment.assetName}
+                      Requesting: {offer.requestedPayment.amount} {offer.requestedPayment.assetName} 
                     </div>
                     <div className="offer-time">{formatTime(offer.timestamp)}</div>
                   </div>

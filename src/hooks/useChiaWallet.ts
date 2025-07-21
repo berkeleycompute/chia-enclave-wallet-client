@@ -211,7 +211,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       return;
     }
     
-    setState(prevState => ({ ...prevState, isConnecting: true, error: null }));
+    setState(prevState => ({ ...prevState, isConnecting: true, error: null, balanceLoading: true }));
     
     try {
       // Get public key first
@@ -220,13 +220,54 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
         throw new Error(pkResponse.error);
       }
       
+      const publicKey = pkResponse.data.address;
+      
+      // Immediately load hydrated coins on first connection
+      let hydratedCoins: HydratedCoin[] = [];
+      let unspentCoins: Coin[] = [];
+      let balance = 0;
+      let coinCount = 0;
+      let balanceError: string | null = null;
+      
+      try {
+        const hydratedResult = await client.getUnspentHydratedCoins(publicKey);
+        if (hydratedResult.success) {
+          hydratedCoins = hydratedResult.data.data;
+          unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+          coinCount = unspentCoins.length;
+          
+          // Calculate balance from coins
+          for (const coin of unspentCoins) {
+            try {
+              balance += parseInt(coin.amount);
+            } catch (coinError) {
+              console.warn('Invalid coin amount:', coin.amount, coinError);
+            }
+          }
+        } else {
+          console.warn('Failed to load hydrated coins on first connection:', hydratedResult.error);
+          balanceError = hydratedResult.error;
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load wallet balance on first connection';
+        console.warn('Error loading hydrated coins on first connection:', errorMessage);
+        balanceError = errorMessage;
+      }
+      
       const newState: Partial<WalletState> = {
         isConnected: true,
         isConnecting: false,
+        balanceLoading: false,
         publicKeyData: pkResponse.data,
-        publicKey: pkResponse.data.address,
+        publicKey: publicKey,
         syntheticPublicKey: pkResponse.data.synthetic_public_key,
+        hydratedCoins,
+        unspentCoins,
+        balance,
+        coinCount,
+        lastSuccessfulRefresh: hydratedCoins.length > 0 ? Date.now() : 0,
         error: null,
+        balanceError,
       };
       
       setState(prevState => {
@@ -235,14 +276,12 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
         return updatedState;
       });
       
-      // Load wallet balance
-      await refreshWallet();
-      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
       setState(prevState => ({
         ...prevState,
         isConnecting: false,
+        balanceLoading: false,
         error: errorMessage,
         isConnected: false,
         publicKey: null,

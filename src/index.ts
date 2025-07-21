@@ -14,7 +14,7 @@ export { NFTDetailsModal } from './components/NFTDetailsModal.tsx';
 
 // Components - Main Wallet Components
 export { ChiaWalletButton } from './components/ChiaWalletButton.tsx';
-export { ChiaWalletModal } from './components/ChiaWalletModal.tsx';
+export { ChiaWalletModal } from './components/ChiaWalletModal.refactored.tsx';
 
 // Types
 export type { SentTransaction, SavedOffer } from './components/types.ts'; 

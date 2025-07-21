@@ -429,7 +429,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
     
     setLoading(true);
+    setBalanceLoading(true);
     setError(null);
+    setBalanceError(null);
     
     try {
       // Set JWT token on client first
@@ -458,28 +460,101 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         syntheticKey: pkResponse.data.synthetic_public_key ? `${pkResponse.data.synthetic_public_key.substring(0, 10)}...` : null
       });
 
+      const publicKeyAddress = pkResponse.data.address;
       setPublicKeyData(pkResponse.data);
-      setPublicKey(pkResponse.data.address);
+      setPublicKey(publicKeyAddress);
       setSyntheticPublicKey(pkResponse.data.synthetic_public_key);
       setCurrentSessionToken(jwtToken);
       
       // Mark as connected after successful public key fetch
       setIsConnected(true);
       
-      debugLog('Wallet connected successfully');
+      debugLog('Wallet connected successfully, now loading hydrated coins');
       
-      // Emit wallet update event with connected state
+      // Immediately load hydrated coins on first connection
+      let newHydratedCoins: HydratedCoin[] = [];
+      let newUnspentCoins: Coin[] = [];
+      let newBalance = 0;
+      let newCoinCount = 0;
+      let balanceErrorMessage: string | null = null;
+      
+      try {
+        debugLog('Making API call to getUnspentHydratedCoins on first connection', { 
+          publicKey: publicKeyAddress.substring(0, 16) + '...',
+          hasJwtToken: !!client.getJwtToken()
+        });
+
+        const hydratedData = await Promise.race([
+          client.getUnspentHydratedCoins(publicKeyAddress),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Request timeout')), SYNC_TIMEOUT);
+          })
+        ]);
+        
+        debugLog('API response received', { 
+          success: hydratedData.success,
+          hasData: hydratedData.success && !!hydratedData.data,
+          dataLength: hydratedData.success && hydratedData.data ? hydratedData.data.data?.length : 'N/A',
+          error: hydratedData.success ? null : hydratedData.error
+        });
+        
+        if (hydratedData.success) {
+          newHydratedCoins = hydratedData.data.data;
+          newUnspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(newHydratedCoins);
+          newCoinCount = newUnspentCoins.length;
+          
+          for (const coin of newUnspentCoins) {
+            try {
+              newBalance += Number(coin.amount);
+            } catch (coinError) {
+              console.warn('Invalid coin amount:', coin.amount, coinError);
+            }
+          }
+          
+          debugLog('Balance calculation complete on first connection', {
+            totalBalance: newBalance,
+            coinCount: newCoinCount,
+            hydratedCoinsCount: newHydratedCoins.length
+          });
+          
+          setBalance(newBalance);
+          setCoinCount(newCoinCount);
+          setHydratedCoins(newHydratedCoins);
+          setUnspentCoins(newUnspentCoins);
+          setLastSuccessfulRefresh(Date.now());
+          setSyncRetryCount(0);
+          
+          setCachedData({
+            hydratedCoins: newHydratedCoins,
+            balance: newBalance,
+            timestamp: Date.now()
+          });
+        } else {
+          debugLog('API call failed on first connection', { 
+            error: hydratedData.error 
+          });
+          balanceErrorMessage = hydratedData.error;
+        }
+        
+      } catch (err) {
+        console.error('Failed to load wallet balance on first connection', err);
+        debugLog('Balance loading failed on first connection', { error: err instanceof Error ? err.message : 'Unknown error' });
+        balanceErrorMessage = err instanceof Error ? err.message : 'Failed to load balance on first connection';
+      }
+      
+      setBalanceError(balanceErrorMessage);
+      
+      // Emit wallet update event with connected state and initial data
       onWalletUpdate?.({
         connected: true,
-        publicKey: pkResponse.data.address,
+        publicKey: publicKeyAddress,
         publicKeyData: pkResponse.data,
         syntheticPublicKey: pkResponse.data.synthetic_public_key,
-        balance,
-        coinCount
+        balance: newBalance,
+        coinCount: newCoinCount
       });
       
-      // Now try to get balance and coins separately
-      await loadWalletBalance();
+      debugLog('Initial wallet connection and data loading complete');
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
@@ -506,8 +581,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       }
     } finally {
       setLoading(false);
+      setBalanceLoading(false);
     }
-  }, [jwtToken, client, isConnected, currentSessionToken, balance, coinCount, onWalletUpdate, debugLog]);
+  }, [jwtToken, client, isConnected, currentSessionToken, onWalletUpdate, debugLog]);
 
   const loadWalletBalance = useCallback(async (silent: boolean = false) => {
     debugLog('loadWalletBalance called', { 

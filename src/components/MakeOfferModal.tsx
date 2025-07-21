@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient.ts';
+import { bech32m } from 'bech32';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -148,6 +149,32 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     }
   };
 
+  // Validation function for Chia addresses
+  const validateChiaAddress = (address: string): { isValid: boolean; error?: string } => {
+    try {
+      if (!address || typeof address !== 'string') {
+        return { isValid: false, error: 'Address must be a non-empty string' };
+      }
+      
+      const decoded = bech32m.decode(address);
+      
+      if (decoded.prefix !== 'xch') {
+        return { isValid: false, error: 'Invalid address prefix: must be "xch"' };
+      }
+      
+      if (decoded.words.length !== 52) {
+        return { isValid: false, error: 'Invalid address data length' };
+      }
+      
+      return { isValid: true };
+    } catch (err) {
+      return {
+        isValid: false,
+        error: err instanceof Error ? `Invalid address encoding: ${err.message}` : 'Invalid address encoding',
+      };
+    }
+  };
+
   const validateOfferAmount = (): boolean => {
     if (!offerAmount || parseFloat(offerAmount) <= 0) {
       setError('Please enter a valid offer amount');
@@ -156,6 +183,13 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
     if (!depositAddress || depositAddress.trim() === '') {
       setError('Please enter a deposit address');
+      return false;
+    }
+
+    // Validate Chia address format
+    const addressValidation = validateChiaAddress(depositAddress);
+    if (!addressValidation.isValid) {
+      setError(`Invalid deposit address: ${addressValidation.error}`);
       return false;
     }
 
