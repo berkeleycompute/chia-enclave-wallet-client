@@ -1,0 +1,307 @@
+import React, { useState } from 'react';
+import { useChiaWallet } from '../hooks/useChiaWallet.ts';
+import { ChiaWalletModal } from './ChiaWalletModal.tsx';
+
+export interface ChiaWalletButtonProps {
+  jwtToken?: string | null;
+  variant?: 'primary' | 'secondary';
+  size?: 'small' | 'medium' | 'large';
+  disabled?: boolean;
+  baseUrl?: string;
+  enableLogging?: boolean;
+  autoConnect?: boolean;
+  onWalletUpdate?: (walletState: any) => void;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
+  jwtToken = null,
+  variant = 'primary',
+  size = 'medium',
+  disabled = false,
+  baseUrl,
+  enableLogging,
+  autoConnect = true,
+  onWalletUpdate,
+  className = '',
+  style,
+}) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const wallet = useChiaWallet({
+    baseUrl,
+    enableLogging,
+    autoConnect,
+  });
+  
+  // Set JWT token when it changes
+  React.useEffect(() => {
+    if (jwtToken !== wallet.jwtToken) {
+      wallet.setJwtToken(jwtToken);
+    }
+  }, [jwtToken, wallet]);
+  
+  // Call onWalletUpdate when wallet state changes
+  React.useEffect(() => {
+    if (onWalletUpdate) {
+      onWalletUpdate({
+        isConnected: wallet.isConnected,
+        publicKey: wallet.publicKey,
+        publicKeyData: wallet.publicKeyData,
+        balance: wallet.balance,
+        coinCount: wallet.coinCount,
+        error: wallet.error,
+      });
+    }
+  }, [
+    wallet.isConnected,
+    wallet.publicKey,
+    wallet.publicKeyData,
+    wallet.balance,
+    wallet.coinCount,
+    wallet.error,
+    onWalletUpdate,
+  ]);
+  
+  const openModal = () => {
+    if (!disabled) {
+      setIsModalOpen(true);
+    }
+  };
+  
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+  
+  const formatAddress = (address: string): string => {
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+  
+  const formatBalance = (balance: number): string => {
+    return wallet.formatBalance(balance);
+  };
+  
+  const getButtonClasses = (): string => {
+    const baseClasses = 'chia-wallet-btn';
+    const variantClass = variant;
+    const sizeClass = size;
+    const stateClasses = [
+      wallet.isConnected ? 'connected' : '',
+      wallet.isConnecting ? 'connecting' : '',
+      disabled ? 'disabled' : '',
+    ].filter(Boolean).join(' ');
+    
+    return [baseClasses, variantClass, sizeClass, stateClasses, className]
+      .filter(Boolean)
+      .join(' ');
+  };
+  
+  return (
+    <>
+      <button
+        className={getButtonClasses()}
+        onClick={openModal}
+        disabled={disabled}
+        aria-label="Open Chia wallet"
+        style={style}
+      >
+        <div className="btn-content">
+          <div className="chia-icon">🌱</div>
+          <div className="btn-text-content">
+            {wallet.isConnecting ? (
+              <span className="btn-text">Connecting...</span>
+            ) : wallet.isConnected && wallet.publicKey ? (
+              <>
+                <span className="btn-text connected-text">
+                  {formatAddress(wallet.publicKey)}
+                </span>
+                {wallet.balance > 0 ? (
+                  <span className="btn-balance">
+                    {formatBalance(wallet.balance)} XCH
+                  </span>
+                ) : (
+                  <span className="btn-balance">Click to view balance</span>
+                )}
+              </>
+            ) : (
+              <span className="btn-text">
+                {jwtToken ? 'Chia Wallet' : 'Connect Chia'}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+
+      <ChiaWalletModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        wallet={wallet}
+      />
+      
+      <style>{`
+        .chia-wallet-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          font-weight: 600;
+          transition: all 0.2s ease;
+          position: relative;
+          overflow: hidden;
+          font-family: inherit;
+          min-width: 120px;
+        }
+
+        .chia-wallet-btn::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(45deg, #6bc36b, #4a9f4a);
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+
+        .chia-wallet-btn:hover::before {
+          opacity: 0.1;
+        }
+
+        .chia-wallet-btn.primary {
+          background: linear-gradient(45deg, #6bc36b, #4a9f4a);
+          color: white;
+        }
+
+        .chia-wallet-btn.primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(107, 195, 107, 0.3);
+        }
+
+        .chia-wallet-btn.secondary {
+          background: transparent;
+          color: #6bc36b;
+          border: 2px solid #6bc36b;
+        }
+
+        .chia-wallet-btn.secondary:hover {
+          background: #6bc36b;
+          color: white;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(107, 195, 107, 0.3);
+        }
+
+        /* Connected state styling */
+        .chia-wallet-btn.connected {
+          background: linear-gradient(45deg, #22c55e, #16a34a) !important;
+          color: white !important;
+          border-color: #22c55e !important;
+        }
+
+        .chia-wallet-btn.connected:hover {
+          background: linear-gradient(45deg, #16a34a, #15803d) !important;
+          box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3) !important;
+        }
+
+        /* Connecting state styling */
+        .chia-wallet-btn.connecting {
+          background: linear-gradient(45deg, #f59e0b, #d97706) !important;
+          color: white !important;
+          cursor: not-allowed !important;
+        }
+
+        .chia-wallet-btn.small {
+          padding: 8px 16px;
+          font-size: 14px;
+          border-radius: 8px;
+          min-width: 100px;
+        }
+
+        .chia-wallet-btn.medium {
+          padding: 12px 24px;
+          font-size: 16px;
+          min-width: 140px;
+        }
+
+        .chia-wallet-btn.large {
+          padding: 16px 32px;
+          font-size: 18px;
+          border-radius: 16px;
+          min-width: 160px;
+        }
+
+        .chia-wallet-btn.disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none !important;
+          box-shadow: none !important;
+        }
+
+        .btn-content {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .btn-text-content {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+        }
+
+        .chia-icon {
+          font-size: 1.2em;
+          flex-shrink: 0;
+        }
+
+        .btn-text {
+          white-space: nowrap;
+          line-height: 1;
+        }
+
+        .connected-text {
+          font-weight: 600;
+          font-family: monospace;
+        }
+
+        .btn-balance {
+          font-size: 0.8em;
+          opacity: 0.9;
+          font-weight: 500;
+          line-height: 1;
+          white-space: nowrap;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+          .chia-wallet-btn.medium {
+            padding: 10px 20px;
+            font-size: 14px;
+            min-width: 120px;
+          }
+          
+          .chia-wallet-btn.large {
+            padding: 14px 28px;
+            font-size: 16px;
+            min-width: 140px;
+          }
+
+          .btn-content {
+            gap: 6px;
+          }
+
+          .btn-balance {
+            font-size: 0.75em;
+          }
+        }
+      `}</style>
+    </>
+  );
+}; 
