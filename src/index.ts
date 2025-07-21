@@ -5,14 +5,14 @@ export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient.ts';
 export { useChiaWallet } from './hooks/useChiaWallet.ts';
 export { useChiaTransactions } from './hooks/useChiaTransactions.ts';
 
-// Dialog Hooks
-export { 
+// Legacy Dialog Hooks (deprecated - use Global Dialog System instead)
+export {
   DialogProvider,
   useSendFundsDialog,
-  useMakeOfferDialog,
+  useMakeOfferDialog as useMakeOfferDialogLegacy,
   useReceiveFundsDialog,
   useActiveOffersDialog,
-  useNFTDetailsDialog,
+  useNFTDetailsDialog as useNFTDetailsDialogLegacy,
   useWalletMainDialog,
   useAllDialogs,
   type DialogType,
@@ -35,6 +35,8 @@ export { NFTDetailsModal } from './components/NFTDetailsModal.tsx';
 export { default as ChiaWalletTestPage } from './components/ChiaWalletTestPage.tsx';
 export { default as DialogTestApp } from './components/ExampleUsage.tsx';
 
+// Global Dialog Usage Examples 
+
 // Components - Main Wallet Components
 export { ChiaWalletButton } from './components/ChiaWalletButton.tsx';
 export { ChiaWalletModal } from './components/ChiaWalletModal.tsx';
@@ -42,6 +44,30 @@ export { ChiaWalletModalWithProvider } from './components/ChiaWalletModalWithPro
 
 // Bridge Components
 export { ChiaWalletBridge } from './components/ChiaWalletBridge.tsx';
+
+// Simplified Dialog Manager (New Easy API)
+export {
+  ChiaWalletDialogManager,
+  ChiaWalletDialogsWrapper,
+  type ChiaWalletDialogConfig
+} from './components/ChiaWalletDialogManager.tsx';
+
+// Global Dialog System (Latest - Can be opened from anywhere!)
+export {
+  GlobalDialogProvider,
+  useGlobalDialogs,
+  useSendDialog,
+  useReceiveDialog,
+  useMakeOfferDialog,
+  useOffersDialog,
+  useNFTDetailsDialog,
+  type GlobalDialogConfig,
+  type SendDialogArgs,
+  type MakeOfferDialogArgs,
+  type NFTDetailsDialogArgs,
+  type ReceiveDialogArgs,
+  type OffersDialogArgs
+} from './components/GlobalDialogProvider.tsx';
 
 // Types
 export type { SentTransaction, SavedOffer } from './components/types.ts'; 

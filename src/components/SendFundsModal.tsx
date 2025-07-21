@@ -8,6 +8,10 @@ interface SendFundsModalProps {
   publicKey: string | null;
   unspentCoins: Coin[];
   onTransactionSent: (transaction: any) => void;
+  // New props for initial values from global dialog system
+  initialRecipientAddress?: string;
+  initialAmount?: string;
+  initialFee?: string;
 }
 
 export const SendFundsModal: React.FC<SendFundsModalProps> = ({ 
@@ -16,14 +20,28 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
   client, 
   publicKey, 
   unspentCoins, 
-  onTransactionSent 
+  onTransactionSent,
+  initialRecipientAddress,
+  initialAmount,
+  initialFee
 }) => {
-  const [recipientAddress, setRecipientAddress] = useState('');
-  const [amount, setAmount] = useState('');
-  const [fee, setFee] = useState('0.00001');
+  const [recipientAddress, setRecipientAddress] = useState(initialRecipientAddress || '');
+  const [amount, setAmount] = useState(initialAmount || '');
+  const [fee, setFee] = useState(initialFee || '0.00001');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Update state when initial values change (when modal is opened with new arguments)
+  React.useEffect(() => {
+    if (isOpen) {
+      setRecipientAddress(initialRecipientAddress || '');
+      setAmount(initialAmount || '');
+      setFee(initialFee || '0.00001');
+      setError(null);
+      setSuccess(null);
+    }
+  }, [isOpen, initialRecipientAddress, initialAmount, initialFee]);
 
   const validateChiaAddress = (address: string): { isValid: boolean; error?: string } => {
     try {

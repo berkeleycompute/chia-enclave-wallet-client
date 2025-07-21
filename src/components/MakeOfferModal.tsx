@@ -14,6 +14,9 @@ interface MakeOfferModalProps {
   selectedNft?: HydratedCoin | null;
   onOfferCreated?: (offerData: any) => void;
   onRefreshWallet?: () => void;
+  // New props for initial values from global dialog system
+  initialOfferAmount?: string;
+  initialDepositAddress?: string;
 }
 
 export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ 
@@ -27,20 +30,22 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   loadingMetadata, 
   selectedNft: initialSelectedNft,
   onOfferCreated,
-  onRefreshWallet 
+  onRefreshWallet,
+  initialOfferAmount,
+  initialDepositAddress
 }) => {
   // wUSDC.b asset ID
   const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
 
   const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
-  const [offerAmount, setOfferAmount] = useState('');
-  const [depositAddress, setDepositAddress] = useState('');
+  const [offerAmount, setOfferAmount] = useState(initialOfferAmount || '');
+  const [depositAddress, setDepositAddress] = useState(initialDepositAddress || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'select-nft' | 'confirm'>('select-nft');
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
 
-  // Initialize selectedNft when modal opens with a pre-selected NFT
+  // Initialize selectedNft when modal opens with a pre-selected NFT and handle initial values
   useEffect(() => {
     if (isOpen && initialSelectedNft) {
       setSelectedNft(initialSelectedNft);
@@ -50,7 +55,14 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setStep('select-nft');
       setSelectedNft(null);
     }
-  }, [isOpen, initialSelectedNft]);
+    
+    // Update initial values when modal opens
+    if (isOpen) {
+      setOfferAmount(initialOfferAmount || '');
+      setDepositAddress(initialDepositAddress || (publicKey || ''));
+      setError(null);
+    }
+  }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, publicKey]);
 
   // Filter NFTs only
   const nftCoins = hydratedCoins.filter(coin => {
