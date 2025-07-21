@@ -1,7 +1,7 @@
 import { 
   HydratedCoin, 
   SimpleMakeUnsignedNFTOfferRequest 
-} from '../client/ChiaCloudWalletClient.ts';
+} from '../client/ChiaCloudWalletClient';
 
 export interface SentTransaction {
   id: string;

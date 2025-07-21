@@ -37,34 +37,37 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     
     .address-copy-btn {
       background: none;
-      border: none;
+      border: 1px solid #e0e0e0;
       display: flex;
       align-items: center;
       gap: 4px;
       padding: 4px 8px;
       border-radius: 4px;
       cursor: pointer;
-      transition: background-color 0.2s;
+      transition: all 0.2s;
       font-family: monospace;
     }
     
     .address-copy-btn:hover {
-      background-color: #f0f0f0;
+      background-color: #f8f9fa;
+      border-color: #c0c0c0;
     }
     
     .address-text {
-      color: #666;
+      color: #333;
       font-size: 12px;
       font-family: monospace;
     }
     
     .address-copy-btn svg {
-      opacity: 0.5;
+      opacity: 0.7;
       transition: opacity 0.2s;
+      color: #666;
     }
     
     .address-copy-btn:hover svg {
       opacity: 1;
+      color: #333;
     }
     
     .payment-address-btn {

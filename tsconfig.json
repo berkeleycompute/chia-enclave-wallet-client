@@ -21,7 +21,7 @@
     "rootDir": "./src",
     "removeComments": false,
     "sourceMap": true,
-    "allowImportingTsExtensions": false
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src/**/*"

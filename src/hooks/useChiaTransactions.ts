@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { ChiaCloudWalletClient, type Coin, type SendXCHRequest } from '../client/ChiaCloudWalletClient.ts';
+import { ChiaCloudWalletClient, type Coin, type SendXCHRequest } from '../client/ChiaCloudWalletClient';
 import { bech32m } from 'bech32';
 
 export interface TransactionRecord {

@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UseChiaWalletResult } from '../hooks/useChiaWallet.ts';
+import { UseChiaWalletResult } from '../hooks/useChiaWallet';
 import { 
   ChiaCloudWalletClient,
   type Coin, 
   type HydratedCoin, 
   type PublicKeyResponse,
   type SimpleMakeUnsignedNFTOfferRequest
-} from '../client/ChiaCloudWalletClient.ts';
-import { SentTransaction, SavedOffer } from './types.ts';
-import { SendFundsModal } from './SendFundsModal.tsx';
-import { ReceiveFundsModal } from './ReceiveFundsModal.tsx';
-import { MakeOfferModal } from './MakeOfferModal.tsx';
-import { ActiveOffersModal } from './ActiveOffersModal.tsx';
-import { NFTDetailsModal } from './NFTDetailsModal.tsx';
+} from '../client/ChiaCloudWalletClient';
+import { SentTransaction, SavedOffer } from './types';
+import { SendFundsModal } from './SendFundsModal';
+import { ReceiveFundsModal } from './ReceiveFundsModal';
+import { MakeOfferModal } from './MakeOfferModal';
+import { ActiveOffersModal } from './ActiveOffersModal';
+import { NFTDetailsModal } from './NFTDetailsModal';
 
 export interface ChiaWalletModalProps {
   isOpen: boolean;

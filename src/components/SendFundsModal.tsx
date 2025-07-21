@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChiaCloudWalletClient, type Coin, type SendXCHRequest } from '../client/ChiaCloudWalletClient.ts';
+import { ChiaCloudWalletClient, type Coin, type SendXCHRequest } from '../client/ChiaCloudWalletClient';
 
 interface SendFundsModalProps {
   isOpen: boolean;

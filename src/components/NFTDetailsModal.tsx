@@ -1,5 +1,5 @@
 import React from 'react';
-import { HydratedCoin } from '../client/ChiaCloudWalletClient.ts';
+import { HydratedCoin } from '../client/ChiaCloudWalletClient';
 
 interface NFTDetailsModalProps {
   isOpen: boolean;

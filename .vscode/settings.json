@@ -1,0 +1,7 @@
+{
+  "deno.enable": false,
+  "deno.enablePaths": [],
+  "typescript.preferences.useAliasesForRenames": false,
+  "typescript.suggest.autoImports": true,
+  "typescript.validate.enable": true
+} 
