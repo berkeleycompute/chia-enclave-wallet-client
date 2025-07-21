@@ -629,6 +629,200 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Create and sign an NFT offer directly with error handling
+   */
+  async makeSignedNFTOffer(request: MakeUnsignedNFTOfferRequest): Promise<Result<SignOfferResponse>> {
+    try {
+      // Validate required fields
+      if (!request.synthetic_public_key || request.synthetic_public_key.trim() === '') {
+        throw new ChiaCloudWalletApiError('Synthetic public key is required');
+      }
+
+      if (!request.requested_payments ||
+        (!request.requested_payments.cats?.length) &&
+        (!request.requested_payments.xch?.length)) {
+        throw new ChiaCloudWalletApiError('Requested payments with CAT tokens or XCH are required');
+      }
+
+      if (!request.nft_data) {
+        throw new ChiaCloudWalletApiError('NFT data is required');
+      }
+
+      // Validate synthetic public key format (should be 96 hex characters)
+      const cleanPublicKey = request.synthetic_public_key.replace(/^0x/, '');
+      if (!/^[0-9a-fA-F]{96}$/.test(cleanPublicKey)) {
+        throw new ChiaCloudWalletApiError('Invalid synthetic public key format: must be a 96-character hex string');
+      }
+
+      // Validate CAT payments if provided
+      if (request.requested_payments.cats) {
+        for (const catPayment of request.requested_payments.cats) {
+          if (!catPayment.asset_id || !catPayment.puzzle_hash) {
+            throw new ChiaCloudWalletApiError('Each CAT payment must have asset_id and puzzle_hash');
+          }
+
+          if (typeof catPayment.amount !== 'number' || catPayment.amount <= 0) {
+            throw new ChiaCloudWalletApiError('Each CAT payment must have a positive amount');
+          }
+
+          // Validate hex string formats
+          const cleanAssetId = catPayment.asset_id.replace(/^0x/, '');
+          const cleanPuzzleHash = catPayment.puzzle_hash.replace(/^0x/, '');
+
+          if (!/^[0-9a-fA-F]{64}$/.test(cleanAssetId)) {
+            throw new ChiaCloudWalletApiError('Invalid asset_id format: must be a 64-character hex string');
+          }
+
+          if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
+            throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
+          }
+        }
+      }
+
+      // Validate XCH payments if provided
+      if (request.requested_payments.xch) {
+        for (const xchPayment of request.requested_payments.xch) {
+          if (!xchPayment.puzzle_hash) {
+            throw new ChiaCloudWalletApiError('Each XCH payment must have puzzle_hash');
+          }
+
+          if (typeof xchPayment.amount !== 'number' || xchPayment.amount <= 0) {
+            throw new ChiaCloudWalletApiError('Each XCH payment must have a positive amount');
+          }
+
+          // Validate hex string format
+          const cleanPuzzleHash = xchPayment.puzzle_hash.replace(/^0x/, '');
+
+          if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
+            throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
+          }
+        }
+      }
+
+      this.logInfo('Making signed NFT offer request', {
+        publicKey: request.synthetic_public_key.substring(0, 10) + '...',
+        catPaymentsCount: request.requested_payments.cats?.length || 0,
+        xchPaymentsCount: request.requested_payments.xch?.length || 0
+      });
+
+      // Step 1: Create unsigned offer
+      const unsignedResult = await this.makeUnsignedNFTOffer(request);
+      if (!unsignedResult.success) {
+        throw new Error(`Failed to create unsigned offer: ${unsignedResult.error}`);
+      }
+
+      const unsignedOfferString = unsignedResult.data.data?.unsigned_offer_string;
+      if (!unsignedOfferString) {
+        throw new Error('No unsigned offer string returned from API');
+      }
+
+      this.logInfo('Unsigned offer created successfully, proceeding to sign', {
+        offerLength: unsignedOfferString.length,
+        offerPrefix: unsignedOfferString.substring(0, 20) + '...'
+      });
+
+      // Step 2: Sign the offer
+      const signedResult = await this.signOffer({ offer: unsignedOfferString });
+      if (!signedResult.success) {
+        throw new Error(`Failed to sign offer: ${signedResult.error}`);
+      }
+
+      this.logInfo('NFT offer created and signed successfully');
+
+      return { success: true, data: signedResult.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to make signed NFT offer',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Create and sign an NFT offer directly with simplified request interface
+   * This method converts addresses to puzzle hashes automatically
+   */
+  async makeSignedNFTOfferSimple(
+    syntheticPublicKey: string,
+    request: SimpleMakeUnsignedNFTOfferRequest
+  ): Promise<Result<SignOfferResponse>> {
+    try {
+      // Convert simple request to full request format
+      const fullRequest: MakeUnsignedNFTOfferRequest = {
+        synthetic_public_key: syntheticPublicKey,
+        requested_payments: {
+          cats: [],
+          xch: []
+        },
+        nft_data: request.nft_data
+      };
+
+      // Convert CAT payments from addresses to puzzle hashes
+      if (request.requested_payments.cats) {
+        for (const catPayment of request.requested_payments.cats) {
+          let puzzleHash: string;
+          
+          // Check if it's already a puzzle hash (64 hex characters) or a Chia address
+          const cleanAddress = catPayment.deposit_address.replace(/^0x/, '');
+          if (/^[0-9a-fA-F]{64}$/.test(cleanAddress)) {
+            // It's already a puzzle hash
+            puzzleHash = cleanAddress;
+          } else {
+            // It's a Chia address, convert it
+            const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(catPayment.deposit_address);
+            if (!puzzleHashResult.success) {
+              throw new ChiaCloudWalletApiError(`Failed to convert CAT deposit address to puzzle hash: ${puzzleHashResult.error}`);
+            }
+            puzzleHash = puzzleHashResult.data;
+          }
+
+          fullRequest.requested_payments.cats!.push({
+            asset_id: catPayment.asset_id,
+            puzzle_hash: puzzleHash,
+            amount: catPayment.amount
+          });
+        }
+      }
+
+      // Convert XCH payments from addresses to puzzle hashes
+      if (request.requested_payments.xch) {
+        for (const xchPayment of request.requested_payments.xch) {
+          let puzzleHash: string;
+          
+          // Check if it's already a puzzle hash (64 hex characters) or a Chia address
+          const cleanAddress = xchPayment.deposit_address.replace(/^0x/, '');
+          if (/^[0-9a-fA-F]{64}$/.test(cleanAddress)) {
+            // It's already a puzzle hash
+            puzzleHash = cleanAddress;
+          } else {
+            // It's a Chia address, convert it
+            const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(xchPayment.deposit_address);
+            if (!puzzleHashResult.success) {
+              throw new ChiaCloudWalletApiError(`Failed to convert XCH deposit address to puzzle hash: ${puzzleHashResult.error}`);
+            }
+            puzzleHash = puzzleHashResult.data;
+          }
+
+          fullRequest.requested_payments.xch!.push({
+            puzzle_hash: puzzleHash,
+            amount: xchPayment.amount
+          });
+        }
+      }
+
+      // Use the full makeSignedNFTOffer method
+      return await this.makeSignedNFTOffer(fullRequest);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to make signed NFT offer (simple)',
+        details: error
+      };
+    }
+  }
+
+  /**
    * Broadcast a signed spend bundle with error handling
    */
   async broadcastSpendBundle(request: BroadcastSpendBundleRequest): Promise<Result<BroadcastResponse>> {

@@ -10,6 +10,7 @@ export default {
       file: 'dist/index.js',
       format: 'cjs',
       sourcemap: true,
+      exports: 'named',
     },
     {
       file: 'dist/index.esm.js',
@@ -17,14 +18,19 @@ export default {
       sourcemap: true,
     },
   ],
+  external: ['react', 'react-dom'],
   plugins: [
     peerDepsExternal(),
     resolve({
       browser: true,
+      preferBuiltins: false,
     }),
     commonjs(),
     typescript({
       tsconfig: './tsconfig.json',
+      declaration: true,
+      declarationDir: 'dist',
+      rootDir: 'src',
     }),
   ],
 }; 

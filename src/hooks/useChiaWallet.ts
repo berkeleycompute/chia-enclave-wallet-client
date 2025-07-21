@@ -140,7 +140,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     try {
       const stateToSave = {
         ...currentState,
-        balance: currentState.balance.toString(), // Convert BigInt to string
+        balance: currentState.balance.toString(), // Convert number to string
         unspentCoins: currentState.unspentCoins.map(coin => ({
           ...coin,
           amount: coin.amount.toString()
