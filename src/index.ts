@@ -30,12 +30,8 @@ export { ReceiveFundsModal } from './components/ReceiveFundsModal.tsx';
 export { MakeOfferModal } from './components/MakeOfferModal.tsx';
 export { ActiveOffersModal } from './components/ActiveOffersModal.tsx';
 export { NFTDetailsModal } from './components/NFTDetailsModal.tsx';
-
-// Test Components
-export { default as ChiaWalletTestPage } from './components/ChiaWalletTestPage.tsx';
-export { default as DialogTestApp } from './components/ExampleUsage.tsx';
-
-// Global Dialog Usage Examples 
+ 
+ 
 
 // Components - Main Wallet Components
 export { ChiaWalletButton } from './components/ChiaWalletButton.tsx';
