@@ -13,6 +13,14 @@ import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
 import { ActiveOffersModal } from './ActiveOffersModal';
 import { NFTDetailsModal } from './NFTDetailsModal';
+// Import the new dialog hooks
+import { 
+  useSendFundsDialog,
+  useMakeOfferDialog, 
+  useReceiveFundsDialog,
+  useActiveOffersDialog,
+  useNFTDetailsDialog
+} from '../hooks/useDialogs';
 
 export interface ChiaWalletModalProps {
   isOpen: boolean;
@@ -30,7 +38,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // Extract what we need from the wallet object
   const { client, jwtToken } = wallet;
   
-  // State management
+  // Replace manual modal states with dialog hooks
+  const sendFundsDialog = useSendFundsDialog();
+  const makeOfferDialog = useMakeOfferDialog();
+  const receiveFundsDialog = useReceiveFundsDialog();
+  const activeOffersDialog = useActiveOffersDialog();
+  const nftDetailsDialog = useNFTDetailsDialog();
+
+  // State management (keep existing wallet state)
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [publicKeyData, setPublicKeyData] = useState<PublicKeyResponse | null>(null);
   const [syntheticPublicKey, setSyntheticPublicKey] = useState<string | null>(null);
@@ -48,14 +63,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'main' | 'transactions' | 'assets'>('main');
   const [isConnected, setIsConnected] = useState(false);
-  
-  // Modal states
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [showReceiveModal, setShowReceiveModal] = useState(false);
-  const [showOfferModal, setShowOfferModal] = useState(false);
-  const [showActiveOffersModal, setShowActiveOffersModal] = useState(false);
-  const [showNftDetails, setShowNftDetails] = useState(false);
-  const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
   
   // Transaction and NFT data
   const [sentTransactions, setSentTransactions] = useState<SentTransaction[]>([]);
@@ -791,8 +798,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     setSentTransactions([]);
     setNftMetadata(new Map());
     setLoadingMetadata(new Set());
-    setSelectedNft(null);
-    setShowNftDetails(false);
+    // Close NFT details dialog
+    nftDetailsDialog.close();
     
     onWalletUpdate?.({
       connected: false,
@@ -869,20 +876,20 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const closeModal = () => {
     onClose();
     setCurrentView('main');
-    setShowSendModal(false);
-    setShowReceiveModal(false);
-    setShowOfferModal(false);
-    setShowActiveOffersModal(false);
+    // Close all dialogs using hooks
+    sendFundsDialog.close();
+    receiveFundsDialog.close();
+    makeOfferDialog.close();
+    activeOffersDialog.close();
+    nftDetailsDialog.close();
   };
 
   const openNftDetails = (nftCoin: HydratedCoin) => {
-    setSelectedNft(nftCoin);
-    setShowNftDetails(true);
+    nftDetailsDialog.open(nftCoin);
   };
 
   const closeNftDetails = () => {
-    setSelectedNft(null);
-    setShowNftDetails(false);
+    nftDetailsDialog.close();
   };
 
   if (!isOpen) return null;
@@ -891,8 +898,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     <>
       {/* Send Modal */}
       <SendFundsModal
-        isOpen={showSendModal}
-        onClose={() => setShowSendModal(false)}
+        isOpen={sendFundsDialog.isOpen}
+        onClose={sendFundsDialog.close}
         client={client}
         publicKey={publicKey}
         unspentCoins={unspentCoins}
@@ -901,15 +908,15 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       
       {/* Receive Modal */}
       <ReceiveFundsModal
-        isOpen={showReceiveModal}
-        onClose={() => setShowReceiveModal(false)}
+        isOpen={receiveFundsDialog.isOpen}
+        onClose={receiveFundsDialog.close}
         publicKey={publicKey}
       />
 
       {/* Make Offer Modal */}
       <MakeOfferModal
-        isOpen={showOfferModal}
-        onClose={() => setShowOfferModal(false)}
+        isOpen={makeOfferDialog.isOpen}
+        onClose={makeOfferDialog.close}
         client={client}
         publicKey={publicKey}
         syntheticPublicKey={syntheticPublicKey}
@@ -925,8 +932,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
       {/* Active Offers Modal */}
       <ActiveOffersModal
-        isOpen={showActiveOffersModal}
-        onClose={() => setShowActiveOffersModal(false)}
+        isOpen={activeOffersDialog.isOpen}
+        onClose={activeOffersDialog.close}
         publicKey={publicKey}
         nftMetadata={nftMetadata}
         loadingMetadata={loadingMetadata}
@@ -937,13 +944,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       />
 
       {/* NFT Details Modal */}
-      <NFTDetailsModal
-        isOpen={showNftDetails}
-        onClose={closeNftDetails}
-        selectedNft={selectedNft}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
-      />
+              <NFTDetailsModal
+          isOpen={nftDetailsDialog.isOpen}
+          onClose={nftDetailsDialog.close}
+          selectedNft={nftDetailsDialog.selectedNft}
+          nftMetadata={nftMetadata}
+          loadingMetadata={loadingMetadata}
+        />
 
       {/* Main Modal */}
       <div 
@@ -1014,14 +1021,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   <>
                     {/* Action Buttons */}
                     <div className="action-buttons">
-                      <button className="action-btn primary" onClick={() => setShowSendModal(true)}>
+                      <button className="action-btn primary" onClick={() => sendFundsDialog.open()}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="7" y1="17" x2="17" y2="7"></line>
                           <polyline points="7,7 17,7 17,17"></polyline>
                         </svg>
                         Send
                       </button>
-                      <button className="action-btn secondary" onClick={() => setShowReceiveModal(true)}>
+                      <button className="action-btn secondary" onClick={() => receiveFundsDialog.open()}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="17" y1="7" x2="7" y2="17"></line>
                           <polyline points="17,17 7,17 7,7"></polyline>
@@ -1089,10 +1096,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           console.log('Make Offer button clicked!', { 
                             isConnected, 
                             hasClient: !!client, 
-                            showOfferModal, 
+                            showOfferModal: makeOfferDialog.isOpen, 
                             nftCount: hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length 
                           });
-                          setShowOfferModal(true);
+                          makeOfferDialog.open();
                         }}
                         disabled={!isConnected || !client}
                         title={!isConnected || !client ? 'Please wait for wallet connection to complete' : ''}
@@ -1111,7 +1118,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
                       <button 
                         className="menu-item" 
-                        onClick={() => setShowActiveOffersModal(true)}
+                        onClick={() => activeOffersDialog.open()}
                       >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>

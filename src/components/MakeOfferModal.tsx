@@ -11,6 +11,7 @@ interface MakeOfferModalProps {
   hydratedCoins: HydratedCoin[];
   nftMetadata: Map<string, any>;
   loadingMetadata: Set<string>;
+  selectedNft?: HydratedCoin | null;
   onOfferCreated?: (offerData: any) => void;
   onRefreshWallet?: () => void;
 }
@@ -24,6 +25,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   hydratedCoins, 
   nftMetadata, 
   loadingMetadata, 
+  selectedNft: initialSelectedNft,
   onOfferCreated,
   onRefreshWallet 
 }) => {
@@ -37,6 +39,18 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'select-nft' | 'confirm'>('select-nft');
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
+
+  // Initialize selectedNft when modal opens with a pre-selected NFT
+  useEffect(() => {
+    if (isOpen && initialSelectedNft) {
+      setSelectedNft(initialSelectedNft);
+      setStep('confirm'); // Skip NFT selection step if NFT is pre-selected
+    } else if (isOpen && !initialSelectedNft) {
+      // Reset to selection step when opening without pre-selected NFT
+      setStep('select-nft');
+      setSelectedNft(null);
+    }
+  }, [isOpen, initialSelectedNft]);
 
   // Filter NFTs only
   const nftCoins = hydratedCoins.filter(coin => {

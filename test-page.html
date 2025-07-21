@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chia Wallet Dialog Hooks Test Page</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #64748b;
+        }
+        
+        .setup-instructions {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .setup-instructions h1 {
+            color: #1e293b;
+            margin-bottom: 1rem;
+        }
+        
+        .setup-instructions h2 {
+            color: #374151;
+            margin-top: 2rem;
+        }
+        
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 1rem 0;
+        }
+        
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #92400e;
+        }
+        
+        .success {
+            background: #dcfce7;
+            border: 1px solid #16a34a;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #15803d;
+        }
+        
+        .step {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .step-number {
+            background: #6366f1;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-instructions">
+        <h1>🧪 Chia Wallet Dialog Hooks Test Setup</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Important:</strong> This HTML file shows you how to set up testing, but you need to build your components first.
+        </div>
+        
+        <h2>Option 1: Create a React App for Testing</h2>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Create a new React app or use an existing one:</strong>
+            <pre class="code-block">npx create-react-app chia-wallet-test
+cd chia-wallet-test
+npm install</pre>
+        </div>
+        
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Install your Chia wallet client package:</strong>
+            <pre class="code-block"># If published to npm
+npm install chia-enclave-wallet-client
+
+# If testing locally
+npm link ../path/to/chia-enclave-wallet-client</pre>
+        </div>
+        
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Replace src/App.js with this code:</strong>
+            <pre class="code-block">import React from 'react';
+import { ChiaWalletTestPage } from 'chia-enclave-wallet-client';
+
+function App() {
+  // Replace with your actual JWT token
+  const jwtToken = "your_jwt_token_here";
+  
+  return (
+    &lt;div className="App"&gt;
+      &lt;ChiaWalletTestPage jwtToken={jwtToken} /&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default App;</pre>
+        </div>
+        
+        <div class="step">
+            <span class="step-number">4</span>
+            <strong>Start the React app:</strong>
+            <pre class="code-block">npm start</pre>
+        </div>
+        
+        <div class="success">
+            <strong>✅ Success!</strong> You'll now see the full test interface with real working Chia wallet dialogs.
+        </div>
+        
+        <h2>Option 2: Direct ChiaWalletButton Usage</h2>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Use the ChiaWalletButton component directly:</strong>
+            <pre class="code-block">import React from 'react';
+import { ChiaWalletButton } from 'chia-enclave-wallet-client';
+
+function MyApp() {
+  const handleWalletUpdate = (walletData) => {
+    console.log('Wallet updated:', walletData);
+  };
+
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;My Chia Wallet App&lt;/h1&gt;
+      &lt;ChiaWalletButton
+        jwtToken="your_jwt_token_here"
+        variant="primary"
+        size="large"
+        onWalletUpdate={handleWalletUpdate}
+      /&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default MyApp;</pre>
+        </div>
+        
+        <h2>Option 3: Individual Dialog Hooks</h2>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Use individual dialog hooks for custom UI:</strong>
+            <pre class="code-block">import React from 'react';
+import { 
+  DialogProvider, 
+  useSendFundsDialog, 
+  useMakeOfferDialog,
+  useReceiveFundsDialog 
+} from 'chia-enclave-wallet-client';
+
+function WalletActions() {
+  const sendFunds = useSendFundsDialog();
+  const makeOffer = useMakeOfferDialog();
+  const receiveFunds = useReceiveFundsDialog();
+
+  return (
+    &lt;div&gt;
+      &lt;button onClick={sendFunds.open}&gt;
+        💸 Send Funds
+      &lt;/button&gt;
+      
+      &lt;button onClick={receiveFunds.open}&gt;
+        💰 Receive Funds
+      &lt;/button&gt;
+      
+      &lt;button onClick={() =&gt; makeOffer.open(nftData)}&gt;
+        🤝 Make NFT Offer
+      &lt;/button&gt;
+      
+      &lt;p&gt;Send dialog open: {sendFunds.isOpen ? 'Yes' : 'No'}&lt;/p&gt;
+    &lt;/div&gt;
+  );
+}
+
+function App() {
+  return (
+    &lt;DialogProvider&gt;
+      &lt;WalletActions /&gt;
+    &lt;/DialogProvider&gt;
+  );
+}
+
+export default App;</pre>
+        </div>
+        
+        <div class="success">
+            <strong>🎯 Key Points:</strong>
+            <ul>
+                <li>The <code>DialogProvider</code> must wrap your components that use dialog hooks</li>
+                <li>All dialog state is automatically managed by the hooks</li>
+                <li>Modals render automatically when hooks are used</li>
+                <li>Each dialog has an <code>isOpen</code> state, <code>open()</code> and <code>close()</code> methods</li>
+                <li>NFT-related dialogs have additional <code>selectedNft</code> state</li>
+            </ul>
+        </div>
+        
+        <h2>🐛 Testing in Your Svelte Dashboard</h2>
+        
+        <div class="warning">
+            The Svelte component you're seeing in your dashboard is just a <strong>simulation</strong>. 
+            To test the real modals, you need to use React components as shown above.
+        </div>
+        
+        <h2>🚀 Quick Test Commands</h2>
+        
+        <pre class="code-block"># Clone a test environment
+git clone your-repo
+cd your-repo/chia-enclave-wallet-client
+
+# Build the package
+npm run build
+
+# Create test React app
+npx create-react-app test-app
+cd test-app
+
+# Link your package
+npm link ../
+
+# Install and test
+npm start</pre>
+    </div>
+
+    <div id="react-root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+        
+        function TestMessage() {
+            return (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    background: '#6366f1',
+                    color: 'white',
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                    maxWidth: '300px'
+                }}>
+                    <strong>🧪 This is a setup guide!</strong>
+                    <br />
+                    Follow the instructions above to test the real Chia wallet dialogs in a React environment.
+                </div>
+            );
+        }
+        
+        ReactDOM.render(<TestMessage />, document.getElementById('react-root'));
+    </script>
+</body>
+</html> 
