@@ -9,6 +9,7 @@ import {
   useReceiveDialog,
   useOffersDialog,
   useNFTDetailsDialog,
+  // useHydratedCoins, // Temporarily commented - need to check exports
   type WalletEvent
 } from 'chia-enclave-wallet-client'
 import '../components/styles.css'
@@ -18,12 +19,30 @@ interface DialogExampleProps {
 }
 
 function DialogExample({ jwtToken }: DialogExampleProps) {
-  const wallet = useChiaWallet({ autoConnect: true })
+  // Use the original wallet hook for button functionality
+  const wallet = useChiaWallet({ 
+    autoConnect: true,
+    enableLogging: true
+  })
+
+  // TODO: Use the new direct hydrated coins hook - this is our primary data source
+  // const hydratedCoins = useHydratedCoins({
+  //   jwtToken,
+  //   enableLogging: true,
+  //   autoFetch: false // We'll control fetching manually
+  // })
+
   const [lastDialogResult, setLastDialogResult] = useState<string>('')
   const [selectedTestNft, setSelectedTestNft] = useState<any>(null)
   const [showEmptyCoinsAlert, setShowEmptyCoinsAlert] = useState<boolean>(false)
-  const [hasCheckedCoins, setHasCheckedCoins] = useState<boolean>(false)
   const [recentEvents, setRecentEvents] = useState<WalletEvent[]>([])
+  
+  // Direct hydrated coins state
+  const [directCoins, setDirectCoins] = useState<any[]>([])
+  const [directBalance, setDirectBalance] = useState<number>(0)
+  const [directLoading, setDirectLoading] = useState<boolean>(false)
+  const [directError, setDirectError] = useState<string | null>(null)
+  const [directLastFetch, setDirectLastFetch] = useState<number>(0)
 
   // Modern global dialog hooks
   const globalDialogs = useGlobalDialogs()
@@ -33,31 +52,179 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
   const offersDialog = useOffersDialog()
   const nftDetailsDialog = useNFTDetailsDialog()
 
-  // Set JWT token when it changes
+  // Set JWT token when it changes - CRITICAL: This must happen first
   React.useEffect(() => {
+    console.log('📝 DialogExample: JWT token effect triggered', { 
+      jwtToken: jwtToken ? `${jwtToken.substring(0, 10)}...` : null,
+      currentWalletToken: wallet.jwtToken ? `${wallet.jwtToken.substring(0, 10)}...` : null,
+      tokensMatch: jwtToken === wallet.jwtToken,
+      walletConnected: wallet.isConnected,
+      walletConnecting: wallet.isConnecting
+    });
+
     if (jwtToken && jwtToken !== wallet.jwtToken) {
-      wallet.setJwtToken(jwtToken)
+      console.log('🔄 DialogExample: Setting JWT token on wallet and forcing refresh');
+      wallet.setJwtToken(jwtToken);
+      
+      // Force a refresh after a short delay to ensure connection happens
+      setTimeout(() => {
+        console.log('🔄 DialogExample: Force refreshing wallet after token set');
+        wallet.refreshWallet();
+      }, 1000);
     }
-  }, [jwtToken, wallet])
+  }, [jwtToken, wallet]);
+
+  // Monitor wallet connection state changes
+  React.useEffect(() => {
+    console.log('🔍 DialogExample: Wallet state changed', {
+      isConnected: wallet.isConnected,
+      isConnecting: wallet.isConnecting,
+      hasPublicKey: !!wallet.publicKey,
+      hydratedCoinsLength: wallet.hydratedCoins?.length || 0,
+      balance: wallet.balance,
+      lastRefresh: wallet.lastSuccessfulRefresh,
+      error: wallet.error
+    });
+  }, [
+    wallet.isConnected, 
+    wallet.isConnecting, 
+    wallet.publicKey, 
+    wallet.hydratedCoins, 
+    wallet.balance,
+    wallet.lastSuccessfulRefresh,
+    wallet.error
+  ]);
 
   // Update GlobalDialogProvider with JWT token - but only once per token change
   React.useEffect(() => {
     if (jwtToken) {
-      console.log('DialogExample: Updating GlobalDialogProvider with JWT token');
+      console.log('🔄 DialogExample: Updating GlobalDialogProvider with JWT token');
       globalDialogs.updateConfig({ 
         jwtToken, 
         autoConnect: true 
       });
     }
-  }, [jwtToken]); // Only depend on jwtToken
+  }, [jwtToken, globalDialogs]); // Add globalDialogs to dependencies
 
   const handleDialogResult = (dialogName: string, result?: any) => {
     const timestamp = new Date().toLocaleTimeString()
     setLastDialogResult(`[${timestamp}] ${dialogName}: ${JSON.stringify(result || 'closed')}`)
   }
 
+  // Manual fetch function - direct API call bypassing events
+  const fetchHydratedCoinsDirect = React.useCallback(async () => {
+    if (!jwtToken || !wallet.client) {
+      console.error('❌ Direct Fetch: No JWT token or client available');
+      setDirectError('JWT token and client are required');
+      return false;
+    }
+
+    console.log('🚀 Direct Fetch: Starting manual hydrated coins fetch');
+    setDirectLoading(true);
+    setDirectError(null);
+
+    try {
+      // Set JWT token on client
+      wallet.client.setJwtToken(jwtToken);
+
+      // Get public key first
+      console.log('📝 Direct Fetch: Getting public key...');
+      const pkResponse = await wallet.client.getPublicKey();
+      if (!pkResponse.success) {
+        throw new Error(pkResponse.error);
+      }
+
+      const publicKey = pkResponse.data.address;
+      console.log('✅ Direct Fetch: Public key obtained:', publicKey.substring(0, 16) + '...');
+
+      // Get hydrated coins
+      console.log('💰 Direct Fetch: Getting hydrated coins...');
+      const hydratedResult = await wallet.client.getUnspentHydratedCoins(publicKey);
+      if (!hydratedResult.success) {
+        throw new Error(hydratedResult.error);
+      }
+
+      const hydratedCoins = hydratedResult.data.data;
+      console.log('✅ Direct Fetch: Hydrated coins fetched successfully:', {
+        count: hydratedCoins.length,
+        coins: hydratedCoins.map(coin => ({
+          amount: coin.coin.amount,
+          type: coin.parentSpendInfo?.driverInfo?.type || 'XCH'
+        }))
+      });
+
+      // Calculate balance
+      let totalBalance = 0;
+      for (const hydratedCoin of hydratedCoins) {
+        try {
+          totalBalance += parseInt(hydratedCoin.coin.amount);
+        } catch (error) {
+          console.warn('Invalid coin amount:', hydratedCoin.coin.amount);
+        }
+      }
+
+      // Update direct state
+      setDirectCoins(hydratedCoins);
+      setDirectBalance(totalBalance);
+      setDirectLastFetch(Date.now());
+
+      // Update the selected NFT with real data
+      if (hydratedCoins.length > 0) {
+        setSelectedTestNft(hydratedCoins[0]);
+        setShowEmptyCoinsAlert(false);
+      } else {
+        setShowEmptyCoinsAlert(true);
+        setSelectedTestNft({
+          coin_name: 'mock_nft_1',
+          launcher_id: 'launcher_test_123',
+          metadata: {
+            name: 'Test NFT',
+            description: 'A test NFT for dialog demonstration',
+          }
+        });
+      }
+
+      handleDialogResult('directFetch', {
+        success: true,
+        coinCount: hydratedCoins.length,
+        balance: totalBalance,
+        timestamp: Date.now()
+      });
+
+      return true;
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch hydrated coins';
+      console.error('❌ Direct Fetch: Error:', errorMessage);
+      setDirectError(errorMessage);
+      
+      handleDialogResult('directFetchError', {
+        success: false,
+        error: errorMessage,
+        timestamp: Date.now()
+      });
+
+      return false;
+    } finally {
+      setDirectLoading(false);
+    }
+  }, [jwtToken, wallet.client]);
+
   // Listen for wallet events using the new event system
   React.useEffect(() => {
+    console.log('🔧 DialogExample: Setting up event listener', { 
+      walletExists: !!wallet, 
+      hasAddEventListener: !!wallet.addEventListener 
+    });
+
+    if (!wallet || typeof wallet.addEventListener !== 'function') {
+      console.error('❌ DialogExample: Wallet does not have addEventListener method!', {
+        hasWallet: !!wallet,
+        hasAddEventListener: wallet ? typeof wallet.addEventListener : 'no wallet'
+      });
+      return;
+    }
+
     const handleWalletEvent = (event: WalletEvent) => {
       console.log('🎯 DialogExample: Received wallet event', event);
       
@@ -69,10 +236,7 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
       
       switch (event.type) {
         case 'connectionChanged':
-          if (event.data.isConnected && !hasCheckedCoins) {
-            console.log('🔄 DialogExample: Connection established, marking coins as checked');
-            setHasCheckedCoins(true);
-          }
+          console.log('🔄 DialogExample: Connection event received', event.data);
           break;
           
         case 'hydratedCoinsChanged':
@@ -97,19 +261,40 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
           }
           break;
           
+        case 'balanceChanged':
+          console.log('💰 DialogExample: Balance changed', event.data);
+          break;
+          
         case 'errorOccurred':
           console.log('❌ DialogExample: Wallet error occurred', event.data);
           handleDialogResult('walletError', event.data);
           break;
+          
+        default:
+          console.log('❓ DialogExample: Unknown event type', event.type);
       }
     };
 
-    // Register the event listener
-    const removeListener = wallet.addEventListener(handleWalletEvent);
+    try {
+      // Register the event listener
+      console.log('📝 DialogExample: Registering event listener...');
+      const removeListener = wallet.addEventListener(handleWalletEvent);
+      console.log('✅ DialogExample: Event listener registered successfully', { removeListener: !!removeListener });
 
-    // Cleanup on unmount
-    return removeListener;
-  }, [wallet, hasCheckedCoins]);
+      // Test event emission
+      console.log('🧪 DialogExample: Testing event system...');
+      
+      // Cleanup on unmount
+      return () => {
+        console.log('🧹 DialogExample: Cleaning up event listener');
+        if (removeListener) {
+          removeListener();
+        }
+      };
+    } catch (error) {
+      console.error('❌ DialogExample: Error setting up event listener:', error);
+    }
+  }, [wallet]); // Remove hasCheckedCoins from dependencies to avoid recreation
 
   // Initial state check for when wallet is already connected
   React.useEffect(() => {
@@ -118,10 +303,6 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
         isConnected: wallet.isConnected,
         coinsLength: wallet.hydratedCoins?.length
       });
-
-      if (!hasCheckedCoins) {
-        setHasCheckedCoins(true);
-      }
 
       if (wallet.hydratedCoins.length > 0) {
         setSelectedTestNft(wallet.hydratedCoins[0]);
@@ -138,9 +319,12 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
         });
       }
     }
-  }, []); // Only run once on mount
+  }, [wallet.isConnected, wallet.hydratedCoins]); // Update when wallet state changes
 
-  const hasRealCoins = wallet.hydratedCoins && wallet.hydratedCoins.length > 0;
+  // Use direct coins as the primary source, fallback to wallet coins
+  const primaryCoins = directCoins.length > 0 ? directCoins : (wallet.hydratedCoins || []);
+  const hasRealCoins = primaryCoins.length > 0;
+  const primaryBalance = directCoins.length > 0 ? directBalance : wallet.balance;
   
   // Debug log the button state
   console.log('🎯 DialogExample: Button states', {
@@ -263,28 +447,159 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
           <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h4 style={{ margin: 0, fontSize: '1rem' }}>🐛 Debug Information & Events</h4>
-              <button 
-                onClick={() => wallet.refreshWallet()}
-                disabled={!wallet.isConnected}
-                style={{
-                  padding: '0.25rem 0.75rem',
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.8rem'
-                }}
-              >
-                🔄 Refresh Wallet
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={() => wallet.refreshWallet()}
+                  disabled={!wallet.isConnected}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  🔄 Refresh Wallet
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('🔌 Manual Connect: Attempting to connect wallet');
+                    wallet.connectWallet().then(() => {
+                      console.log('✅ Manual Connect: Connection attempt completed');
+                    }).catch(error => {
+                      console.error('❌ Manual Connect: Connection failed:', error);
+                    });
+                  }}
+                  disabled={wallet.isConnecting}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    background: wallet.isConnected ? '#16a34a' : '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  {wallet.isConnecting ? '⏳' : wallet.isConnected ? '🟢' : '🔴'} Connect
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('🪙 Direct Fetch: User triggered manual fetch');
+                    fetchHydratedCoinsDirect().then(success => {
+                      if (success) {
+                        console.log('✅ Direct Fetch: Manual fetch completed successfully');
+                      } else {
+                        console.error('❌ Direct Fetch: Manual fetch failed');
+                      }
+                    });
+                  }}
+                  disabled={directLoading}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    background: directLoading ? '#9ca3af' : '#16a34a',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  {directLoading ? '⏳' : '🪙'} {directLoading ? 'Fetching...' : 'Fetch Coins Direct'}
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('🧪 Manual test: Triggering test event');
+                    // Test if event system works by manually triggering an event
+                    if (wallet && typeof wallet.addEventListener === 'function') {
+                      console.log('📡 Manual test: Event system available, simulating event');
+                      handleDialogResult('manualTest', { 
+                        message: 'Manual event test', 
+                        timestamp: Date.now() 
+                      });
+                      
+                      // Try to trigger a real refresh to see events
+                      wallet.refreshWallet().then(() => {
+                        console.log('✅ Manual refresh completed');
+                      }).catch(error => {
+                        console.error('❌ Manual refresh failed:', error);
+                      });
+                    } else {
+                      console.error('❌ Manual test: No event system available', { 
+                        hasWallet: !!wallet,
+                        hasAddEventListener: wallet ? typeof wallet.addEventListener : 'no wallet'
+                      });
+                    }
+                  }}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    background: '#f59e0b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  🧪 Test Events
+                </button>
+              </div>
             </div>
             
             <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '1rem' }}>
-              <div><strong>wallet.hydratedCoins.length:</strong> {wallet.hydratedCoins?.length || 0}</div>
-              <div><strong>hasRealCoins:</strong> {String(hasRealCoins)}</div>
-              <div><strong>showEmptyCoinsAlert:</strong> {String(showEmptyCoinsAlert)}</div>
-              <div><strong>hasCheckedCoins:</strong> {String(hasCheckedCoins)}</div>
-              <div><strong>selectedTestNft:</strong> {selectedTestNft ? `${selectedTestNft.coin_name} (${selectedTestNft.launcher_id ? 'real' : 'mock'})` : 'null'}</div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr 1fr', 
+                gap: '1rem',
+                padding: '0.5rem',
+                background: 'white',
+                borderRadius: '4px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div>
+                  <strong style={{ color: '#059669' }}>📊 Wallet Hook State:</strong>
+                  <div style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                    <div>isConnected: {String(wallet.isConnected)}</div>
+                    <div>isConnecting: {String(wallet.isConnecting)}</div>
+                    <div>hasJwtToken: {String(!!wallet.jwtToken)}</div>
+                    <div>publicKey: {wallet.publicKey ? `${wallet.publicKey.substring(0, 16)}...` : 'null'}</div>
+                    <div>balance: {wallet.balance}</div>
+                    <div>coinCount: {wallet.coinCount}</div>
+                    <div>hydratedCoins.length: {wallet.hydratedCoins?.length || 0}</div>
+                    <div>lastRefresh: {wallet.lastSuccessfulRefresh ? new Date(wallet.lastSuccessfulRefresh).toLocaleTimeString() : 'never'}</div>
+                    <div>error: {wallet.error || 'none'}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <strong style={{ color: '#2563eb' }}>🪙 Direct Fetch State:</strong>
+                  <div style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                    <div>isLoading: {String(directLoading)}</div>
+                    <div>directCoins.length: {directCoins.length}</div>
+                    <div>directBalance: {directBalance}</div>
+                    <div>lastFetch: {directLastFetch ? new Date(directLastFetch).toLocaleTimeString() : 'never'}</div>
+                    <div>error: {directError || 'none'}</div>
+                    <div style={{ marginTop: '0.25rem', padding: '0.25rem', background: directCoins.length > 0 ? '#dcfce7' : '#f3f4f6', borderRadius: '3px', fontSize: '0.7rem' }}>
+                      Status: {directCoins.length > 0 ? '✅ Has Coins' : directLoading ? '⏳ Loading' : directError ? '❌ Error' : '⚪ Not Fetched'}
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <strong style={{ color: '#dc2626' }}>🎯 Final Logic:</strong>
+                  <div style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                    <div>primaryCoins: {primaryCoins.length} coins</div>
+                    <div>hasRealCoins: {String(hasRealCoins)}</div>
+                    <div>showEmptyCoinsAlert: {String(showEmptyCoinsAlert)}</div>
+                    <div>selectedTestNft: {selectedTestNft ? `${selectedTestNft.coin_name} (${selectedTestNft.launcher_id ? 'real' : 'mock'})` : 'null'}</div>
+                    <div style={{ marginTop: '0.5rem', padding: '0.25rem', background: hasRealCoins ? '#dcfce7' : '#fef2f2', borderRadius: '3px' }}>
+                      Buttons: <strong>{hasRealCoins ? 'ENABLED' : 'DISABLED'}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#666' }}>
+                💡 <strong>If ChiaWalletButton shows coins but DialogExample shows 0 coins, they're using different wallet instances.</strong>
+              </div>
             </div>
             
             {/* Recent Events */}

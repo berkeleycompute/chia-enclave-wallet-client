@@ -4,6 +4,17 @@ export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient.ts';
 // Hooks
 export { useChiaWallet, type WalletEvent, type WalletEventListener } from './hooks/useChiaWallet.ts';
 export { useChiaTransactions } from './hooks/useChiaTransactions.ts';
+export { useHydratedCoins, type UseHydratedCoinsConfig, type HydratedCoinsState } from './hooks/useHydratedCoins.ts';
+
+// Hydrated Coins Provider
+export { 
+  HydratedCoinsProvider, 
+  useHydratedCoinsContext, 
+  useCoinsAvailable, 
+  useCoinsByType,
+  type HydratedCoinsProviderProps,
+  type HydratedCoinsContextValue
+} from './components/HydratedCoinsProvider.tsx';
 
 // Legacy Dialog Hooks (deprecated - use Global Dialog System instead)
 export {

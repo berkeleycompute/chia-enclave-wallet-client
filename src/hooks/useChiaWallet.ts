@@ -101,19 +101,6 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       }
     });
   }, []);
-
-  const addEventListener = useCallback((listener: WalletEventListener): (() => void) => {
-    eventListenersRef.current.add(listener);
-    
-    // Return cleanup function
-    return () => {
-      eventListenersRef.current.delete(listener);
-    };
-  }, []);
-
-  const removeEventListener = useCallback((listener: WalletEventListener) => {
-    eventListenersRef.current.delete(listener);
-  }, []);
   
   // Wallet state
   const [state, setState] = useState<WalletState>({
@@ -508,6 +495,66 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     }
   }, [client, state.publicKey]);
   
+  // Event listener functions (after state is declared)
+  const addEventListener = useCallback((listener: WalletEventListener): (() => void) => {
+    console.log('🔧 useChiaWallet: Adding event listener, current listeners:', eventListenersRef.current.size);
+    eventListenersRef.current.add(listener);
+    console.log('✅ useChiaWallet: Event listener added, total listeners:', eventListenersRef.current.size);
+    
+    // Emit current state immediately for new listeners if wallet is connected
+    if (state.isConnected) {
+      console.log('🚀 useChiaWallet: Emitting current state for new listener');
+      
+      // Emit connection state
+      const connectionEvent: WalletEvent = {
+        type: 'connectionChanged',
+        data: {
+          isConnected: state.isConnected,
+          publicKey: state.publicKey,
+          balance: state.balance,
+          coinCount: state.coinCount
+        },
+        timestamp: Date.now()
+      };
+      
+      // Emit hydrated coins state if available
+      if (state.hydratedCoins && state.hydratedCoins.length > 0) {
+        const coinsEvent: WalletEvent = {
+          type: 'hydratedCoinsChanged',
+          data: {
+            hydratedCoins: state.hydratedCoins,
+            coinCount: state.hydratedCoins.length,
+            balance: state.balance
+          },
+          timestamp: Date.now()
+        };
+        
+        // Use setTimeout to ensure the listener is fully registered
+        setTimeout(() => {
+          console.log('📡 useChiaWallet: Sending immediate events to new listener');
+          listener(connectionEvent);
+          listener(coinsEvent);
+        }, 10);
+      } else {
+        setTimeout(() => {
+          console.log('📡 useChiaWallet: Sending immediate connection event to new listener');
+          listener(connectionEvent);
+        }, 10);
+      }
+    }
+    
+    // Return cleanup function
+    return () => {
+      console.log('🧹 useChiaWallet: Removing event listener');
+      eventListenersRef.current.delete(listener);
+      console.log('✅ useChiaWallet: Event listener removed, remaining listeners:', eventListenersRef.current.size);
+    };
+  }, [state.isConnected, state.publicKey, state.balance, state.coinCount, state.hydratedCoins]);
+
+  const removeEventListener = useCallback((listener: WalletEventListener) => {
+    eventListenersRef.current.delete(listener);
+  }, []);
+
   // Utility functions
   const formatBalance = useCallback((balance: number): string => {
     const result = ChiaCloudWalletClient.mojosToXCH(balance);
