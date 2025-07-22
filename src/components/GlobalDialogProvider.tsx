@@ -46,7 +46,7 @@ export interface GlobalDialogContextValue {
   config: GlobalDialogConfig;
   updateConfig: (newConfig: Partial<GlobalDialogConfig>) => void;
   setJwtToken: (token: string) => void;
-  
+
   // Wallet state
   isConnected: boolean;
   publicKey: string | null;
@@ -55,18 +55,18 @@ export interface GlobalDialogContextValue {
   unspentCoins: any[];
   loading: boolean;
   error: string | null;
-  
+
   // Dialog functions - can be called from anywhere!
   openSendDialog: (args?: SendDialogArgs) => void;
   openReceiveDialog: (args?: ReceiveDialogArgs) => void;
   openMakeOfferDialog: (args?: MakeOfferDialogArgs) => void;
   openOffersDialog: (args?: OffersDialogArgs) => void;
   openNFTDetailsDialog: (args: NFTDetailsDialogArgs) => void;
-  
+
   // Dialog state management
   closeDialog: (dialogType: string) => void;
   closeAllDialogs: () => void;
-  
+
   // Utility functions
   refreshWalletData: () => Promise<void>;
 }
@@ -183,7 +183,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         if (hydratedResult.success) {
           const hydratedCoins = hydratedResult.data.data;
           const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-          
+
           setWalletState(prev => ({
             ...prev,
             isConnected: true,
@@ -296,7 +296,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         setTimeout(() => refreshWalletData(), 100);
       }
     }
-    
+
     setDialogStates(prev => {
       const newState = {
         ...prev,
@@ -325,7 +325,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         setTimeout(() => refreshWalletData(), 100);
       }
     }
-    
+
     setDialogStates(prev => ({
       ...prev,
       receive: { isOpen: true, args }
@@ -350,7 +350,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         setTimeout(() => refreshWalletData(), 100);
       }
     }
-    
+
     setDialogStates(prev => ({
       ...prev,
       makeOffer: { isOpen: true, args }
@@ -370,7 +370,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         setTimeout(() => refreshWalletData(), 100);
       }
     }
-    
+
     setDialogStates(prev => ({
       ...prev,
       offers: { isOpen: true, args }
@@ -427,7 +427,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     config,
     updateConfig,
     setJwtToken,
-    
+
     // Wallet state
     isConnected: walletState.isConnected,
     publicKey: walletState.publicKey,
@@ -436,18 +436,18 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     unspentCoins: walletState.unspentCoins,
     loading: walletState.loading,
     error: walletState.error,
-    
+
     // Dialog functions
     openSendDialog,
     openReceiveDialog,
     openMakeOfferDialog,
     openOffersDialog,
     openNFTDetailsDialog,
-    
+
     // Dialog management
     closeDialog,
     closeAllDialogs,
-    
+
     // Utilities
     refreshWalletData
   };
@@ -455,16 +455,13 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
   return (
     <GlobalDialogContext.Provider value={contextValue}>
       {children}
-      
+
       {/* Render all modals here - they're controlled by global state */}
-      
+
       {/* Send Funds Modal */}
       <SendFundsModal
         isOpen={dialogStates.send.isOpen}
         onClose={() => closeDialog('send')}
-        client={clientRef.current}
-        publicKey={walletState.publicKey}
-        unspentCoins={walletState.unspentCoins}
         onTransactionSent={handleTransactionSent}
         // Pass arguments as initial values
         initialRecipientAddress={dialogStates.send.args?.recipientAddress}
@@ -476,7 +473,6 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       <ReceiveFundsModal
         isOpen={dialogStates.receive.isOpen}
         onClose={() => closeDialog('receive')}
-        publicKey={walletState.publicKey}
       />
 
       {/* Make Offer Modal */}
@@ -511,9 +507,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       <NFTDetailsModal
         isOpen={dialogStates.nftDetails.isOpen}
         onClose={() => closeDialog('nftDetails')}
-        selectedNft={dialogStates.nftDetails.args?.nft}
-        nftMetadata={walletState.nftMetadata}
-        loadingMetadata={walletState.loadingMetadata}
+        nft={dialogStates.nftDetails.args?.nft}
       />
     </GlobalDialogContext.Provider>
   );

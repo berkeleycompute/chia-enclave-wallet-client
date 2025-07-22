@@ -264,16 +264,12 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
       <SendFundsModal
         isOpen={dialogs.sendFunds.isOpen}
         onClose={dialogs.sendFunds.close}
-        client={wallet.client}
-        publicKey={wallet.publicKey}
-        unspentCoins={wallet.unspentCoins}
         onTransactionSent={handleTransactionSent}
       />
 
       <ReceiveFundsModal
         isOpen={dialogs.receiveFunds.isOpen}
         onClose={dialogs.receiveFunds.close}
-        publicKey={wallet.publicKey}
       />
 
       <MakeOfferModal
@@ -302,9 +298,7 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
       <NFTDetailsModal
         isOpen={dialogs.nftDetails.isOpen}
         onClose={dialogs.nftDetails.close}
-        selectedNft={dialogs.nftDetails.selectedNft}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
+        nft={dialogs.nftDetails.selectedNft}
       />
 
       <style dangerouslySetInnerHTML={{__html: `

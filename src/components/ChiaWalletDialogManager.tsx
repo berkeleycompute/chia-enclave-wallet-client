@@ -264,9 +264,6 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         <SendFundsModal
           isOpen={sendDialogOpen}
           onClose={() => this.setState({ sendDialogOpen: false })}
-          client={this.client}
-          publicKey={publicKey}
-          unspentCoins={unspentCoins}
           onTransactionSent={this.handleTransactionSent}
         />
 
@@ -274,7 +271,6 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         <ReceiveFundsModal
           isOpen={receiveDialogOpen}
           onClose={() => this.setState({ receiveDialogOpen: false })}
-          publicKey={publicKey}
         />
 
         {/* Make Offer Dialog */}
@@ -303,13 +299,11 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         />
 
         {/* NFT Details Dialog */}
-        <NFTDetailsModal
-          isOpen={nftDetailsDialogOpen}
-          onClose={() => this.setState({ nftDetailsDialogOpen: false, selectedNft: null })}
-          selectedNft={selectedNft}
-          nftMetadata={nftMetadata}
-          loadingMetadata={loadingMetadata}
-        />
+                  <NFTDetailsModal
+            isOpen={nftDetailsDialogOpen}
+            onClose={() => this.setState({ nftDetailsDialogOpen: false, selectedNft: null })}
+            nft={selectedNft}
+          />
 
         {/* Main Wallet Dialog - Commented out due to complex dependencies */}
         {/* <ChiaWalletModal

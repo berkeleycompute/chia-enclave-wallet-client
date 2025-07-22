@@ -265,16 +265,12 @@ const ChiaWalletBridgeContent: React.FC<ChiaWalletBridgeProps> = ({
       <SendFundsModal
         isOpen={dialogs.sendFunds.isOpen}
         onClose={dialogs.sendFunds.close}
-        client={wallet.client}
-        publicKey={wallet.publicKey}
-        unspentCoins={wallet.unspentCoins}
         onTransactionSent={handleTransactionSent}
       />
 
       <ReceiveFundsModal
         isOpen={dialogs.receiveFunds.isOpen}
         onClose={dialogs.receiveFunds.close}
-        publicKey={wallet.publicKey}
       />
 
       <MakeOfferModal

@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { ChiaCloudWalletClient, type Coin, type SendXCHRequest } from '../client/ChiaCloudWalletClient';
+import React, { useState, useEffect } from 'react';
+import { 
+  useWalletConnection, 
+  useWalletCoins, 
+  useSendTransaction
+} from '../hooks/useChiaWalletSDK';
+import { ChiaCloudWalletClient } from '../client/ChiaCloudWalletClient';
 
 interface SendFundsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  client: ChiaCloudWalletClient | null;
-  publicKey: string | null;
-  unspentCoins: Coin[];
-  onTransactionSent: (transaction: any) => void;
+  onTransactionSent?: (transaction: any) => void;
   // New props for initial values from global dialog system
   initialRecipientAddress?: string;
   initialAmount?: string;
@@ -17,9 +19,6 @@ interface SendFundsModalProps {
 export const SendFundsModal: React.FC<SendFundsModalProps> = ({ 
   isOpen, 
   onClose, 
-  client, 
-  publicKey, 
-  unspentCoins, 
   onTransactionSent,
   initialRecipientAddress,
   initialAmount,
@@ -28,333 +27,436 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
   const [recipientAddress, setRecipientAddress] = useState(initialRecipientAddress || '');
   const [amount, setAmount] = useState(initialAmount || '');
   const [fee, setFee] = useState(initialFee || '0.00001');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Debug props
-  React.useEffect(() => {
-    console.log('SendFundsModal: Props received', {
-      isOpen,
-      hasClient: !!client,
-      publicKey: publicKey ? `${publicKey.slice(0, 8)}...` : null,
-      unspentCoinsCount: unspentCoins.length,
-      initialRecipientAddress,
-      initialAmount,
-      initialFee
-    });
-  }, [isOpen, client, publicKey, unspentCoins, initialRecipientAddress, initialAmount, initialFee]);
+  // Use the new SDK hooks
+  const { isConnected } = useWalletConnection();
+  const { xchCoins, isLoading: coinsLoading } = useWalletCoins();
+  const { sendXCH, isSending } = useSendTransaction();
 
-  // Debug rendering
-  React.useEffect(() => {
-    if (isOpen) {
-      console.log('SendFundsModal: Should be rendering (isOpen = true)');
-    } else {
-      console.log('SendFundsModal: Should not render (isOpen = false)');
-    }
-  }, [isOpen]);
+  // Update initial values when props change
+  useEffect(() => {
+    if (initialRecipientAddress) setRecipientAddress(initialRecipientAddress);
+    if (initialAmount) setAmount(initialAmount);
+    if (initialFee) setFee(initialFee);
+  }, [initialRecipientAddress, initialAmount, initialFee]);
 
-  // Update state when initial values change (when modal is opened with new arguments)
-  React.useEffect(() => {
-    if (isOpen) {
-      setRecipientAddress(initialRecipientAddress || '');
-      setAmount(initialAmount || '');
-      setFee(initialFee || '0.00001');
+  // Clear form when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
       setError(null);
       setSuccess(null);
-    }
-  }, [isOpen, initialRecipientAddress, initialAmount, initialFee]);
-
-  const validateChiaAddress = (address: string): { isValid: boolean; error?: string } => {
-    try {
-      if (!address || typeof address !== 'string') {
-        return { isValid: false, error: 'Address must be a non-empty string' };
-      }
-
-      // Basic bech32m validation
-      if (!address.startsWith('xch1') || address.length < 62) {
-        return { isValid: false, error: 'Invalid Chia address format' };
-      }
-
-      return { isValid: true };
-    } catch (err) {
-      return {
-        isValid: false,
-        error: err instanceof Error ? `Invalid address encoding: ${err.message}` : 'Invalid address encoding',
-      };
-    }
-  };
-
-  // Simple coin selection logic
-  const selectCoinsForAmount = (totalNeededMojos: number): Coin[] | null => {
-    if (!unspentCoins || unspentCoins.length === 0) {
-      return null;
-    }
-    
-    // Sort coins by amount descending (largest first)
-    const sortedCoins = [...unspentCoins].sort((a, b) => {
-      const amountA = parseInt(a.amount);
-      const amountB = parseInt(b.amount);
-      return amountB - amountA;
-    });
-    
-    const selectedCoins: Coin[] = [];
-    let totalSelected = 0;
-    
-    // Greedy selection: pick coins until we have enough
-    for (const coin of sortedCoins) {
-      selectedCoins.push(coin);
-      totalSelected += parseInt(coin.amount);
-      
-      if (totalSelected >= totalNeededMojos) {
-        break;
+      // Only clear if not using initial values
+      if (!initialRecipientAddress && !initialAmount) {
+        setRecipientAddress('');
+        setAmount('');
       }
     }
-    
-    // Check if we have enough
-    if (totalSelected < totalNeededMojos) {
-      return null;
-    }
-    
-    return selectedCoins;
-  };
+  }, [isOpen, initialRecipientAddress, initialAmount]);
 
-  const handleSend = async () => {
-    if (!client || !publicKey) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isConnected) {
       setError('Wallet not connected');
       return;
     }
 
-    if (!recipientAddress.trim()) {
-      setError('Please enter a recipient address');
+    if (!recipientAddress.trim() || !amount.trim()) {
+      setError('Please fill in recipient address and amount');
       return;
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
-
-    const feeFloat = !fee ? 0.0 : parseFloat(fee);
-    if (feeFloat < 0.0) {
-      setError(`Please enter a valid fee (minimum 0.0)`);
-      return;
-    }
-
-    const addressValidation = validateChiaAddress(recipientAddress);
-    if (!addressValidation.isValid) {
-      setError(addressValidation.error || 'Invalid Chia address format');
-      return;
-    }
-
-    if (!unspentCoins || unspentCoins.length === 0) {
-      setError('No unspent coins available. Please refresh and try again.');
-      return;
-    }
-
-    setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const amountInMojosResult = ChiaCloudWalletClient.xchToMojos(parseFloat(amount));
-      if (!amountInMojosResult.success) {
-        setError(`Invalid amount: ${amountInMojosResult.error}`);
-        return;
-      }
+      // Convert XCH amounts to mojos
+      const amountInMojos = Math.round(parseFloat(amount) * 1000000000000).toString();
+      const feeInMojos = Math.round(parseFloat(fee) * 1000000000000).toString();
 
-      const feeInMojosResult = ChiaCloudWalletClient.xchToMojos(parseFloat(fee));
-      if (!feeInMojosResult.success) {
-        setError(`Invalid fee: ${feeInMojosResult.error}`);
-        return;
-      }
-
-      const amountInMojos = amountInMojosResult.data;
-      const feeInMojos = feeInMojosResult.data;
-
-      // Calculate total amount needed (amount + fee)
-      const totalNeeded = Number(amountInMojos) + Number(feeInMojos);
-      
-      // Select coins to cover the amount
-      const selectedCoins = selectCoinsForAmount(totalNeeded);
-      if (!selectedCoins) {
-        setError('Insufficient balance to cover amount and fees');
-        return;
-      }
-
-      // Create send request
-      const sendRequest: SendXCHRequest = {
-        selected_coins: selectedCoins,
+      const request = {
         payments: [{
-          address: recipientAddress,
-          amount: amountInMojos.toString(),
+          address: recipientAddress.trim(),
+          amount: amountInMojos
         }],
-        fee: feeInMojos.toString(),
+        selected_coins: [], // Let the SDK auto-select coins
+        fee: feeInMojos
       };
 
-      const result = await client.sendXCH(sendRequest);
+      const result = await sendXCH(request);
 
-      if (!result.success) {
-        setError(`Transaction failed: ${result.error}`);
-        return;
-      }
-
-      // SendXCHResponse doesn't have transaction_id, just success confirmation
-      setSuccess(`Transaction signed successfully! The transaction has been prepared.`);
-
-      onTransactionSent({
-        amount: Number(amountInMojos),
-        recipient: recipientAddress,
-        fee: Number(feeInMojos),
-        transactionId: undefined, // SendXCH doesn't provide transaction_id directly
-        blockchainStatus: 'signed',
-      });
-
-      setRecipientAddress('');
-      setAmount('');
-      setFee('0.00001');
-
-      setTimeout(() => {
-        onClose();
-      }, 3000);
-    } catch (err) {
-      console.error('Transaction failed:', err);
-      if (err instanceof Error) {
-        let errorMessage = err.message;
-        if (errorMessage.includes('Insufficient balance')) {
-          setError(errorMessage);
-        } else if (errorMessage.includes('selected_coins')) {
-          setError('Unable to select coins for transaction. Please try again or refresh your balance.');
-        } else if (errorMessage.includes('504')) {
-          setError('Network timeout. Please check your connection and try again.');
-        } else if (errorMessage.includes('500')) {
-          setError('Server error. Please try again later.');
-        } else {
-          setError(`Transaction failed: ${errorMessage}`);
+      if (result.success) {
+        setSuccess(`Transaction sent successfully! Transaction ID: ${result.data.transaction_id}`);
+        
+        // Call callback if provided
+        if (onTransactionSent) {
+          onTransactionSent({
+            id: result.data.transaction_id,
+            type: 'outgoing',
+            amount: parseFloat(amount),
+            recipient: recipientAddress.trim(),
+            fee: parseFloat(fee),
+            timestamp: Date.now(),
+            status: 'pending',
+            transactionId: result.data.transaction_id
+          });
         }
+
+        // Clear form on success
+        setRecipientAddress('');
+        setAmount('');
+        setFee('0.00001');
+
+        // Auto-close after delay
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+
       } else {
-        setError('Failed to send transaction. Please try again.');
+        setError(result.error);
       }
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Transaction failed');
     }
   };
 
-  const closeModal = () => {
-    onClose();
-    setRecipientAddress('');
-    setAmount('');
-    setFee('0.00001');
-    setError(null);
-    setSuccess(null);
+  const formatXCH = (mojos: string | number): string => {
+    const result = ChiaCloudWalletClient.mojosToXCH(mojos);
+    return result.success ? result.data.toFixed(6) : '0';
+  };
+
+  const getAvailableBalance = (): number => {
+    return xchCoins.reduce((total, coin) => total + parseInt(coin.coin.amount), 0);
+  };
+
+  const getFormattedAvailableBalance = (): string => {
+    const totalMojos = getAvailableBalance();
+    return formatXCH(totalMojos);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay send-modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal-content send-modal-content">
+    <div className="send-funds-modal-overlay">
+      <div className="send-funds-modal">
         <div className="modal-header">
-          <button className="back-btn" onClick={closeModal}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5"></path>
-              <path d="M12 19l-7-7 7-7"></path>
-            </svg>
-          </button>
-          <h2>Send Funds</h2>
-          <button className="close-btn" onClick={closeModal}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+          <h2>💸 Send XCH</h2>
+          <button className="close-button" onClick={onClose}>×</button>
         </div>
 
         <div className="modal-body">
-          <div className="token-section">
-            <label htmlFor="token">Token</label>
-            <div className="token-select">
-              <div className="token-icon">🌱</div>
-              <div className="token-info">
-                <span className="token-name">Chia</span>
-                <span className="token-symbol">XCH</span>
+          {!isConnected ? (
+            <div className="error-state">
+              <p>❌ Wallet not connected. Please connect your wallet first.</p>
+            </div>
+          ) : coinsLoading ? (
+            <div className="loading-state">
+              <p>⏳ Loading wallet data...</p>
+            </div>
+          ) : (
+            <>
+              <div className="balance-info">
+                <p><strong>Available Balance:</strong> {getFormattedAvailableBalance()} XCH</p>
+                <p><strong>Available Coins:</strong> {xchCoins.length}</p>
               </div>
-            </div>
-          </div>
 
-          <div className="send-to-section">
-            <label htmlFor="recipient">Send to</label>
-            <textarea
-              id="recipient"
-              value={recipientAddress}
-              onChange={(e) => setRecipientAddress(e.target.value)}
-              placeholder="xch1..."
-              className="recipient-input"
-              rows={1}
-            />
-          </div>
+              <form onSubmit={handleSubmit} className="send-form">
+                <div className="form-group">
+                  <label htmlFor="recipient">Recipient Address</label>
+                  <input
+                    id="recipient"
+                    type="text"
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
+                    placeholder="xch1..."
+                    className="form-input"
+                    required
+                  />
+                </div>
 
-          <div className="amount-section">
-            <label htmlFor="amount">Amount</label>
-            <div className="amount-input-container">
-              <input
-                id="amount"
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
-                step="0.000001"
-                min="0"
-                className="amount-input"
-              />
-              <span className="currency-label">XCH</span>
-            </div>
-          </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="amount">Amount (XCH)</label>
+                    <input
+                      id="amount"
+                      type="number"
+                      step="0.000001"
+                      min="0"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.001"
+                      className="form-input"
+                      required
+                    />
+                  </div>
 
-          <div className="fee-section">
-            <label htmlFor="fee">Fee</label>
-            <div className="fee-input-container">
-              <input
-                id="fee"
-                type="number"
-                value={fee}
-                onChange={(e) => setFee(e.target.value)}
-                placeholder="0.00001"
-                step="0.000001"
-                min="0"
-                className="fee-input"
-              />
-              <span className="currency-label">XCH</span>
-            </div>
-          </div>
+                  <div className="form-group">
+                    <label htmlFor="fee">Fee (XCH)</label>
+                    <input
+                      id="fee"
+                      type="number"
+                      step="0.000001"
+                      min="0"
+                      value={fee}
+                      onChange={(e) => setFee(e.target.value)}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+                </div>
 
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
+                {error && (
+                  <div className="error-message">
+                    ❌ {error}
+                  </div>
+                )}
+
+                {success && (
+                  <div className="success-message">
+                    ✅ {success}
+                  </div>
+                )}
+
+                <div className="button-row">
+                  <button type="button" onClick={onClose} className="cancel-button">
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSending || !recipientAddress.trim() || !amount.trim()}
+                    className="submit-button"
+                  >
+                    {isSending ? '⏳ Sending...' : '💸 Send Transaction'}
+                  </button>
+                </div>
+              </form>
+            </>
           )}
-
-          {success && (
-            <div className="success-message">
-              {success}
-            </div>
-          )}
-
-          <button
-            className="send-btn"
-            onClick={handleSend}
-            disabled={loading || !recipientAddress || !amount}
-          >
-            {loading ? (
-              <>
-                <div className="spinner"></div>
-                Sending...
-              </>
-            ) : (
-              'Send'
-            )}
-          </button>
         </div>
+
+        <style>{`
+          .send-funds-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .send-funds-modal {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          }
+
+          @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+
+          .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+          }
+
+          .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+          }
+
+          .close-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+          }
+
+          .close-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+          }
+
+          .modal-body {
+            padding: 1.5rem;
+            flex: 1;
+            overflow-y: auto;
+          }
+
+          .error-state, .loading-state {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+          }
+
+          .balance-info {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+          }
+
+          .balance-info p {
+            margin: 0.25rem 0;
+            font-size: 14px;
+            color: #475569;
+          }
+
+          .send-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+          }
+
+          .form-group {
+            display: flex;
+            flex-direction: column;
+          }
+
+          .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
+          }
+
+          .form-group label {
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+            font-size: 14px;
+          }
+
+          .form-input {
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+          }
+
+          .form-input:focus {
+            outline: none;
+            border-color: #ef4444;
+          }
+
+          .form-input:invalid {
+            border-color: #f87171;
+          }
+
+          .error-message {
+            padding: 12px 16px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            color: #dc2626;
+            font-size: 14px;
+          }
+
+          .success-message {
+            padding: 12px 16px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            color: #16a34a;
+            font-size: 14px;
+          }
+
+          .button-row {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+          }
+
+          .cancel-button {
+            flex: 1;
+            padding: 12px 24px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #374151;
+            transition: all 0.2s;
+          }
+
+          .cancel-button:hover {
+            background: #e5e7eb;
+          }
+
+          .submit-button {
+            flex: 2;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .submit-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+          }
+
+          .submit-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+          }
+
+          /* Responsive */
+          @media (max-width: 640px) {
+            .send-funds-modal {
+              width: 95%;
+              margin: 1rem;
+            }
+
+            .form-row {
+              grid-template-columns: 1fr;
+            }
+
+            .button-row {
+              flex-direction: column;
+            }
+          }
+        `}</style>
       </div>
     </div>
   );

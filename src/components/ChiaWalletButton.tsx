@@ -1,66 +1,72 @@
 import React, { useState } from 'react';
-import { useChiaWallet } from '../hooks/useChiaWallet';
-import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider';
+import { useWalletConnection, useWalletBalance, useWalletState } from '../hooks/useChiaWalletSDK';
+import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
+import { SimpleWalletModal } from './SimpleWalletModal';
 
 export interface ChiaWalletButtonProps {
-  jwtToken?: string | null;
   variant?: 'primary' | 'secondary';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
-  baseUrl?: string;
-  enableLogging?: boolean;
-  autoConnect?: boolean;
-  onWalletUpdate?: (walletState: any) => void;
+  onWalletUpdate?: (walletState: {
+    isConnected: boolean;
+    publicKey: string | null;
+    address: string | null;
+    totalBalance: number;
+    coinCount: number;
+    error: string | null;
+  }) => void;
   className?: string;
   style?: React.CSSProperties;
 }
 
 export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
-  jwtToken = null,
   variant = 'primary',
   size = 'medium',
   disabled = false,
-  baseUrl,
-  enableLogging,
-  autoConnect = true,
   onWalletUpdate,
   className = '',
   style,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const wallet = useChiaWallet({
-    baseUrl,
-    enableLogging,
-    autoConnect,
-  });
+  // Use the new simplified hooks
+  const { 
+    isConnected, 
+    isConnecting, 
+    address, 
+    error: connectionError 
+  } = useWalletConnection();
   
-  // Set JWT token when it changes
-  React.useEffect(() => {
-    if (jwtToken !== wallet.jwtToken) {
-      wallet.setJwtToken(jwtToken);
-    }
-  }, [jwtToken, wallet]);
+  const { 
+    totalBalance, 
+    coinCount, 
+    formattedBalance, 
+    error: balanceError 
+  } = useWalletBalance();
+
+  // Get publicKey from the full wallet state for backward compatibility
+  const { publicKey } = useWalletState();
   
   // Call onWalletUpdate when wallet state changes
   React.useEffect(() => {
     if (onWalletUpdate) {
       onWalletUpdate({
-        isConnected: wallet.isConnected,
-        publicKey: wallet.publicKey,
-        publicKeyData: wallet.publicKeyData,
-        balance: wallet.balance,
-        coinCount: wallet.coinCount,
-        error: wallet.error,
+        isConnected,
+        publicKey,
+        address,
+        totalBalance,
+        coinCount,
+        error: connectionError || balanceError,
       });
     }
   }, [
-    wallet.isConnected,
-    wallet.publicKey,
-    wallet.publicKeyData,
-    wallet.balance,
-    wallet.coinCount,
-    wallet.error,
+    isConnected,
+    publicKey,
+    address,
+    totalBalance,
+    coinCount,
+    connectionError,
+    balanceError,
     onWalletUpdate,
   ]);
   
@@ -79,17 +85,13 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
   
-  const formatBalance = (balance: number): string => {
-    return wallet.formatBalance(balance);
-  };
-  
   const getButtonClasses = (): string => {
     const baseClasses = 'chia-wallet-btn';
     const variantClass = variant;
     const sizeClass = size;
     const stateClasses = [
-      wallet.isConnected ? 'connected' : '',
-      wallet.isConnecting ? 'connecting' : '',
+      isConnected ? 'connected' : '',
+      isConnecting ? 'connecting' : '',
       disabled ? 'disabled' : '',
     ].filter(Boolean).join(' ');
     
@@ -110,34 +112,31 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
         <div className="btn-content">
           <div className="chia-icon">🌱</div>
           <div className="btn-text-content">
-            {wallet.isConnecting ? (
+            {isConnecting ? (
               <span className="btn-text">Connecting...</span>
-            ) : wallet.isConnected && wallet.publicKey ? (
+            ) : isConnected && address ? (
               <>
                 <span className="btn-text connected-text">
-                  {formatAddress(wallet.publicKey)}
+                  {formatAddress(address)}
                 </span>
-                {wallet.balance > 0 ? (
+                {totalBalance > 0 ? (
                   <span className="btn-balance">
-                    {formatBalance(wallet.balance)} XCH
+                    {formattedBalance}
                   </span>
                 ) : (
                   <span className="btn-balance">Click to view balance</span>
                 )}
               </>
             ) : (
-              <span className="btn-text">
-                {jwtToken ? 'Chia Wallet' : 'Connect Chia'}
-              </span>
+              <span className="btn-text">Connect Chia</span>
             )}
           </div>
         </div>
       </button>
 
-      <ChiaWalletModalWithProvider
+      <SimpleWalletModal
         isOpen={isModalOpen}
         onClose={closeModal}
-        wallet={wallet}
       />
       
       <style>{`

@@ -1,4 +1,37 @@
-// Client
+// ===== NEW SIMPLIFIED API (RECOMMENDED) =====
+
+// Unified SDK - The main client class with built-in state management
+export { 
+  ChiaWalletSDK,
+  type ChiaWalletSDKConfig,
+  type WalletState,
+  type WalletEventType,
+  type EventListener
+} from './client/ChiaWalletSDK';
+
+// Simple Provider - Easy React context setup
+export { 
+  ChiaWalletSDKProvider,
+  useChiaWalletSDK,
+  useOptionalChiaWalletSDK,
+  type ChiaWalletSDKProviderProps
+} from './providers/ChiaWalletSDKProvider';
+
+// Simplified Hooks - Easy reactive wallet functionality
+export {
+  useWalletState,
+  useWalletConnection,
+  useWalletBalance,
+  useWalletCoins,
+  useSendTransaction,
+  useNFTOffers,
+  useWalletEvents,
+  useRawSDK
+} from './hooks/useChiaWalletSDK';
+
+// ===== LEGACY API (FOR BACKWARD COMPATIBILITY) =====
+
+// Legacy Client
 export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
 
 // Core Hooks
@@ -107,8 +140,7 @@ export {
   type WalletMainDialogState
 } from './hooks/useDialogs';
 
-// Components - Individual Modal Components
-export { SendFundsModal } from './components/SendFundsModal';
+// Components - Individual Modal Components (Legacy - see new simplified components above)
 export { ReceiveFundsModal } from './components/ReceiveFundsModal';
 export { MakeOfferModal } from './components/MakeOfferModal';
 export { ActiveOffersModal } from './components/ActiveOffersModal';
@@ -116,8 +148,19 @@ export { NFTDetailsModal } from './components/NFTDetailsModal';
  
  
 
-// Components - Main Wallet Components
+// ===== NEW SIMPLIFIED COMPONENTS (RECOMMENDED) =====
+
+// Main Components (use these for new projects)
 export { ChiaWalletButton } from './components/ChiaWalletButton';
+export { SimpleWalletModal } from './components/SimpleWalletModal';
+export { SimpleDashboard } from './components/SimpleDashboard';
+
+// Modal Components (refactored for new SDK)
+export { SendFundsModal } from './components/SendFundsModal';
+
+// ===== LEGACY COMPONENTS (FOR BACKWARD COMPATIBILITY) =====
+
+// Legacy Components (still available but not recommended for new projects)
 export { ChiaWalletModal } from './components/ChiaWalletModal';
 export { ChiaWalletModalWithProvider } from './components/ChiaWalletModalWithProvider';
 
