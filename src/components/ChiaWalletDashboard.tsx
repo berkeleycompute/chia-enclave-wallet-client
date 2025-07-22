@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider.tsx';
-import { DialogProvider, useAllDialogs } from '../hooks/useDialogs.ts';
-import { useChiaWallet } from '../hooks/useChiaWallet.ts';
-import { SendFundsModal } from './SendFundsModal.tsx';
-import { ReceiveFundsModal } from './ReceiveFundsModal.tsx';
-import { MakeOfferModal } from './MakeOfferModal.tsx';
-import { ActiveOffersModal } from './ActiveOffersModal.tsx';
-import { NFTDetailsModal } from './NFTDetailsModal.tsx';
+import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider';
+import { DialogProvider, useAllDialogs } from '../hooks/useDialogs';
+import { useChiaWallet } from '../hooks/useChiaWallet';
+import { SendFundsModal } from './SendFundsModal';
+import { ReceiveFundsModal } from './ReceiveFundsModal';
+import { MakeOfferModal } from './MakeOfferModal';
+import { ActiveOffersModal } from './ActiveOffersModal';
+import { NFTDetailsModal } from './NFTDetailsModal';
 import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
 
 export interface ChiaWalletDashboardProps {

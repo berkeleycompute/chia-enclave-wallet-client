@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useChiaWallet } from '../hooks/useChiaWallet.ts';
-import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider.tsx';
+import { useChiaWallet } from '../hooks/useChiaWallet';
+import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider';
 
 export interface ChiaWalletButtonProps {
   jwtToken?: string | null;

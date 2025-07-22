@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChiaCloudWalletClient, type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient.ts';
+import { ChiaCloudWalletClient, type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient';
 import { bech32m } from 'bech32';
 
 interface MakeOfferModalProps {

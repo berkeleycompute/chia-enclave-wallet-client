@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient.ts';
-import { DialogProvider } from '../hooks/useDialogs.ts';
-import { SendFundsModal } from './SendFundsModal.tsx';
-import { ReceiveFundsModal } from './ReceiveFundsModal.tsx';
-import { MakeOfferModal } from './MakeOfferModal.tsx';
-import { ActiveOffersModal } from './ActiveOffersModal.tsx';
-import { NFTDetailsModal } from './NFTDetailsModal.tsx';
-// import { ChiaWalletModal } from './ChiaWalletModal.tsx'; // Removed for now due to complex dependencies
+import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { DialogProvider } from '../hooks/useDialogs';
+import { SendFundsModal } from './SendFundsModal';
+import { ReceiveFundsModal } from './ReceiveFundsModal';
+import { MakeOfferModal } from './MakeOfferModal';
+import { ActiveOffersModal } from './ActiveOffersModal';
+import { NFTDetailsModal } from './NFTDetailsModal';
+// import { ChiaWalletModal } from './ChiaWalletModal'; // Removed for now due to complex dependencies
 
 // Simple configuration interface for the dialog manager
 export interface ChiaWalletDialogConfig {

@@ -1,10 +1,82 @@
 // Client
-export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient.ts';
+export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
 
-// Hooks
-export { useChiaWallet, type WalletEvent, type WalletEventListener } from './hooks/useChiaWallet.ts';
-export { useChiaTransactions } from './hooks/useChiaTransactions.ts';
-export { useHydratedCoins, type UseHydratedCoinsConfig, type HydratedCoinsState } from './hooks/useHydratedCoins.ts';
+// Core Hooks
+export { useChiaWallet, type WalletEvent, type WalletEventListener } from './hooks/useChiaWallet';
+export { useChiaTransactions } from './hooks/useChiaTransactions';
+export { useHydratedCoins, type UseHydratedCoinsConfig, type HydratedCoinsState } from './hooks/useHydratedCoins';
+
+// Balance Hooks
+export { 
+  useBalance, 
+  useXCHBalance, 
+  useCATBalance, 
+  useTotalBalance,
+  type BalanceBreakdown,
+  type UseBalanceConfig,
+  type UseBalanceResult
+} from './hooks/useBalance';
+
+// NFT Hooks
+export {
+  useNFTs,
+  useNFTMetadata,
+  useNFTCollections,
+  type NFTMetadata,
+  type NFTWithMetadata,
+  type UseNFTsConfig,
+  type UseNFTsResult
+} from './hooks/useNFTs';
+
+// Transaction Hooks
+export {
+  useTransactionHistory,
+  useSendXCH,
+  type TransactionRecord,
+  type SendXCHConfig,
+  type UseTransactionHistoryConfig,
+  type UseSendXCHConfig,
+  type UseTransactionHistoryResult,
+  type UseSendXCHResult
+} from './hooks/useTransactions';
+
+// Wallet Info & Address Hooks
+export {
+  useWalletInfo,
+  useAddressValidation,
+  useMnemonic,
+  type WalletInfo,
+  type AddressValidation,
+  type UseWalletInfoConfig,
+  type UseAddressValidationConfig,
+  type UseWalletInfoResult,
+  type UseAddressValidationResult
+} from './hooks/useWalletInfo';
+
+// Utility Hooks
+export {
+  useChiaUtils,
+  useFormatting,
+  useCalculations,
+  type CoinIdCalculation,
+  type FormatOptions,
+  type CoinSelection,
+  type UseChiaUtilsResult,
+  type UseFormattingResult,
+  type UseCalculationsResult
+} from './hooks/useChiaUtils';
+
+// Central Provider (Optional - for shared state)
+export {
+  ChiaWalletProvider,
+  useChiaWalletContext,
+  useChiaWalletState,
+  useChiaWalletActions,
+  type ChiaWalletState,
+  type ChiaWalletActions,
+  type ChiaWalletProviderConfig,
+  type ChiaWalletContextValue
+} from './hooks/useChiaWalletProvider';
 
 // Hydrated Coins Provider
 export { 
@@ -14,7 +86,7 @@ export {
   useCoinsByType,
   type HydratedCoinsProviderProps,
   type HydratedCoinsContextValue
-} from './components/HydratedCoinsProvider.tsx';
+} from './components/HydratedCoinsProvider';
 
 // Legacy Dialog Hooks (deprecated - use Global Dialog System instead)
 export {
@@ -33,31 +105,31 @@ export {
   type ActiveOffersDialogState,
   type NFTDetailsDialogState,
   type WalletMainDialogState
-} from './hooks/useDialogs.ts';
+} from './hooks/useDialogs';
 
 // Components - Individual Modal Components
-export { SendFundsModal } from './components/SendFundsModal.tsx';
-export { ReceiveFundsModal } from './components/ReceiveFundsModal.tsx';
-export { MakeOfferModal } from './components/MakeOfferModal.tsx';
-export { ActiveOffersModal } from './components/ActiveOffersModal.tsx';
-export { NFTDetailsModal } from './components/NFTDetailsModal.tsx';
+export { SendFundsModal } from './components/SendFundsModal';
+export { ReceiveFundsModal } from './components/ReceiveFundsModal';
+export { MakeOfferModal } from './components/MakeOfferModal';
+export { ActiveOffersModal } from './components/ActiveOffersModal';
+export { NFTDetailsModal } from './components/NFTDetailsModal';
  
  
 
 // Components - Main Wallet Components
-export { ChiaWalletButton } from './components/ChiaWalletButton.tsx';
-export { ChiaWalletModal } from './components/ChiaWalletModal.tsx';
-export { ChiaWalletModalWithProvider } from './components/ChiaWalletModalWithProvider.tsx';
+export { ChiaWalletButton } from './components/ChiaWalletButton';
+export { ChiaWalletModal } from './components/ChiaWalletModal';
+export { ChiaWalletModalWithProvider } from './components/ChiaWalletModalWithProvider';
 
 // Bridge Components
-export { ChiaWalletBridge } from './components/ChiaWalletBridge.tsx';
+export { ChiaWalletBridge } from './components/ChiaWalletBridge';
 
 // Simplified Dialog Manager (New Easy API)
 export {
   ChiaWalletDialogManager,
   ChiaWalletDialogsWrapper,
   type ChiaWalletDialogConfig
-} from './components/ChiaWalletDialogManager.tsx';
+} from './components/ChiaWalletDialogManager';
 
 // Global Dialog System (Latest - Can be opened from anywhere!)
 export {
@@ -74,7 +146,7 @@ export {
   type NFTDetailsDialogArgs,
   type ReceiveDialogArgs,
   type OffersDialogArgs
-} from './components/GlobalDialogProvider.tsx';
+} from './components/GlobalDialogProvider';
 
 // Types
-export type { SentTransaction, SavedOffer } from './components/types.ts'; 
+export type { SentTransaction, SavedOffer } from './components/types'; 

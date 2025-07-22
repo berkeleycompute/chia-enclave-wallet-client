@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient.ts';
-import { SendFundsModal } from './SendFundsModal.tsx';
-import { ReceiveFundsModal } from './ReceiveFundsModal.tsx';
-import { MakeOfferModal } from './MakeOfferModal.tsx';
-import { ActiveOffersModal } from './ActiveOffersModal.tsx';
-import { NFTDetailsModal } from './NFTDetailsModal.tsx';
+import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { SendFundsModal } from './SendFundsModal';
+import { ReceiveFundsModal } from './ReceiveFundsModal';
+import { MakeOfferModal } from './MakeOfferModal';
+import { ActiveOffersModal } from './ActiveOffersModal';
+import { NFTDetailsModal } from './NFTDetailsModal';
 
 // Global dialog configuration
 export interface GlobalDialogConfig {

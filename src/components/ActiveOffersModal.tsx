@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SavedOffer } from './types.ts';
+import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 
 interface ActiveOffersModalProps {
