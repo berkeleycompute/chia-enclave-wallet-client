@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type PublicKeyResponse, type HydratedCoin, type Coin } from '../client/ChiaCloudWalletClient';
 
+// Event system for wallet state changes
+export interface WalletEvent {
+  type: 'hydratedCoinsChanged' | 'balanceChanged' | 'connectionChanged' | 'errorOccurred';
+  data?: any;
+  timestamp: number;
+}
+
+export type WalletEventListener = (event: WalletEvent) => void;
+
 export interface UseChiaWalletConfig {
   baseUrl?: string;
   enableLogging?: boolean;
@@ -47,6 +56,10 @@ export interface UseChiaWalletResult extends WalletState {
   disconnectWallet: () => void;
   refreshWallet: () => Promise<void>;
   
+  // Event system
+  addEventListener: (listener: WalletEventListener) => () => void;
+  removeEventListener: (listener: WalletEventListener) => void;
+  
   // Utility functions
   formatBalance: (balance: number) => string;
   formatAddress: (address: string) => string;
@@ -58,6 +71,7 @@ const BACKGROUND_UPDATE_INTERVAL = 60000; // 1 minute
 export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletResult {
   const clientRef = useRef<ChiaCloudWalletClient | null>(null);
   const backgroundUpdateRef = useRef<number | null>(null);
+  const eventListenersRef = useRef<Set<WalletEventListener>>(new Set());
   
   // Initialize client
   if (!clientRef.current) {
@@ -68,6 +82,38 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
   }
   
   const client = clientRef.current;
+  
+  // Event emitter functions
+  const emitEvent = useCallback((type: WalletEvent['type'], data?: any) => {
+    const event: WalletEvent = {
+      type,
+      data,
+      timestamp: Date.now()
+    };
+    
+    console.log('🎯 Wallet Event Emitted:', event);
+    
+    eventListenersRef.current.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('Error in wallet event listener:', error);
+      }
+    });
+  }, []);
+
+  const addEventListener = useCallback((listener: WalletEventListener): (() => void) => {
+    eventListenersRef.current.add(listener);
+    
+    // Return cleanup function
+    return () => {
+      eventListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const removeEventListener = useCallback((listener: WalletEventListener) => {
+    eventListenersRef.current.delete(listener);
+  }, []);
   
   // Wallet state
   const [state, setState] = useState<WalletState>({
@@ -273,6 +319,35 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       setState(prevState => {
         const updatedState = { ...prevState, ...newState };
         saveState(updatedState);
+        
+        // Emit events for state changes
+        emitEvent('connectionChanged', { 
+          isConnected: true, 
+          publicKey,
+          balance,
+          coinCount 
+        });
+        
+        if (hydratedCoins.length > 0) {
+          emitEvent('hydratedCoinsChanged', { 
+            hydratedCoins, 
+            coinCount: hydratedCoins.length,
+            balance 
+          });
+        }
+        
+        if (balance > 0) {
+          // Calculate formatted balance inline since formatBalance isn't defined yet
+          const mojosToXchResult = ChiaCloudWalletClient.mojosToXCH(balance);
+          const formattedBalance = mojosToXchResult.success ? mojosToXchResult.data.toFixed(6) : '0';
+          
+          emitEvent('balanceChanged', { 
+            balance, 
+            coinCount,
+            formattedBalance
+          });
+        }
+        
         return updatedState;
       });
       
@@ -288,6 +363,13 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
         publicKeyData: null,
         syntheticPublicKey: null,
       }));
+      
+      // Emit error event
+      emitEvent('errorOccurred', { 
+        error: errorMessage,
+        context: 'wallet_connection',
+        details: err
+      });
     }
   }, [client, state.jwtToken]);
   
@@ -317,6 +399,14 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     };
     
     setState(newState);
+    
+    // Emit disconnection event
+    emitEvent('connectionChanged', { 
+      isConnected: false,
+      publicKey: null,
+      balance: 0,
+      coinCount: 0
+    });
     
     // Clear persisted state
     try {
@@ -372,6 +462,32 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       setState(prevState => {
         const updatedState = { ...prevState, ...newState };
         saveState(updatedState);
+        
+        // Emit events for state changes during refresh
+        const coinsChanged = JSON.stringify(prevState.hydratedCoins) !== JSON.stringify(hydratedResult.data.data);
+        const balanceChanged = prevState.balance !== totalBalance;
+        
+        if (coinsChanged) {
+          emitEvent('hydratedCoinsChanged', { 
+            hydratedCoins: hydratedResult.data.data, 
+            coinCount: coins.length,
+            balance: totalBalance,
+            previousCoinCount: prevState.coinCount
+          });
+        }
+        
+        if (balanceChanged) {
+          const mojosToXchResult = ChiaCloudWalletClient.mojosToXCH(totalBalance);
+          const formattedBalance = mojosToXchResult.success ? mojosToXchResult.data.toFixed(6) : '0';
+          
+          emitEvent('balanceChanged', { 
+            balance: totalBalance, 
+            coinCount: coins.length,
+            formattedBalance,
+            previousBalance: prevState.balance
+          });
+        }
+        
         return updatedState;
       });
       
@@ -382,6 +498,13 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
         balanceLoading: false,
         balanceError: errorMessage,
       }));
+      
+      // Emit error event for refresh failures
+      emitEvent('errorOccurred', { 
+        error: errorMessage,
+        context: 'wallet_refresh',
+        details: err
+      });
     }
   }, [client, state.publicKey]);
   
@@ -418,5 +541,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     refreshWallet,
     formatBalance,
     formatAddress,
+    addEventListener,
+    removeEventListener,
   };
 } 

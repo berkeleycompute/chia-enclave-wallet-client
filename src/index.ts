@@ -2,7 +2,7 @@
 export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient.ts';
 
 // Hooks
-export { useChiaWallet } from './hooks/useChiaWallet.ts';
+export { useChiaWallet, type WalletEvent, type WalletEventListener } from './hooks/useChiaWallet.ts';
 export { useChiaTransactions } from './hooks/useChiaTransactions.ts';
 
 // Legacy Dialog Hooks (deprecated - use Global Dialog System instead)

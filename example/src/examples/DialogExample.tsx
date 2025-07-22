@@ -8,7 +8,8 @@ import {
   useMakeOfferDialog,
   useReceiveDialog,
   useOffersDialog,
-  useNFTDetailsDialog
+  useNFTDetailsDialog,
+  type WalletEvent
 } from 'chia-enclave-wallet-client'
 import '../components/styles.css'
 
@@ -20,6 +21,9 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
   const wallet = useChiaWallet({ autoConnect: true })
   const [lastDialogResult, setLastDialogResult] = useState<string>('')
   const [selectedTestNft, setSelectedTestNft] = useState<any>(null)
+  const [showEmptyCoinsAlert, setShowEmptyCoinsAlert] = useState<boolean>(false)
+  const [hasCheckedCoins, setHasCheckedCoins] = useState<boolean>(false)
+  const [recentEvents, setRecentEvents] = useState<WalletEvent[]>([])
 
   // Modern global dialog hooks
   const globalDialogs = useGlobalDialogs()
@@ -52,33 +56,110 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
     setLastDialogResult(`[${timestamp}] ${dialogName}: ${JSON.stringify(result || 'closed')}`)
   }
 
-  // Create a mock NFT for testing
+  // Listen for wallet events using the new event system
   React.useEffect(() => {
-    if (wallet.hydratedCoins && wallet.hydratedCoins.length > 0) {
-      // Use the first hydrated coin as a test "NFT" 
-      setSelectedTestNft(wallet.hydratedCoins[0]);
-    } else {
-      // Create a mock NFT for testing if no coins are available
-      setSelectedTestNft({
-        coin_name: 'mock_nft_1',
-        launcher_id: 'launcher_test_123',
-        metadata: {
-          name: 'Test NFT',
-          description: 'A test NFT for dialog demonstration',
-        }
+    const handleWalletEvent = (event: WalletEvent) => {
+      console.log('🎯 DialogExample: Received wallet event', event);
+      
+      // Store recent events (keep last 5)
+      setRecentEvents(prevEvents => {
+        const newEvents = [event, ...prevEvents].slice(0, 5);
+        return newEvents;
       });
+      
+      switch (event.type) {
+        case 'connectionChanged':
+          if (event.data.isConnected && !hasCheckedCoins) {
+            console.log('🔄 DialogExample: Connection established, marking coins as checked');
+            setHasCheckedCoins(true);
+          }
+          break;
+          
+        case 'hydratedCoinsChanged':
+          console.log('✅ DialogExample: Hydrated coins changed - updating UI', event.data);
+          const { hydratedCoins, coinCount } = event.data;
+          
+          if (hydratedCoins && hydratedCoins.length > 0) {
+            console.log('✅ DialogExample: Real coins available, hiding alert');
+            setSelectedTestNft(hydratedCoins[0]);
+            setShowEmptyCoinsAlert(false);
+          } else {
+            console.log('⚠️ DialogExample: No real coins, showing alert');
+            setShowEmptyCoinsAlert(true);
+            setSelectedTestNft({
+              coin_name: 'mock_nft_1',
+              launcher_id: 'launcher_test_123',
+              metadata: {
+                name: 'Test NFT',
+                description: 'A test NFT for dialog demonstration',
+              }
+            });
+          }
+          break;
+          
+        case 'errorOccurred':
+          console.log('❌ DialogExample: Wallet error occurred', event.data);
+          handleDialogResult('walletError', event.data);
+          break;
+      }
+    };
+
+    // Register the event listener
+    const removeListener = wallet.addEventListener(handleWalletEvent);
+
+    // Cleanup on unmount
+    return removeListener;
+  }, [wallet, hasCheckedCoins]);
+
+  // Initial state check for when wallet is already connected
+  React.useEffect(() => {
+    if (wallet.isConnected && wallet.hydratedCoins) {
+      console.log('🔍 DialogExample: Initial state check', {
+        isConnected: wallet.isConnected,
+        coinsLength: wallet.hydratedCoins?.length
+      });
+
+      if (!hasCheckedCoins) {
+        setHasCheckedCoins(true);
+      }
+
+      if (wallet.hydratedCoins.length > 0) {
+        setSelectedTestNft(wallet.hydratedCoins[0]);
+        setShowEmptyCoinsAlert(false);
+      } else {
+        setShowEmptyCoinsAlert(true);
+        setSelectedTestNft({
+          coin_name: 'mock_nft_1',
+          launcher_id: 'launcher_test_123',
+          metadata: {
+            name: 'Test NFT',
+            description: 'A test NFT for dialog demonstration',
+          }
+        });
+      }
     }
-  }, [wallet.hydratedCoins]);
+  }, []); // Only run once on mount
+
+  const hasRealCoins = wallet.hydratedCoins && wallet.hydratedCoins.length > 0;
+  
+  // Debug log the button state
+  console.log('🎯 DialogExample: Button states', {
+    hasRealCoins,
+    hydratedCoinsLength: wallet.hydratedCoins?.length,
+    hydratedCoinsExists: !!wallet.hydratedCoins,
+    walletConnected: wallet.isConnected
+  });
 
   const dialogButtons = [
     {
       title: 'Send Funds',
-      description: 'Open the send XCH dialog',
+      description: hasRealCoins ? 'Open the send XCH dialog' : 'Requires hydrated coins to send funds',
       icon: '💸',
       action: () => {
         sendDialog.open({ amount: '0.001' })
         handleDialogResult('sendDialog.open', { amount: '0.001' })
       },
+      disabled: !hasRealCoins,
     },
     {
       title: 'Receive Funds', 
@@ -91,12 +172,13 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
     },
     {
       title: 'Make Offer',
-      description: 'Create an offer dialog - FIXED! 🎉',
+      description: hasRealCoins ? 'Create an offer dialog - FIXED! 🎉' : 'Requires hydrated coins to make offers',
       icon: '🤝',
       action: () => {
         makeOfferDialog.open({ selectedNft: selectedTestNft })
         handleDialogResult('makeOfferDialog.open', { nft: selectedTestNft?.coin_name })
       },
+      disabled: !hasRealCoins,
     },
     {
       title: 'Active Offers',
@@ -109,7 +191,7 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
     },
     {
       title: 'NFT Details',
-      description: 'Show NFT information dialog',
+      description: hasRealCoins ? 'Show NFT information dialog' : 'Requires hydrated coins to show NFT details',
       icon: '🖼️',
       action: () => {
         if (selectedTestNft) {
@@ -117,13 +199,36 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
           handleDialogResult('nftDetailsDialog.open', { nft: selectedTestNft.coin_name })
         }
       },
-      disabled: !selectedTestNft,
+      disabled: !hasRealCoins,
     },
   ]
 
   return (
     <div className="example-container">
       <h2 className="example-title">🌾 Chia Wallet Button & Dialogs</h2>
+      
+      {/* Empty Coins Alert */}
+      {showEmptyCoinsAlert && (
+        <div style={{ 
+          margin: '1rem 0', 
+          padding: '1rem', 
+          background: '#fef2f2', 
+          border: '1px solid #fecaca', 
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}>
+          <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+          <div>
+            <strong style={{ color: '#dc2626' }}>No Hydrated Coins Available</strong>
+            <p style={{ margin: '0.25rem 0 0 0', color: '#7f1d1d', fontSize: '0.9rem' }}>
+              Some wallet functions (Send Funds, Make Offer, NFT Details) are disabled until coins are loaded. 
+              The wallet uses real-time events to update automatically when coins become available.
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="example-grid">
         {/* Main Chia Wallet Button */}
@@ -154,6 +259,103 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
              </div>
           </div>
 
+          {/* Debug Information */}
+          <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h4 style={{ margin: 0, fontSize: '1rem' }}>🐛 Debug Information & Events</h4>
+              <button 
+                onClick={() => wallet.refreshWallet()}
+                disabled={!wallet.isConnected}
+                style={{
+                  padding: '0.25rem 0.75rem',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.8rem'
+                }}
+              >
+                🔄 Refresh Wallet
+              </button>
+            </div>
+            
+            <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              <div><strong>wallet.hydratedCoins.length:</strong> {wallet.hydratedCoins?.length || 0}</div>
+              <div><strong>hasRealCoins:</strong> {String(hasRealCoins)}</div>
+              <div><strong>showEmptyCoinsAlert:</strong> {String(showEmptyCoinsAlert)}</div>
+              <div><strong>hasCheckedCoins:</strong> {String(hasCheckedCoins)}</div>
+              <div><strong>selectedTestNft:</strong> {selectedTestNft ? `${selectedTestNft.coin_name} (${selectedTestNft.launcher_id ? 'real' : 'mock'})` : 'null'}</div>
+            </div>
+            
+            {/* Recent Events */}
+            <div style={{ marginBottom: '1rem' }}>
+              <strong style={{ fontSize: '0.9rem' }}>📡 Recent Wallet Events:</strong>
+              <div style={{ 
+                maxHeight: '200px', 
+                overflowY: 'auto', 
+                marginTop: '0.5rem',
+                padding: '0.5rem',
+                background: 'white',
+                borderRadius: '4px',
+                border: '1px solid #e2e8f0'
+              }}>
+                {recentEvents.length > 0 ? (
+                  recentEvents.map((event, index) => (
+                    <div key={index} style={{ 
+                      fontSize: '0.75rem', 
+                      fontFamily: 'monospace',
+                      padding: '0.25rem 0',
+                      borderBottom: index < recentEvents.length - 1 ? '1px solid #f1f5f9' : 'none'
+                    }}>
+                      <div style={{ color: '#059669', fontWeight: 'bold' }}>
+                        {new Date(event.timestamp).toLocaleTimeString()} - {event.type}
+                      </div>
+                      <div style={{ color: '#64748b', marginLeft: '1rem' }}>
+                        {JSON.stringify(event.data, null, 1).substring(0, 200)}
+                        {JSON.stringify(event.data, null, 1).length > 200 ? '...' : ''}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                    No events yet. Try refreshing the wallet or connecting to see events.
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button 
+                style={{ 
+                  padding: '0.5rem 1rem',
+                  background: hasRealCoins ? '#16a34a' : '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px'
+                }}
+                disabled={!hasRealCoins}
+              >
+                Test Button: {hasRealCoins ? 'ENABLED' : 'DISABLED'}
+              </button>
+              <span style={{ fontSize: '0.8rem', color: '#666' }}>
+                This test button should mirror the state of coin-dependent dialogs
+              </span>
+              <button 
+                onClick={() => setRecentEvents([])}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.75rem'
+                }}
+              >
+                Clear Events
+              </button>
+            </div>
+          </div>
+
           <div style={{ marginTop: '1rem', padding: '1rem', background: '#f0f8ff', borderRadius: '6px', border: '1px solid #0ea5e9' }}>
             <strong>💡 Tip:</strong> The ChiaWalletButton provides a complete wallet interface when clicked. 
             Use the individual dialog buttons below to test specific modals.
@@ -166,8 +368,9 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
           <p>Test each dialog type independently:</p>
           
           <div style={{ marginBottom: '1rem', padding: '1rem', background: '#dcfce7', borderRadius: '6px', border: '1px solid #16a34a' }}>
-            <strong>✅ FIXED:</strong> The "Make Offer" dialog now opens correctly when clicked from individual buttons! 
-            The infinite API call loop has been resolved by improving the GlobalDialogProvider initialization.
+            <strong>✅ LATEST IMPROVEMENTS:</strong> Now featuring real-time event-driven updates! 
+            The wallet emits events when coins are loaded/changed, eliminating polling and providing instant UI updates.
+            Dialogs are automatically enabled/disabled based on real-time wallet events. Check the debug panel below to see events in action!
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginTop: '1rem' }}>

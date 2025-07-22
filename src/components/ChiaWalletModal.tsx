@@ -487,7 +487,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       
       try {
         debugLog('Making API call to getUnspentHydratedCoins on first connection', { 
-          publicKey: publicKeyAddress.substring(0, 16) + '...',
+          publicKey: publicKeyAddress ? publicKeyAddress.substring(0, 16) + '...' : null,
           hasJwtToken: !!client.getJwtToken()
         });
 
@@ -892,7 +892,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     nftDetailsDialog.close();
   };
 
-  if (!isOpen) return null;
+ 
 
   return (
     <>
@@ -953,14 +953,15 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         />
 
       {/* Main Modal */}
-      <div 
-        className="modal-overlay" 
-        onClick={handleOverlayClick}
-        onKeyDown={handleKeyDown}
-        role="dialog" 
-        aria-modal="true" 
-        tabIndex={0}
-      >
+      {isOpen && (
+        <div 
+          className="modal-overlay" 
+          onClick={handleOverlayClick}
+          onKeyDown={handleKeyDown}
+          role="dialog" 
+          aria-modal="true" 
+          tabIndex={0}
+        >
         <div className="modal-content" role="document" tabIndex={0}>
           <div className="modal-header">
             <div className="wallet-info">
@@ -1347,6 +1348,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       <style>{`
         .modal-overlay {
