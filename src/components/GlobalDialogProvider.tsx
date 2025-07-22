@@ -102,6 +102,8 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
   // Configuration state
   const [config, setConfig] = useState<GlobalDialogConfig>(initialConfig);
   const clientRef = useRef<ChiaCloudWalletClient | null>(null);
+  const configRef = useRef(config);
+  const walletStateRef = useRef<any>(null);
 
   // Dialog states
   const [dialogStates, setDialogStates] = useState<DialogStates>({
@@ -125,28 +127,14 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     error: null as string | null
   });
 
-  // Initialize client when config changes
-  useEffect(() => {
-    const initializeClient = () => {
-      if (!clientRef.current || config.jwtToken !== clientRef.current.getJwtToken()) {
-        clientRef.current = config.client || new ChiaCloudWalletClient({
-          baseUrl: config.baseUrl,
-          jwtToken: config.jwtToken
-        });
-
-        if (config.jwtToken) {
-          clientRef.current.setJwtToken(config.jwtToken);
-        }
-      }
-    };
-
-    initializeClient();
-
-    // Auto-connect if enabled
-    if (config.autoConnect !== false && config.jwtToken) {
-      refreshWalletData();
-    }
+  // Update refs when state changes
+  React.useEffect(() => {
+    configRef.current = config;
   }, [config]);
+
+  React.useEffect(() => {
+    walletStateRef.current = walletState;
+  }, [walletState]);
 
   // Update configuration
   const updateConfig = useCallback((newConfig: Partial<GlobalDialogConfig>) => {
@@ -160,25 +148,37 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
 
   // Refresh wallet data
   const refreshWalletData = useCallback(async () => {
-    if (!clientRef.current) return;
+    if (!clientRef.current || walletStateRef.current.loading) {
+      console.log('GlobalDialogProvider: Skipping refreshWalletData - no client or already loading', {
+        hasClient: !!clientRef.current,
+        isLoading: walletStateRef.current.loading
+      });
+      return;
+    }
 
+    console.log('GlobalDialogProvider: Starting refreshWalletData');
     setWalletState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
       // Get public key if not provided
-      let publicKey = config.publicKey || walletState.publicKey;
-      let syntheticPublicKey = walletState.syntheticPublicKey;
+      let publicKey = configRef.current.publicKey || walletStateRef.current.publicKey;
+      let syntheticPublicKey = walletStateRef.current.syntheticPublicKey;
 
       if (!publicKey) {
+        console.log('GlobalDialogProvider: Fetching public key...');
         const publicKeyResult = await clientRef.current.getPublicKey();
         if (publicKeyResult.success) {
           publicKey = publicKeyResult.data.address;
           syntheticPublicKey = publicKeyResult.data.synthetic_public_key;
+          console.log('GlobalDialogProvider: Public key fetched successfully');
+        } else {
+          throw new Error('Failed to get public key');
         }
       }
 
       if (publicKey) {
         // Load hydrated coins
+        console.log('GlobalDialogProvider: Fetching hydrated coins...');
         const hydratedResult = await clientRef.current.getUnspentHydratedCoins(publicKey);
         if (hydratedResult.success) {
           const hydratedCoins = hydratedResult.data.data;
@@ -194,47 +194,192 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
             loading: false,
             error: null
           }));
+          console.log('GlobalDialogProvider: Wallet data refreshed successfully');
         }
       }
     } catch (error) {
+      console.error('GlobalDialogProvider: Error refreshing wallet data:', error);
       setWalletState(prev => ({
         ...prev,
         loading: false,
         error: error instanceof Error ? error.message : 'Failed to load wallet data'
       }));
     }
-  }, [config.publicKey, walletState.publicKey, walletState.syntheticPublicKey]);
+  }, []); // Empty dependency array to prevent infinite loops
+
+  // Initialize client when config changes - placed after refreshWalletData declaration
+  useEffect(() => {
+    const initializeClient = () => {
+      console.log('GlobalDialogProvider: Checking client initialization', {
+        hasClient: !!clientRef.current,
+        hasToken: !!config.jwtToken,
+        currentToken: clientRef.current?.getJwtToken(),
+        newToken: config.jwtToken
+      });
+
+      if (!config.jwtToken) {
+        console.log('GlobalDialogProvider: No JWT token, skipping client initialization');
+        return;
+      }
+
+      // Only create/update client if token changed or no client exists
+      if (!clientRef.current || config.jwtToken !== clientRef.current.getJwtToken()) {
+        console.log('GlobalDialogProvider: Initializing/updating client');
+        clientRef.current = config.client || new ChiaCloudWalletClient({
+          baseUrl: config.baseUrl,
+          jwtToken: config.jwtToken
+        });
+
+        if (config.jwtToken) {
+          clientRef.current.setJwtToken(config.jwtToken);
+        }
+
+        // Auto-connect if enabled and we have a token - only call once after delay
+        if (config.autoConnect !== false && config.jwtToken && !walletState.loading) {
+          console.log('GlobalDialogProvider: Auto-connecting wallet...');
+          setTimeout(() => {
+            refreshWalletData();
+          }, 100);
+        }
+      } else {
+        console.log('GlobalDialogProvider: Client already initialized with same token, skipping');
+      }
+    };
+
+    initializeClient();
+  }, [config.jwtToken, config.baseUrl, config.client]); // Remove autoConnect and other dependencies
+
+  // Debug dialog state changes
+  React.useEffect(() => {
+    console.log('GlobalDialogProvider: Dialog states changed', {
+      send: dialogStates.send.isOpen,
+      receive: dialogStates.receive.isOpen,
+      makeOffer: dialogStates.makeOffer.isOpen,
+      offers: dialogStates.offers.isOpen,
+      nftDetails: dialogStates.nftDetails.isOpen
+    });
+  }, [dialogStates]);
+
+  // Debug wallet state for modal rendering
+  React.useEffect(() => {
+    if (dialogStates.send.isOpen) {
+      console.log('GlobalDialogProvider: SendFundsModal should be open with props:', {
+        isOpen: dialogStates.send.isOpen,
+        hasClient: !!clientRef.current,
+        hasPublicKey: !!walletState.publicKey,
+        hasUnspentCoins: walletState.unspentCoins.length,
+        args: dialogStates.send.args
+      });
+    }
+  }, [dialogStates.send.isOpen, walletState]);
 
   // Dialog functions - these can be called from anywhere!
   const openSendDialog = useCallback((args?: SendDialogArgs) => {
-    setDialogStates(prev => ({
-      ...prev,
-      send: { isOpen: true, args }
-    }));
-  }, []);
+    console.log('GlobalDialogProvider: openSendDialog called', {
+      args,
+      hasClient: !!clientRef.current,
+      hasToken: !!configRef.current.jwtToken,
+      publicKey: walletStateRef.current?.publicKey,
+      isLoading: walletStateRef.current?.loading
+    });
+
+    // Ensure client exists and is initialized
+    if (!clientRef.current && configRef.current.jwtToken) {
+      console.log('GlobalDialogProvider: Initializing client in openSendDialog');
+      clientRef.current = new ChiaCloudWalletClient({
+        baseUrl: configRef.current.baseUrl,
+        jwtToken: configRef.current.jwtToken
+      });
+      // Trigger wallet data refresh if we don't have it yet
+      if (!walletStateRef.current?.publicKey) {
+        console.log('GlobalDialogProvider: Triggering wallet refresh from openSendDialog');
+        setTimeout(() => refreshWalletData(), 100);
+      }
+    }
+    
+    setDialogStates(prev => {
+      const newState = {
+        ...prev,
+        send: { isOpen: true, args }
+      };
+      console.log('GlobalDialogProvider: Setting send dialog state', newState.send);
+      return newState;
+    });
+  }, [refreshWalletData]);
 
   const openReceiveDialog = useCallback((args?: ReceiveDialogArgs) => {
+    console.log('GlobalDialogProvider: openReceiveDialog called', {
+      args,
+      hasClient: !!clientRef.current,
+      publicKey: walletStateRef.current?.publicKey
+    });
+
+    // Ensure client exists
+    if (!clientRef.current && configRef.current.jwtToken) {
+      console.log('GlobalDialogProvider: Initializing client in openReceiveDialog');
+      clientRef.current = new ChiaCloudWalletClient({
+        baseUrl: configRef.current.baseUrl,
+        jwtToken: configRef.current.jwtToken
+      });
+      if (!walletStateRef.current?.publicKey) {
+        setTimeout(() => refreshWalletData(), 100);
+      }
+    }
+    
     setDialogStates(prev => ({
       ...prev,
       receive: { isOpen: true, args }
     }));
-  }, []);
+  }, [refreshWalletData]);
 
   const openMakeOfferDialog = useCallback((args?: MakeOfferDialogArgs) => {
+    console.log('GlobalDialogProvider: openMakeOfferDialog called', {
+      args,
+      hasClient: !!clientRef.current,
+      publicKey: walletStateRef.current?.publicKey
+    });
+
+    // Ensure client exists
+    if (!clientRef.current && configRef.current.jwtToken) {
+      console.log('GlobalDialogProvider: Initializing client in openMakeOfferDialog');
+      clientRef.current = new ChiaCloudWalletClient({
+        baseUrl: configRef.current.baseUrl,
+        jwtToken: configRef.current.jwtToken
+      });
+      if (!walletStateRef.current?.publicKey) {
+        setTimeout(() => refreshWalletData(), 100);
+      }
+    }
+    
     setDialogStates(prev => ({
       ...prev,
       makeOffer: { isOpen: true, args }
     }));
-  }, []);
+  }, [refreshWalletData]);
 
   const openOffersDialog = useCallback((args?: OffersDialogArgs) => {
+    console.log('GlobalDialogProvider: openOffersDialog called');
+
+    // Ensure client exists
+    if (!clientRef.current && configRef.current.jwtToken) {
+      clientRef.current = new ChiaCloudWalletClient({
+        baseUrl: configRef.current.baseUrl,
+        jwtToken: configRef.current.jwtToken
+      });
+      if (!walletStateRef.current?.publicKey) {
+        setTimeout(() => refreshWalletData(), 100);
+      }
+    }
+    
     setDialogStates(prev => ({
       ...prev,
       offers: { isOpen: true, args }
     }));
-  }, []);
+  }, [refreshWalletData]);
 
   const openNFTDetailsDialog = useCallback((args: NFTDetailsDialogArgs) => {
+    console.log('GlobalDialogProvider: openNFTDetailsDialog called');
+
     setDialogStates(prev => ({
       ...prev,
       nftDetails: { isOpen: true, args }

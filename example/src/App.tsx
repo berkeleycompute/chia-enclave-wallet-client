@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { GlobalDialogProvider } from 'chia-enclave-wallet-client'
+import React, { useState, useMemo } from 'react'
+import { GlobalDialogProvider, useGlobalDialogs } from 'chia-enclave-wallet-client'
 import JwtTokenInput from './components/JwtTokenInput'
 import WalletExample from './examples/WalletExample' 
 import './App.css'
@@ -9,15 +9,14 @@ import DialogExample from './examples/DialogExample'
 
 type ExampleTab = 'wallet' | 'transactions' | 'client' | 'dialogs'
 
-function App() {
+function AppContent() {
   const [jwtToken, setJwtToken] = useState<string>('')
   const [activeTab, setActiveTab] = useState<ExampleTab>('wallet')
 
   const isTokenValid = jwtToken.trim().length > 0
 
   return (
-    <GlobalDialogProvider>
-      <div className="app">
+    <div className="app">
         <header className="app-header">
           <h1>🌾 Chia Wallet Client Examples</h1>
           <p>Test and explore all hooks and functionality</p>
@@ -101,6 +100,19 @@ function App() {
           <p>Made with ❤️ for Chia Blockchain development</p>
         </footer>
       </div>
+  )
+}
+
+function App() {
+  // Use useMemo to prevent recreating initialConfig on every render
+  const initialConfig = useMemo(() => ({
+    jwtToken: undefined, 
+    autoConnect: false 
+  }), []);
+
+  return (
+    <GlobalDialogProvider initialConfig={initialConfig}>
+      <AppContent />
     </GlobalDialogProvider>
   )
 }

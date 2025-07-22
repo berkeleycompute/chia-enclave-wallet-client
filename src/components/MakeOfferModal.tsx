@@ -297,17 +297,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   };
 
   if (!isOpen) {
-    console.log('MakeOfferModal not rendering - isOpen is false', { isOpen, syntheticPublicKey, nftCount: nftCoins.length });
     return null;
   }
-
-  console.log('MakeOfferModal rendering!', { 
-    isOpen, 
-    hasClient: !!client, 
-    syntheticPublicKey: syntheticPublicKey?.substring(0, 10) + '...', 
-    nftCount: nftCoins.length, 
-    step 
-  });
 
   return (
     <div className="modal-overlay make-offer-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>

@@ -32,6 +32,28 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Debug props
+  React.useEffect(() => {
+    console.log('SendFundsModal: Props received', {
+      isOpen,
+      hasClient: !!client,
+      publicKey: publicKey ? `${publicKey.slice(0, 8)}...` : null,
+      unspentCoinsCount: unspentCoins.length,
+      initialRecipientAddress,
+      initialAmount,
+      initialFee
+    });
+  }, [isOpen, client, publicKey, unspentCoins, initialRecipientAddress, initialAmount, initialFee]);
+
+  // Debug rendering
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log('SendFundsModal: Should be rendering (isOpen = true)');
+    } else {
+      console.log('SendFundsModal: Should not render (isOpen = false)');
+    }
+  }, [isOpen]);
+
   // Update state when initial values change (when modal is opened with new arguments)
   React.useEffect(() => {
     if (isOpen) {
