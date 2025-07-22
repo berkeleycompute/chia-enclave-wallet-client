@@ -896,11 +896,34 @@ details[open] summary {
   background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%);
 }
 
-.optimization-info p {
+.optimization-info > p {
   margin: 0 0 1rem 0;
   color: var(--text-primary);
   font-size: 0.95rem;
   line-height: 1.5;
+  font-weight: 500;
+}
+
+.optimization-details {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-left: 3px solid #00bcd4;
+}
+
+.optimization-details p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.optimization-details p strong {
+  font-weight: 600;
+  color: #00bcd4;
 }
 
 .refresh-shared-btn {

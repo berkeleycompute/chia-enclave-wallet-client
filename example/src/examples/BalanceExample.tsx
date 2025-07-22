@@ -1,13 +1,15 @@
 import React, { useState } from 'react'
 import { 
-  useBalance, 
-  useXCHBalance, 
-  useCATBalance, 
-  useTotalBalance,
   useChiaUtils,
   type BalanceBreakdown 
 } from '../../../src'
 import { useSharedClient } from '../components/SharedClientProvider'
+import { 
+  useOptimizedBalance, 
+  useOptimizedXCHBalance, 
+  useOptimizedCATBalance, 
+  useOptimizedTotalBalance 
+} from '../components/OptimizedBalanceHooks'
 
 interface BalanceExampleProps {
   jwtToken: string
@@ -19,8 +21,9 @@ const BalanceExample: React.FC<BalanceExampleProps> = ({ jwtToken }) => {
   
   // Use the shared client for optimized performance
   const sharedClient = useSharedClient()
+  const { sharedData } = sharedClient
 
-  // Main balance hook with full breakdown
+  // Optimized balance hooks using shared cached data (no redundant API calls!)
   const {
     balance,
     loading,
@@ -30,32 +33,12 @@ const BalanceExample: React.FC<BalanceExampleProps> = ({ jwtToken }) => {
     reset,
     formatBalance,
     isStale
-  } = useBalance({
-    jwtToken,
-    client: sharedClient.client || undefined, // Pass the shared client (convert null to undefined)
-    publicKey: sharedClient.publicKey || undefined, // Pass the cached public key
-    autoRefresh,
-    refreshInterval,
-    baseUrl: undefined, // Use default
-    enableLogging: true
-  })
+  } = useOptimizedBalance()
 
-  // Specialized balance hooks
-  const xchBalance = useXCHBalance({ 
-    jwtToken, 
-    client: sharedClient.client || undefined,
-    publicKey: sharedClient.publicKey || undefined 
-  })
-  const catBalance = useCATBalance({ 
-    jwtToken, 
-    client: sharedClient.client || undefined,
-    publicKey: sharedClient.publicKey || undefined 
-  })
-  const totalBalance = useTotalBalance({ 
-    jwtToken, 
-    client: sharedClient.client || undefined,
-    publicKey: sharedClient.publicKey || undefined 
-  })
+  // Specialized optimized balance hooks (all using shared data)
+  const xchBalance = useOptimizedXCHBalance()
+  const catBalance = useOptimizedCATBalance()
+  const totalBalance = useOptimizedTotalBalance()
 
   // Utility functions
   const { formatXCH } = useChiaUtils()
@@ -94,10 +77,19 @@ const BalanceExample: React.FC<BalanceExampleProps> = ({ jwtToken }) => {
             <span className="status-icon">🔄</span>
             <span>Last Shared Refresh: {sharedClient.lastRefresh > 0 ? formatTimestamp(sharedClient.lastRefresh) : 'Never'}</span>
           </div>
+          <div className="status-item">
+            <span className="status-icon">🎯</span>
+            <span>API Calls Saved: {sharedData.hydratedCoins.length > 0 ? '3+ calls per refresh' : 'Ready to optimize'}</span>
+          </div>
         </div>
         
         <div className="optimization-info">
-          <p>🚀 <strong>Performance Optimization:</strong> This example uses a shared client instance and cached public key, reducing redundant API calls across tabs.</p>
+          <p>🚀 <strong>Performance Optimization:</strong> This example uses cached data from the SharedClientProvider. All balance hooks share the same data without making redundant API calls!</p>
+          <div className="optimization-details">
+            <p>✅ <strong>Zero Redundant API Calls:</strong> All balance hooks use cached data</p>
+            <p>⚡ <strong>Instant Updates:</strong> Data shared across all tabs</p>
+            <p>🎯 <strong>Single Source of Truth:</strong> One API call serves all balance hooks</p>
+          </div>
           <button onClick={sharedClient.refreshData} className="refresh-shared-btn">
             🔄 Trigger Shared Refresh
           </button>
@@ -261,42 +253,37 @@ const BalanceExample: React.FC<BalanceExampleProps> = ({ jwtToken }) => {
       <div className="example-section">
         <h3>💻 Hook Usage Examples</h3>
         <div className="code-examples">
-          <h4>Basic Usage with Shared Client:</h4>
-          <pre className="code-block">{`// Using shared client for performance optimization
-import { useSharedClient } from './SharedClientProvider'
+          <h4>Optimized Usage with Cached Data (ZERO API Calls):</h4>
+          <pre className="code-block">{`// Import optimized hooks that use cached data
+import { 
+  useOptimizedBalance, 
+  useOptimizedXCHBalance,
+  useOptimizedCATBalance 
+} from './OptimizedBalanceHooks'
 
-const sharedClient = useSharedClient()
+// These hooks use cached data - no API calls!
+const { balance, loading, refresh } = useOptimizedBalance()
+const { balance: xchBalance } = useOptimizedXCHBalance() 
+const { balance: catBalance } = useOptimizedCATBalance()
 
-// Pass shared client and cached public key to hooks
-const { balance, loading, refresh } = useBalance({
-  jwtToken: 'your-jwt-token',
-  client: sharedClient.client,
-  publicKey: sharedClient.publicKey,
-  autoRefresh: true,
-  refreshInterval: 60000
-});
+// All data comes from SharedClientProvider cache
+// Only ONE API call is made, shared across ALL hooks!`}</pre>
 
-// All hooks can share the same client instance
-const { balance: xchBalance } = useXCHBalance({
-  jwtToken: 'your-jwt-token',
-  client: sharedClient.client,
-  publicKey: sharedClient.publicKey
-});`}</pre>
+          <h4>Traditional Usage (MULTIPLE API CALLS - Not Recommended):</h4>
+          <pre className="code-block">{`// ❌ BAD: Each hook makes its own API calls
+const balanceHook = useBalance({ jwtToken: token });
+const xchHook = useXCHBalance({ jwtToken: token }); 
+const catHook = useCATBalance({ jwtToken: token });
 
-          <h4>Traditional Usage (without shared client):</h4>
-          <pre className="code-block">{`// Each hook creates its own client - less efficient
-const balanceHook = useBalance({
-  jwtToken: token,
-  autoRefresh: true,
-  refreshInterval: 30000,
-  baseUrl: 'https://custom-api.com',
-  enableLogging: true
-});
+// This creates 3+ separate API calls to getUnspentHydratedCoins!
+// Network tab will show redundant requests
 
-// Check if data is stale
-if (balanceHook.isStale()) {
-  balanceHook.refresh();
-}`}</pre>
+// ✅ GOOD: Use optimized hooks instead
+const balanceHook = useOptimizedBalance();
+const xchHook = useOptimizedXCHBalance(); 
+const catHook = useOptimizedCATBalance();
+
+// This makes only 1 API call, shared across all hooks!`}</pre>
         </div>
       </div>
     </div>

@@ -134,12 +134,12 @@ function DialogExample({ jwtToken }: DialogExampleProps) {
         throw new Error(pkResponse.error);
       }
 
-      const publicKey = pkResponse.data.address;
-      console.log('✅ Direct Fetch: Public key obtained:', publicKey.substring(0, 16) + '...');
+      const address = pkResponse.data.address;
+      console.log('✅ Direct Fetch: Address obtained:', address.substring(0, 16) + '...');
 
       // Get hydrated coins
       console.log('💰 Direct Fetch: Getting hydrated coins...');
-      const hydratedResult = await wallet.client.getUnspentHydratedCoins(publicKey);
+      const hydratedResult = await wallet.client.getUnspentHydratedCoins(address);
       if (!hydratedResult.success) {
         throw new Error(hydratedResult.error);
       }
