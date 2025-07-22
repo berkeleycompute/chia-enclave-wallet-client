@@ -11,7 +11,7 @@ export interface GlobalDialogConfig {
   client?: ChiaCloudWalletClient;
   jwtToken?: string;
   baseUrl?: string;
-  publicKey?: string;
+  address?: string;
   autoConnect?: boolean;
 }
 
@@ -117,7 +117,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
   // Wallet state
   const [walletState, setWalletState] = useState({
     isConnected: false,
-    publicKey: null as string | null,
+    address: null as string | null,
     syntheticPublicKey: null as string | null,
     hydratedCoins: [] as HydratedCoin[],
     unspentCoins: [] as any[],
@@ -161,14 +161,15 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
 
     try {
       // Get public key if not provided
-      let publicKey = configRef.current.publicKey || walletStateRef.current.publicKey;
+      let address = configRef.current.address || walletStateRef.current.address;
+
       let syntheticPublicKey = walletStateRef.current.syntheticPublicKey;
 
-      if (!publicKey) {
+      if (!address) {
         console.log('GlobalDialogProvider: Fetching public key...');
         const publicKeyResult = await clientRef.current.getPublicKey();
         if (publicKeyResult.success) {
-          publicKey = publicKeyResult.data.address;
+          address = publicKeyResult.data.address;
           syntheticPublicKey = publicKeyResult.data.synthetic_public_key;
           console.log('GlobalDialogProvider: Public key fetched successfully');
         } else {
@@ -176,10 +177,10 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         }
       }
 
-      if (publicKey) {
+      if (address) {
         // Load hydrated coins
         console.log('GlobalDialogProvider: Fetching hydrated coins...');
-        const hydratedResult = await clientRef.current.getUnspentHydratedCoins(publicKey);
+        const hydratedResult = await clientRef.current.getUnspentHydratedCoins(address);
         if (hydratedResult.success) {
           const hydratedCoins = hydratedResult.data.data;
           const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
@@ -187,7 +188,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
           setWalletState(prev => ({
             ...prev,
             isConnected: true,
-            publicKey,
+            address,
             syntheticPublicKey,
             hydratedCoins,
             unspentCoins,
@@ -266,7 +267,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       console.log('GlobalDialogProvider: SendFundsModal should be open with props:', {
         isOpen: dialogStates.send.isOpen,
         hasClient: !!clientRef.current,
-        hasPublicKey: !!walletState.publicKey,
+        hasPublicKey: !!walletState.address,
         hasUnspentCoins: walletState.unspentCoins.length,
         args: dialogStates.send.args
       });
@@ -279,7 +280,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       args,
       hasClient: !!clientRef.current,
       hasToken: !!configRef.current.jwtToken,
-      publicKey: walletStateRef.current?.publicKey,
+      publicKey: walletStateRef.current?.address,
       isLoading: walletStateRef.current?.loading
     });
 
@@ -291,7 +292,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         jwtToken: configRef.current.jwtToken
       });
       // Trigger wallet data refresh if we don't have it yet
-      if (!walletStateRef.current?.publicKey) {
+      if (!walletStateRef.current?.address) {
         console.log('GlobalDialogProvider: Triggering wallet refresh from openSendDialog');
         setTimeout(() => refreshWalletData(), 100);
       }
@@ -311,7 +312,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     console.log('GlobalDialogProvider: openReceiveDialog called', {
       args,
       hasClient: !!clientRef.current,
-      publicKey: walletStateRef.current?.publicKey
+      publicKey: walletStateRef.current?.address
     });
 
     // Ensure client exists
@@ -321,7 +322,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         baseUrl: configRef.current.baseUrl,
         jwtToken: configRef.current.jwtToken
       });
-      if (!walletStateRef.current?.publicKey) {
+      if (!walletStateRef.current?.address) {
         setTimeout(() => refreshWalletData(), 100);
       }
     }
@@ -336,7 +337,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     console.log('GlobalDialogProvider: openMakeOfferDialog called', {
       args,
       hasClient: !!clientRef.current,
-      publicKey: walletStateRef.current?.publicKey
+      publicKey: walletStateRef.current?.address
     });
 
     // Ensure client exists
@@ -346,7 +347,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         baseUrl: configRef.current.baseUrl,
         jwtToken: configRef.current.jwtToken
       });
-      if (!walletStateRef.current?.publicKey) {
+      if (!walletStateRef.current?.address) {
         setTimeout(() => refreshWalletData(), 100);
       }
     }
@@ -366,7 +367,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         baseUrl: configRef.current.baseUrl,
         jwtToken: configRef.current.jwtToken
       });
-      if (!walletStateRef.current?.publicKey) {
+      if (!walletStateRef.current?.address) {
         setTimeout(() => refreshWalletData(), 100);
       }
     }
@@ -430,7 +431,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
 
     // Wallet state
     isConnected: walletState.isConnected,
-    publicKey: walletState.publicKey,
+    address: walletState.address,
     syntheticPublicKey: walletState.syntheticPublicKey,
     hydratedCoins: walletState.hydratedCoins,
     unspentCoins: walletState.unspentCoins,
@@ -480,7 +481,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         isOpen={dialogStates.makeOffer.isOpen}
         onClose={() => closeDialog('makeOffer')}
         client={clientRef.current}
-        publicKey={walletState.publicKey}
+        address={walletState.address}
         syntheticPublicKey={walletState.syntheticPublicKey}
         hydratedCoins={walletState.hydratedCoins}
         nftMetadata={walletState.nftMetadata}
@@ -497,7 +498,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       <ActiveOffersModal
         isOpen={dialogStates.offers.isOpen}
         onClose={() => closeDialog('offers')}
-        publicKey={walletState.publicKey}
+        address={walletState.address}
         nftMetadata={walletState.nftMetadata}
         loadingMetadata={walletState.loadingMetadata}
         onOfferUpdate={handleOfferUpdate}

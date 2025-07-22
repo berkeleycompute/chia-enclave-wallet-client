@@ -7,7 +7,7 @@ export interface ChiaWalletState {
   isConnected: boolean;
   isConnecting: boolean;
   jwtToken: string | null;
-  publicKey: string | null;
+  address: string | null;
   syntheticPublicKey: string | null;
   
   // Balance & Coins
@@ -93,7 +93,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     isConnected: false,
     isConnecting: false,
     jwtToken: initialJwtToken || null,
-    publicKey: null,
+    address: null,
     syntheticPublicKey: null,
     balance: 0,
     coinCount: 0,
@@ -114,12 +114,12 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
 
   // Refresh all data
   const refresh = useCallback(async (): Promise<boolean> => {
-    if (!state.isConnected || !state.publicKey) return false;
+    if (!state.isConnected || !state.address) return false;
 
     updateState({ loading: true, error: null, balanceError: null });
 
     try {
-      const coinsResult = await client.getUnspentHydratedCoins(state.publicKey);
+      const coinsResult = await client.getUnspentHydratedCoins(state.address);
       if (!coinsResult.success) {
         throw new Error(coinsResult.error);
       }
@@ -146,16 +146,16 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
       });
       return false;
     }
-  }, [state.isConnected, state.publicKey, client, updateState]);
+  }, [state.isConnected, state.address, client, updateState]);
 
   // Refresh just balance/coins
   const refreshBalance = useCallback(async (): Promise<boolean> => {
-    if (!state.isConnected || !state.publicKey) return false;
+    if (!state.isConnected || !state.address) return false;
 
     updateState({ balanceLoading: true, balanceError: null });
 
     try {
-      const coinsResult = await client.getUnspentHydratedCoins(state.publicKey);
+      const coinsResult = await client.getUnspentHydratedCoins(state.address);
       if (!coinsResult.success) {
         throw new Error(coinsResult.error);
       }
@@ -182,7 +182,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
       });
       return false;
     }
-  }, [state.isConnected, state.publicKey, client, updateState]);
+  }, [state.isConnected, state.address, client, updateState]);
 
   // Disconnect wallet
   const disconnect = useCallback(() => {
@@ -195,7 +195,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     updateState({
       isConnected: false,
       isConnecting: false,
-      publicKey: null,
+      address: null,
       syntheticPublicKey: null,
       balance: 0,
       coinCount: 0,
@@ -219,17 +219,17 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     updateState({ isConnecting: true, error: null });
 
     try {
-      // Get public key
+      // Get wallet address
       const pkResult = await client.getPublicKey();
       if (!pkResult.success) {
         throw new Error(pkResult.error);
       }
 
-      const publicKey = pkResult.data.address;
+      const address = pkResult.data.address;
       const syntheticPublicKey = pkResult.data.synthetic_public_key;
 
       // Get initial coin data
-      const coinsResult = await client.getUnspentHydratedCoins(publicKey);
+      const coinsResult = await client.getUnspentHydratedCoins(address);
       let hydratedCoins: HydratedCoin[] = [];
       let unspentCoins: Coin[] = [];
       let balance = 0;
@@ -243,7 +243,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
       updateState({
         isConnected: true,
         isConnecting: false,
-        publicKey,
+        address: address,
         syntheticPublicKey,
         hydratedCoins,
         unspentCoins,
@@ -271,7 +271,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
       });
       return false;
     }
-  }, [state.jwtToken, config.autoRefresh, config.refreshInterval, client, updateState, refresh]);
+  }, [state.jwtToken, config.autoRefresh, config.refreshInterval, client, updateState]);
 
   // Set JWT token
   const setJwtToken = useCallback((token: string | null) => {
@@ -284,7 +284,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     } else {
       disconnect();
     }
-  }, [config.autoConnect, client, connect, disconnect, updateState]);
+  }, [config.autoConnect, client, updateState]);
 
   // Refresh coins (alias for refreshBalance)
   const refreshCoins = refreshBalance;
@@ -297,7 +297,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
       error: null,
       balanceError: null
     });
-  }, [disconnect, updateState]);
+  }, [updateState]);
 
   // Actions object
   const actions: ChiaWalletActions = {
@@ -360,4 +360,7 @@ export const useChiaWalletState = (): ChiaWalletState => {
 export const useChiaWalletActions = (): ChiaWalletActions => {
   const { actions } = useChiaWalletContext();
   return actions;
-}; 
+};
+
+// Ensure this file is treated as a module
+export {}; 

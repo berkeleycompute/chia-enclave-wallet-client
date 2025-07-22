@@ -83,7 +83,7 @@ export interface ChiaWalletSDKConfig extends ChiaCloudWalletConfig {
  * This is the main client that should be passed around to components and hooks
  */
 export class ChiaWalletSDK {
-  private client: ChiaCloudWalletClient;
+  public client: ChiaCloudWalletClient;
   private config: ChiaWalletSDKConfig;
   private eventListeners: Map<WalletEventType, Set<EventListener>> = new Map();
   private refreshInterval: number | null = null;
@@ -213,7 +213,7 @@ export class ChiaWalletSDK {
       if (changedFields.includes('isConnected')) {
         this.emit('connectionChanged', { 
           isConnected: this.state.isConnected,
-          publicKey: this.state.publicKey 
+          address: this.state.address 
         });
       }
       
@@ -233,9 +233,8 @@ export class ChiaWalletSDK {
         });
       }
       
-      if (changedFields.includes('publicKey') || changedFields.includes('address')) {
+      if (changedFields.includes('address')) {
         this.emit('walletInfoChanged', {
-          publicKey: this.state.publicKey,
           address: this.state.address,
           email: this.state.email
         });
@@ -299,7 +298,7 @@ export class ChiaWalletSDK {
         userId: walletInfoResult.data.user_id,
         loading: { ...this.state.loading, connection: false },
         lastUpdate: { ...this.state.lastUpdate, walletInfo: Date.now() }
-      }, ['isConnected', 'publicKey', 'address']);
+      }, ['isConnected', 'address']);
 
       // Load initial balance and coins
       await this.refreshBalance();
@@ -350,7 +349,7 @@ export class ChiaWalletSDK {
    * Refresh balance and coins
    */
   async refreshBalance(): Promise<boolean> {
-    if (!this.state.publicKey) {
+    if (!this.state.address) {
       return false;
     }
 
@@ -360,7 +359,7 @@ export class ChiaWalletSDK {
     });
 
     try {
-      const result = await this.client.getWalletBalanceEnhanced(this.state.publicKey);
+      const result = await this.client.getWalletBalanceEnhanced(this.state.address);
       
       if (!result.success) {
         throw new Error(result.error);

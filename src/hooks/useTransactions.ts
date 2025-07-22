@@ -41,7 +41,7 @@ export interface UseTransactionHistoryConfig {
 export interface UseSendXCHConfig {
   jwtToken?: string | null;
   client?: ChiaCloudWalletClient;
-  publicKey?: string | null;
+  address?: string | null;
   unspentCoins?: Coin[];
   baseUrl?: string;
   enableLogging?: boolean;
@@ -270,7 +270,7 @@ export function useSendXCH(config: UseSendXCHConfig = {}): UseSendXCHResult {
   const {
     jwtToken,
     client: externalClient,
-    publicKey: externalPublicKey,
+    address: externalAddress,
     unspentCoins: externalCoins,
     baseUrl,
     enableLogging = true,

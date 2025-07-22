@@ -13,7 +13,7 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": false,
+    "emitDeclarationOnly": true,
     "jsx": "react-jsx",
     "declaration": true,
     "declarationMap": true,
@@ -21,6 +21,7 @@
     "rootDir": "./src",
     "removeComments": false,
     "sourceMap": true,
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src/**/*"

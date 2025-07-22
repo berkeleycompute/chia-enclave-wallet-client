@@ -25,9 +25,9 @@ export interface WalletState {
   jwtToken: string | null;
   
   // Wallet data
-  publicKey: string | null; // The address
+  address: string | null; // The wallet address
   publicKeyData: PublicKeyResponse | null; // Full public key response
-  syntheticPublicKey: string | null; // Easy access to synthetic public key
+  syntheticPublicKey: string | null; // Only used for offers
   
   // Balance and coins
   balance: number;
@@ -38,222 +38,210 @@ export interface WalletState {
   // Loading states
   balanceLoading: boolean;
   
-  // Errors
-  error: string | null;
+  // Error states
+  connectionError: string | null;
   balanceError: string | null;
   
-  // Metadata
-  lastSuccessfulRefresh: number;
+  // Timestamps
+  lastBalanceUpdate: number;
+  lastConnectionUpdate: number;
 }
 
 export interface UseChiaWalletResult extends WalletState {
-  // Client instance
+  // Client instance (for backward compatibility)
   client: ChiaCloudWalletClient;
   
-  // Actions
-  setJwtToken: (token: string | null) => void;
-  connectWallet: () => Promise<void>;
-  disconnectWallet: () => void;
-  refreshWallet: () => Promise<void>;
+  // Connection actions
+  connect: (jwtToken: string) => Promise<boolean>;
+  disconnect: () => void;
+  
+  // Data refresh actions
+  refreshBalance: () => Promise<boolean>;
+  refreshHydratedCoins: () => Promise<boolean>;
+  
+  // Utilities
+  formatBalance: (balance: number) => string;
   
   // Event system
-  addEventListener: (listener: WalletEventListener) => () => void;
+  addEventListener: (listener: WalletEventListener) => void;
   removeEventListener: (listener: WalletEventListener) => void;
-  
-  // Utility functions
-  formatBalance: (balance: number) => string;
-  formatAddress: (address: string) => string;
+  emitEvent: (event: WalletEvent) => void;
 }
 
-const STORAGE_KEY = 'chia_wallet_state';
-const BACKGROUND_UPDATE_INTERVAL = 60000; // 1 minute
+// Event listeners storage
+const eventListeners = new Set<WalletEventListener>();
 
 export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletResult {
   const clientRef = useRef<ChiaCloudWalletClient | null>(null);
-  const backgroundUpdateRef = useRef<number | null>(null);
-  const eventListenersRef = useRef<Set<WalletEventListener>>(new Set());
-  
+  const eventsRef = useRef<WalletEventListener[]>([]);
+
   // Initialize client
   if (!clientRef.current) {
     clientRef.current = new ChiaCloudWalletClient({
       baseUrl: config.baseUrl,
-      enableLogging: config.enableLogging,
+      enableLogging: config.enableLogging
     });
   }
-  
-  const client = clientRef.current;
-  
-  // Event emitter functions
-  const emitEvent = useCallback((type: WalletEvent['type'], data?: any) => {
+
+  // Load persisted state from localStorage
+  const getInitialState = (): WalletState => {
+    try {
+      const saved = localStorage.getItem('chiaWallet');
+      if (saved) {
+        const parsedState = JSON.parse(saved);
+        if (parsedState.jwtToken) {
+          // Restore some basic state but don't assume connection
+          return {
+            isConnected: false, // Always start disconnected, let connect() handle it
+            isConnecting: false,
+            jwtToken: parsedState.jwtToken,
+            
+            // Restore data if present
+            address: parsedState.address || null,
+            publicKeyData: parsedState.publicKeyData || null,
+            syntheticPublicKey: parsedState.syntheticPublicKey || null,
+            
+            balance: parsedState.balance || 0,
+            coinCount: parsedState.coinCount || 0,
+            unspentCoins: parsedState.unspentCoins || [],
+            hydratedCoins: parsedState.hydratedCoins || [],
+            
+            balanceLoading: false,
+            connectionError: null,
+            balanceError: null,
+            lastBalanceUpdate: parsedState.lastBalanceUpdate || 0,
+            lastConnectionUpdate: parsedState.lastConnectionUpdate || 0
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load wallet state from localStorage:', error);
+      localStorage.removeItem('chiaWallet'); // Clean up corrupted state
+    }
+
+    return {
+      isConnected: false,
+      isConnecting: false,
+      jwtToken: null,
+      address: null,
+      publicKeyData: null,
+      syntheticPublicKey: null,
+      balance: 0,
+      coinCount: 0,
+      unspentCoins: [],
+      hydratedCoins: [],
+      balanceLoading: false,
+      connectionError: null,
+      balanceError: null,
+      lastBalanceUpdate: 0,
+      lastConnectionUpdate: 0
+    };
+  };
+
+  const [state, setState] = useState<WalletState>(getInitialState);
+
+  // Persist state to localStorage
+  useEffect(() => {
+    try {
+      const stateToPersist = {
+        jwtToken: state.jwtToken,
+        address: state.address || null,
+        publicKeyData: state.publicKeyData || null,
+        syntheticPublicKey: state.syntheticPublicKey || null,
+        balance: state.balance,
+        coinCount: state.coinCount,
+        unspentCoins: state.unspentCoins,
+        hydratedCoins: state.hydratedCoins,
+        lastBalanceUpdate: state.lastBalanceUpdate,
+        lastConnectionUpdate: state.lastConnectionUpdate
+      };
+      localStorage.setItem('chiaWallet', JSON.stringify(stateToPersist));
+    } catch (error) {
+      console.warn('Failed to save wallet state to localStorage:', error);
+    }
+  }, [state]);
+
+  // Auto-connect if we have a JWT token and autoConnect is enabled
+  useEffect(() => {
+    if (config.autoConnect !== false && state.jwtToken && !state.isConnected && !state.isConnecting) {
+      console.log('🔄 useChiaWallet: Auto-connecting with saved JWT token');
+      connectWallet(state.jwtToken);
+    }
+  }, [config.autoConnect, state.jwtToken, state.isConnected, state.isConnecting]);
+
+  // Auto-refresh balance periodically if connected
+  useEffect(() => {
+    if (state.isConnected && state.address && !state.balanceLoading) {
+      const shouldRefresh = Date.now() - state.lastBalanceUpdate > 30000; // 30 seconds
+      if (shouldRefresh) {
+        console.log('🔄 useChiaWallet: Auto-refreshing balance');
+        refreshBalance();
+      }
+    }
+  }, [state.isConnected, state.address, state.balanceLoading]);
+
+  // Emit events when relevant state changes
+  useEffect(() => {
     const event: WalletEvent = {
-      type,
-      data,
+      type: 'connectionChanged',
+      data: { 
+        isConnected: state.isConnected, 
+        address: state.address,
+        error: state.connectionError 
+      },
       timestamp: Date.now()
     };
-    
-    console.log('🎯 Wallet Event Emitted:', event);
-    
-    eventListenersRef.current.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in wallet event listener:', error);
-      }
-    });
-  }, []);
-  
-  // Wallet state
-  const [state, setState] = useState<WalletState>({
-    isConnected: false,
-    isConnecting: false,
-    jwtToken: null,
-    publicKey: null,
-    publicKeyData: null,
-    syntheticPublicKey: null,
-    balance: 0,
-    coinCount: 0,
-    unspentCoins: [],
-    hydratedCoins: [],
-    balanceLoading: false,
-    error: null,
-    balanceError: null,
-    lastSuccessfulRefresh: 0,
-  });
-  
-  // Load persisted state on mount
+    emitEvent(event);
+  }, [state.isConnected, state.address, state.connectionError]);
+
   useEffect(() => {
-    const loadPersistedState = () => {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsedState = JSON.parse(stored);
-          
-          // Validate that the stored state is not too old (24 hours)
-          const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-          if (Date.now() - parsedState.timestamp < maxAge) {
-            setState(prevState => ({
-              ...prevState,
-              isConnected: parsedState.isConnected || false,
-              jwtToken: parsedState.jwtToken || null,
-              publicKey: parsedState.publicKey || null,
-              publicKeyData: parsedState.publicKeyData || null,
-              syntheticPublicKey: parsedState.syntheticPublicKey || null,
-              balance: parsedState.balance ? parseInt(parsedState.balance) : 0,
-              coinCount: parsedState.coinCount || 0,
-              unspentCoins: parsedState.unspentCoins?.map((coin: any) => ({
-                ...coin,
-                amount: coin.amount.toString()
-              })) || [],
-              hydratedCoins: parsedState.hydratedCoins?.map((coin: any) => ({
-                ...coin,
-                coin: {
-                  ...coin.coin,
-                  amount: coin.coin.amount.toString()
-                }
-              })) || [],
-              lastSuccessfulRefresh: parsedState.lastSuccessfulRefresh || 0,
-            }));
-            
-            // Set JWT token on client if available
-            if (parsedState.jwtToken && client) {
-              client.setJwtToken(parsedState.jwtToken);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load persisted wallet state:', error);
-      }
+    const event: WalletEvent = {
+      type: 'balanceChanged',
+      data: { 
+        balance: state.balance, 
+        coinCount: state.coinCount,
+        error: state.balanceError 
+      },
+      timestamp: Date.now()
     };
+    emitEvent(event);
+  }, [state.balance, state.coinCount, state.balanceError]);
+
+  useEffect(() => {
+    const event: WalletEvent = {
+      type: 'hydratedCoinsChanged',
+      data: { hydratedCoins: state.hydratedCoins },
+      timestamp: Date.now()
+    };
+    emitEvent(event);
+  }, [state.hydratedCoins]);
+
+  // Connection function
+  const connectWallet = useCallback(async (jwtToken: string): Promise<boolean> => {
+    const client = clientRef.current;
+    if (!client) {
+      setState(prev => ({ ...prev, connectionError: 'Client not initialized' }));
+      return false;
+    }
+
+    setState(prev => ({ 
+      ...prev, 
+      isConnecting: true, 
+      connectionError: null,
+      jwtToken 
+    }));
     
-    loadPersistedState();
-  }, [client]);
-  
-  // Save state to localStorage whenever it changes
-  const saveState = useCallback((currentState: WalletState) => {
     try {
-      const stateToSave = {
-        ...currentState,
-        balance: currentState.balance.toString(), // Convert number to string
-        unspentCoins: currentState.unspentCoins.map(coin => ({
-          ...coin,
-          amount: coin.amount.toString()
-        })),
-        hydratedCoins: currentState.hydratedCoins.map(coin => ({
-          ...coin,
-          coin: {
-            ...coin.coin,
-            amount: coin.coin.amount.toString()
-          }
-        })),
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-    } catch (error) {
-      console.error('Failed to save wallet state:', error);
-    }
-  }, []);
-  
-  // Setup background updates when connected
-  useEffect(() => {
-    if (state.isConnected && state.publicKey && !state.balanceLoading) {
-      backgroundUpdateRef.current = window.setInterval(() => {
-        refreshWallet();
-      }, BACKGROUND_UPDATE_INTERVAL);
-    } else {
-      if (backgroundUpdateRef.current) {
-        clearInterval(backgroundUpdateRef.current);
-        backgroundUpdateRef.current = null;
-      }
-    }
-    
-    return () => {
-      if (backgroundUpdateRef.current) {
-        clearInterval(backgroundUpdateRef.current);
-        backgroundUpdateRef.current = null;
-      }
-    };
-  }, [state.isConnected, state.publicKey, state.balanceLoading]);
-  
-  // Set JWT token
-  const setJwtToken = useCallback((token: string | null) => {
-    setState(prevState => {
-      const newState = { ...prevState, jwtToken: token };
-      saveState(newState);
-      return newState;
-    });
-    
-    if (token && client) {
-      client.setJwtToken(token);
+      // Set JWT token
+      client.setJwtToken(jwtToken);
       
-      // Auto-connect if enabled
-      if (config.autoConnect !== false) {
-        connectWallet();
-      }
-    } else {
-      disconnectWallet();
-    }
-  }, [client, config.autoConnect]);
-  
-  // Connect wallet
-  const connectWallet = useCallback(async () => {
-    if (!client || !state.jwtToken) {
-      setState(prevState => ({
-        ...prevState,
-        error: 'JWT token is required for wallet connection'
-      }));
-      return;
-    }
-    
-    setState(prevState => ({ ...prevState, isConnecting: true, error: null, balanceLoading: true }));
-    
-    try {
       // Get public key first
       const pkResponse = await client.getPublicKey();
       if (!pkResponse.success) {
         throw new Error(pkResponse.error);
       }
       
-      const publicKey = pkResponse.data.address;
+      const address = pkResponse.data.address;
       
       // Immediately load hydrated coins on first connection
       let hydratedCoins: HydratedCoin[] = [];
@@ -263,7 +251,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       let balanceError: string | null = null;
       
       try {
-        const hydratedResult = await client.getUnspentHydratedCoins(publicKey);
+        const hydratedResult = await client.getUnspentHydratedCoins(address);
         if (hydratedResult.success) {
           hydratedCoins = hydratedResult.data.data;
           unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
@@ -286,93 +274,53 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
         console.warn('Error loading hydrated coins on first connection:', errorMessage);
         balanceError = errorMessage;
       }
-      
-      const newState: Partial<WalletState> = {
+
+      setState(prev => ({
+        ...prev,
         isConnected: true,
         isConnecting: false,
-        balanceLoading: false,
         publicKeyData: pkResponse.data,
-        publicKey: publicKey,
+        address: address,
         syntheticPublicKey: pkResponse.data.synthetic_public_key,
-        hydratedCoins,
-        unspentCoins,
         balance,
         coinCount,
-        lastSuccessfulRefresh: hydratedCoins.length > 0 ? Date.now() : 0,
-        error: null,
+        unspentCoins,
+        hydratedCoins,
         balanceError,
-      };
-      
-      setState(prevState => {
-        const updatedState = { ...prevState, ...newState };
-        saveState(updatedState);
-        
-        // Emit events for state changes
-        emitEvent('connectionChanged', { 
-          isConnected: true, 
-          publicKey,
-          balance,
-          coinCount 
-        });
-        
-        if (hydratedCoins.length > 0) {
-          emitEvent('hydratedCoinsChanged', { 
-            hydratedCoins, 
-            coinCount: hydratedCoins.length,
-            balance 
-          });
-        }
-        
-        if (balance > 0) {
-          // Calculate formatted balance inline since formatBalance isn't defined yet
-          const mojosToXchResult = ChiaCloudWalletClient.mojosToXCH(balance);
-          const formattedBalance = mojosToXchResult.success ? mojosToXchResult.data.toFixed(6) : '0';
-          
-          emitEvent('balanceChanged', { 
-            balance, 
-            coinCount,
-            formattedBalance
-          });
-        }
-        
-        return updatedState;
-      });
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
-      setState(prevState => ({
-        ...prevState,
-        isConnecting: false,
-        balanceLoading: false,
-        error: errorMessage,
-        isConnected: false,
-        publicKey: null,
-        publicKeyData: null,
-        syntheticPublicKey: null,
+        connectionError: null,
+        lastConnectionUpdate: Date.now(),
+        lastBalanceUpdate: Date.now()
       }));
-      
-      // Emit error event
-      emitEvent('errorOccurred', { 
-        error: errorMessage,
-        context: 'wallet_connection',
-        details: err
+
+      console.log('✅ useChiaWallet: Connected successfully', {
+        address,
+        balance,
+        coinCount
       });
+
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Connection failed';
+      setState(prev => ({
+        ...prev,
+        isConnecting: false,
+        isConnected: false,
+        connectionError: errorMessage,
+        lastConnectionUpdate: Date.now()
+      }));
+      console.error('❌ useChiaWallet: Connection failed:', errorMessage);
+      return false;
     }
-  }, [client, state.jwtToken]);
-  
-  // Disconnect wallet
-  const disconnectWallet = useCallback(() => {
-    // Clear background updates
-    if (backgroundUpdateRef.current) {
-      clearInterval(backgroundUpdateRef.current);
-      backgroundUpdateRef.current = null;
-    }
-    
-    const newState: WalletState = {
+  }, []);
+
+  // Disconnect function
+  const disconnect = useCallback(() => {
+    setState(prev => ({
+      ...prev,
       isConnected: false,
       isConnecting: false,
       jwtToken: null,
-      publicKey: null,
+      address: null,
       publicKeyData: null,
       syntheticPublicKey: null,
       balance: 0,
@@ -380,215 +328,195 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       unspentCoins: [],
       hydratedCoins: [],
       balanceLoading: false,
-      error: null,
+      connectionError: null,
       balanceError: null,
-      lastSuccessfulRefresh: 0,
-    };
+      lastConnectionUpdate: Date.now()
+    }));
     
-    setState(newState);
+    // Clear client token
+    if (clientRef.current) {
+      clientRef.current.setJwtToken('');
+    }
     
-    // Emit disconnection event
-    emitEvent('connectionChanged', { 
-      isConnected: false,
-      publicKey: null,
-      balance: 0,
-      coinCount: 0
-    });
-    
-    // Clear persisted state
+    // Clear localStorage
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('chiaWallet');
     } catch (error) {
-      console.error('Failed to clear wallet state:', error);
+      console.warn('Failed to clear wallet state from localStorage:', error);
     }
-    
-    // Reset client
-    if (client) {
-      client.setJwtToken(undefined as any);
-    }
-  }, [client]);
-  
-  // Refresh wallet data
-  const refreshWallet = useCallback(async () => {
-    if (!client || !state.publicKey) {
-      return;
-    }
-    
-    setState(prevState => ({ ...prevState, balanceLoading: true, balanceError: null }));
-    
-    try {
-      const hydratedResult = await client.getUnspentHydratedCoins(state.publicKey);
-      if (!hydratedResult.success) {
-        throw new Error(hydratedResult.error);
-      }
-      
-      // Extract simple coins from hydrated coins for backward compatibility
-      const coins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedResult.data.data);
-      let totalBalance = 0;
-      
-      // Calculate balance from coins
-      for (const coin of coins) {
-        try {
-          totalBalance += parseInt(coin.amount);
-        } catch (coinError) {
-          console.warn('Invalid coin amount:', coin.amount, coinError);
-          // Continue with other coins
-        }
-      }
-      
-      const newState: Partial<WalletState> = {
-        balance: totalBalance,
-        coinCount: coins.length,
-        hydratedCoins: hydratedResult.data.data,
-        unspentCoins: coins,
-        lastSuccessfulRefresh: Date.now(),
-        balanceLoading: false,
-        balanceError: null,
-      };
-      
-      setState(prevState => {
-        const updatedState = { ...prevState, ...newState };
-        saveState(updatedState);
-        
-        // Emit events for state changes during refresh
-        const coinsChanged = JSON.stringify(prevState.hydratedCoins) !== JSON.stringify(hydratedResult.data.data);
-        const balanceChanged = prevState.balance !== totalBalance;
-        
-        if (coinsChanged) {
-          emitEvent('hydratedCoinsChanged', { 
-            hydratedCoins: hydratedResult.data.data, 
-            coinCount: coins.length,
-            balance: totalBalance,
-            previousCoinCount: prevState.coinCount
-          });
-        }
-        
-        if (balanceChanged) {
-          const mojosToXchResult = ChiaCloudWalletClient.mojosToXCH(totalBalance);
-          const formattedBalance = mojosToXchResult.success ? mojosToXchResult.data.toFixed(6) : '0';
-          
-          emitEvent('balanceChanged', { 
-            balance: totalBalance, 
-            coinCount: coins.length,
-            formattedBalance,
-            previousBalance: prevState.balance
-          });
-        }
-        
-        return updatedState;
-      });
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load wallet balance';
-      setState(prevState => ({
-        ...prevState,
-        balanceLoading: false,
-        balanceError: errorMessage,
-      }));
-      
-      // Emit error event for refresh failures
-      emitEvent('errorOccurred', { 
-        error: errorMessage,
-        context: 'wallet_refresh',
-        details: err
-      });
-    }
-  }, [client, state.publicKey]);
-  
-  // Event listener functions (after state is declared)
-  const addEventListener = useCallback((listener: WalletEventListener): (() => void) => {
-    console.log('🔧 useChiaWallet: Adding event listener, current listeners:', eventListenersRef.current.size);
-    eventListenersRef.current.add(listener);
-    console.log('✅ useChiaWallet: Event listener added, total listeners:', eventListenersRef.current.size);
-    
-    // Emit current state immediately for new listeners if wallet is connected
-    if (state.isConnected) {
-      console.log('🚀 useChiaWallet: Emitting current state for new listener');
-      
-      // Emit connection state
-      const connectionEvent: WalletEvent = {
-        type: 'connectionChanged',
-        data: {
-          isConnected: state.isConnected,
-          publicKey: state.publicKey,
-          balance: state.balance,
-          coinCount: state.coinCount
-        },
-        timestamp: Date.now()
-      };
-      
-      // Emit hydrated coins state if available
-      if (state.hydratedCoins && state.hydratedCoins.length > 0) {
-        const coinsEvent: WalletEvent = {
-          type: 'hydratedCoinsChanged',
-          data: {
-            hydratedCoins: state.hydratedCoins,
-            coinCount: state.hydratedCoins.length,
-            balance: state.balance
-          },
-          timestamp: Date.now()
-        };
-        
-        // Use setTimeout to ensure the listener is fully registered
-        setTimeout(() => {
-          console.log('📡 useChiaWallet: Sending immediate events to new listener');
-          listener(connectionEvent);
-          listener(coinsEvent);
-        }, 10);
-      } else {
-        setTimeout(() => {
-          console.log('📡 useChiaWallet: Sending immediate connection event to new listener');
-          listener(connectionEvent);
-        }, 10);
-      }
-    }
-    
-    // Return cleanup function
-    return () => {
-      console.log('🧹 useChiaWallet: Removing event listener');
-      eventListenersRef.current.delete(listener);
-      console.log('✅ useChiaWallet: Event listener removed, remaining listeners:', eventListenersRef.current.size);
-    };
-  }, [state.isConnected, state.publicKey, state.balance, state.coinCount, state.hydratedCoins]);
 
-  const removeEventListener = useCallback((listener: WalletEventListener) => {
-    eventListenersRef.current.delete(listener);
+    console.log('🔌 useChiaWallet: Disconnected');
   }, []);
 
-  // Utility functions
+  // Reset just the wallet data without disconnecting
+  const resetWalletData = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      address: null,
+      publicKeyData: null,
+      syntheticPublicKey: null,
+      balance: 0,
+      coinCount: 0,
+      unspentCoins: [],
+      hydratedCoins: [],
+      balanceLoading: false,
+      balanceError: null
+    }));
+  }, []);
+
+  // Refresh hydrated coins
+  const refreshHydratedCoins = useCallback(async (): Promise<boolean> => {
+    const client = clientRef.current;
+    if (!client || !state.address) {
+      console.warn('Cannot refresh coins: client or address not available');
+      return false;
+    }
+
+    try {
+      console.log('🔄 useChiaWallet: Refreshing hydrated coins');
+      const hydratedResult = await client.getUnspentHydratedCoins(state.address);
+      
+      if (hydratedResult.success) {
+        const hydratedCoins = hydratedResult.data.data;
+        const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+        let balance = 0;
+        
+        // Calculate balance
+        for (const coin of unspentCoins) {
+          try {
+            balance += parseInt(coin.amount);
+          } catch (error) {
+            console.warn('Invalid coin amount during refresh:', coin.amount, error);
+          }
+        }
+
+        setState(prev => ({
+          ...prev,
+          hydratedCoins,
+          unspentCoins,
+          balance,
+          coinCount: unspentCoins.length,
+          balanceError: null,
+          lastBalanceUpdate: Date.now()
+        }));
+
+        console.log('✅ useChiaWallet: Hydrated coins refreshed', {
+          coinsCount: hydratedCoins.length,
+          balance
+        });
+        return true;
+      } else {
+        setState(prev => ({
+          ...prev,
+          balanceError: hydratedResult.error
+        }));
+        console.error('❌ useChiaWallet: Failed to refresh hydrated coins:', hydratedResult.error);
+        return false;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during refresh';
+      setState(prev => ({
+        ...prev,
+        balanceError: errorMessage
+      }));
+      console.error('❌ useChiaWallet: Error refreshing hydrated coins:', errorMessage);
+      return false;
+    }
+     }, [state.address]);
+
+  // Refresh balance (alias for refreshHydratedCoins for backward compatibility)
+  const refreshBalance = useCallback(async (): Promise<boolean> => {
+    return refreshHydratedCoins();
+  }, [refreshHydratedCoins]);
+
+  // Format balance utility
   const formatBalance = useCallback((balance: number): string => {
     const result = ChiaCloudWalletClient.mojosToXCH(balance);
     if (!result.success) return '0';
     
-    // Format to remove trailing zeros
     let formatted = result.data.toFixed(13);
+    // Remove trailing zeros
     formatted = formatted.replace(/\.?0+$/, '');
     
-    return formatted;
+    return formatted || '0';
   }, []);
-  
-  const formatAddress = useCallback((address: string): string => {
-    if (!address) return '';
-    return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
+
+  // Event system functions
+  const addEventListener = useCallback((listener: WalletEventListener) => {
+    eventListeners.add(listener);
   }, []);
-  
-  // Auto-connect on mount if JWT token is available
+
+  const removeEventListener = useCallback((listener: WalletEventListener) => {
+    eventListeners.delete(listener);
+  }, []);
+
+  const emitEvent = useCallback((event: WalletEvent) => {
+    eventListeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('Error in wallet event listener:', error);
+      }
+    });
+  }, []);
+
+  // Auto-connect effect
   useEffect(() => {
-    if (state.jwtToken && !state.isConnected && !state.isConnecting && config.autoConnect !== false) {
-      connectWallet();
+    if (config.autoConnect !== false && state.jwtToken && !state.isConnected && !state.isConnecting) {
+      connectWallet(state.jwtToken);
     }
-  }, [state.jwtToken, state.isConnected, state.isConnecting, config.autoConnect, connectWallet]);
-  
+  }, [config.autoConnect, state.jwtToken, state.isConnected, state.isConnecting, connectWallet]);
+
   return {
+    // State
     ...state,
-    client,
-    setJwtToken,
-    connectWallet,
-    disconnectWallet,
-    refreshWallet,
+    
+    // Client instance
+    client: clientRef.current!,
+    
+    // Actions
+    connect: connectWallet,
+    disconnect,
+    refreshBalance,
+    refreshHydratedCoins,
+    
+    // Utilities
     formatBalance,
-    formatAddress,
+    
+    // Event system
     addEventListener,
     removeEventListener,
+    emitEvent
   };
-} 
+}
+
+// Export for debugging
+export const getWalletEventListeners = () => Array.from(eventListeners);
+
+// Create a wallet state summary for debugging
+export const createWalletStateSummary = (state: WalletState) => {
+  return {
+    isConnected: state.isConnected,
+    hasAddress: !!state.address,
+    address: state.address ? `${state.address.substring(0, 10)}...` : null,
+    balance: state.balance,
+    coinCount: state.coinCount,
+    errors: {
+      connection: state.connectionError,
+      balance: state.balanceError
+    },
+    lastUpdate: {
+      connection: new Date(state.lastConnectionUpdate).toISOString(),
+      balance: new Date(state.lastBalanceUpdate).toISOString()
+    }
+  };
+};
+
+// Helper hook for wallet state summary
+export const useWalletStateSummary = () => {
+  const walletState = useChiaWallet();
+  return {
+    summary: createWalletStateSummary(walletState),
+    isReady: walletState.isConnected && walletState.address && walletState.balance !== undefined
+  };
+}; 

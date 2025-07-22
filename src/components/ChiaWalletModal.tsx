@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UseChiaWalletResult } from '../hooks/useChiaWallet';
-import {
-  ChiaCloudWalletClient,
-  type Coin,
-  type HydratedCoin,
-  type PublicKeyResponse,
-  type SimpleMakeUnsignedNFTOfferRequest
-} from '../client/ChiaCloudWalletClient';
+import { 
+  useWalletConnection, 
+  useWalletBalance, 
+  useWalletCoins,
+  useSendTransaction,
+  useWalletState,
+  useRawSDK
+} from '../hooks/useChiaWalletSDK';
 import { SentTransaction, SavedOffer } from './types';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
@@ -21,22 +21,51 @@ import {
   useActiveOffersDialog,
   useNFTDetailsDialog
 } from '../hooks/useDialogs';
+import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
 
 export interface ChiaWalletModalProps {
   isOpen: boolean;
   onClose: () => void;
-  wallet: UseChiaWalletResult;
+  jwtToken?: string | null;
   onWalletUpdate?: (walletData: any) => void;
 }
 
 export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   isOpen,
   onClose,
-  wallet,
+  jwtToken,
   onWalletUpdate,
 }) => {
-  // Extract what we need from the wallet object
-  const { client, jwtToken } = wallet;
+  // Use the new SDK hooks
+  const sdk = useRawSDK();
+  const walletState = useWalletState();
+  const { 
+    isConnected, 
+    isConnecting, 
+    address, 
+    error: connectionError,
+    connect,
+    disconnect,
+    setJwtToken 
+  } = useWalletConnection();
+  
+  const { 
+    totalBalance, 
+    coinCount, 
+    formattedBalance,
+    isLoading: balanceLoading,
+    error: balanceError,
+    refresh: refreshBalance 
+  } = useWalletBalance();
+
+  const { 
+    hydratedCoins, 
+    nftCoins,
+    isLoading: coinsLoading,
+    error: coinsError 
+  } = useWalletCoins();
+
+  const { sendXCH, isSending } = useSendTransaction();
 
   // Replace manual modal states with dialog hooks
   const sendFundsDialog = useSendFundsDialog();
@@ -45,68 +74,41 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const activeOffersDialog = useActiveOffersDialog();
   const nftDetailsDialog = useNFTDetailsDialog();
 
-  // State management (keep existing wallet state)
-  const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [publicKeyData, setPublicKeyData] = useState<PublicKeyResponse | null>(null);
-  const [syntheticPublicKey, setSyntheticPublicKey] = useState<string | null>(null);
-  const [balance, setBalance] = useState<number>(0);
-  const [coinCount, setCoinCount] = useState(0);
-  const [unspentCoins, setUnspentCoins] = useState<Coin[]>([]);
-  const [hydratedCoins, setHydratedCoins] = useState<HydratedCoin[]>([]);
-  const [coinIds, setCoinIds] = useState<Map<string, string>>(new Map());
-  const [calculatingCoinIds, setCalculatingCoinIds] = useState(false);
-
-  // UI state
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [balanceLoading, setBalanceLoading] = useState(false);
-  const [balanceError, setBalanceError] = useState<string | null>(null);
+  // Local UI state
   const [currentView, setCurrentView] = useState<'main' | 'transactions' | 'assets'>('main');
-  const [isConnected, setIsConnected] = useState(false);
-
-  // Transaction and NFT data
   const [sentTransactions, setSentTransactions] = useState<SentTransaction[]>([]);
+
+  // NFT metadata state (keep this as it's specific to this modal)
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
   const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
 
-  // Background update management
-  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState(0);
-  const [lastSyncAttempt, setLastSyncAttempt] = useState(0);
-  const [syncRetryCount, setSyncRetryCount] = useState(0);
-  const [cachedData, setCachedData] = useState<{ hydratedCoins: HydratedCoin[]; balance: number; timestamp: number } | null>(null);
-  const [currentSessionToken, setCurrentSessionToken] = useState<string | null>(null);
-  const backgroundUpdateInterval = useRef<number | null>(null);
+  // Auto-connect when JWT token is provided
+  useEffect(() => {
+    if (jwtToken && !isConnected && !isConnecting) {
+      console.log('🔑 Auto-connecting with provided JWT token');
+      setJwtToken(jwtToken).then(() => {
+        connect();
+      });
+    }
+  }, [jwtToken, isConnected, isConnecting, setJwtToken, connect]);
 
-  // Constants
-  const CACHE_DURATION = 30000; // 30 seconds
-  const SYNC_TIMEOUT = 60000; // 1 minute
-  const BACKGROUND_UPDATE_INTERVAL = 60000; // 1 minute
-  const MAX_RETRY_ATTEMPTS = 3;
+  // Emit wallet updates
+  useEffect(() => {
+    if (onWalletUpdate) {
+      onWalletUpdate({
+        connected: isConnected,
+        address: address,
+        balance: totalBalance,
+        coinCount: coinCount,
+        formattedBalance: formattedBalance
+      });
+    }
+  }, [isConnected, address, totalBalance, coinCount, formattedBalance, onWalletUpdate]);
 
-  // Debug logging function
-  const debugLog = useCallback((message: string, data?: any) => {
-    console.log(`🐛 ChiaWalletModal: ${message}`, data || '');
-  }, []);
-
-  // Storage key generators
-  const getStorageKey = useCallback((pubKey: string | null): string => {
-    if (!pubKey) return 'chia_wallet_state';
-    return `chia_wallet_state_${pubKey.substring(0, 16)}`;
-  }, []);
-
-  const getTransactionsStorageKey = useCallback((pubKey: string | null): string => {
-    if (!pubKey) return 'chia_sent_transactions';
-    return `chia_sent_transactions_${pubKey.substring(0, 16)}`;
-  }, []);
-
+  // Storage key generators for NFT metadata
   const getNftMetadataStorageKey = useCallback((pubKey: string | null): string => {
     if (!pubKey) return 'chia_nft_metadata';
     return `chia_nft_metadata_${pubKey.substring(0, 16)}`;
-  }, []);
-
-  const getPublicDataStorageKey = useCallback((pubKey: string | null): string => {
-    if (!pubKey) return 'chia_public_data';
-    return `chia_public_data_${pubKey.substring(0, 16)}`;
   }, []);
 
   const getOffersStorageKey = useCallback((pubKey: string | null): string => {
@@ -114,7 +116,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return `chia_active_offers_${pubKey.substring(0, 16)}`;
   }, []);
 
-  // NFT metadata functions
+  // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
     try {
       const response = await fetch(metadataUri);
@@ -129,10 +131,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, []);
 
   const getCachedNftMetadata = useCallback((cacheKey: string): any => {
-    if (!publicKey) return null;
+    if (!address) return null;
 
     try {
-      const stored = localStorage.getItem(getNftMetadataStorageKey(publicKey));
+      const stored = localStorage.getItem(getNftMetadataStorageKey(address));
       if (stored) {
         const cache = JSON.parse(stored);
         const cached = cache[cacheKey];
@@ -144,13 +146,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       console.error('Error reading cached NFT metadata:', error);
     }
     return null;
-  }, [publicKey, getNftMetadataStorageKey]);
+  }, [address, getNftMetadataStorageKey]);
 
   const setCachedNftMetadata = useCallback((cacheKey: string, metadata: any): void => {
-    if (!publicKey) return;
+    if (!address) return;
 
     try {
-      const storageKey = getNftMetadataStorageKey(publicKey);
+      const storageKey = getNftMetadataStorageKey(address);
       const existing = localStorage.getItem(storageKey);
       const cache = existing ? JSON.parse(existing) : {};
 
@@ -163,7 +165,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     } catch (error) {
       console.error('Error caching NFT metadata:', error);
     }
-  }, [publicKey, getNftMetadataStorageKey]);
+  }, [address, getNftMetadataStorageKey]);
 
   const loadNftMetadata = useCallback(async (nftCoin: HydratedCoin): Promise<void> => {
     const driverInfo = nftCoin.parentSpendInfo.driverInfo;
@@ -193,8 +195,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       const metadata = await fetchNftMetadata(metadataUri);
       if (metadata) {
         setNftMetadata(prev => new Map(prev.set(cacheKey, metadata)));
-
-        // Cache in localStorage
         setCachedNftMetadata(cacheKey, metadata);
       }
     } catch (error) {
@@ -208,7 +208,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
   }, [nftMetadata, loadingMetadata, fetchNftMetadata, getCachedNftMetadata, setCachedNftMetadata]);
 
-  // Load metadata for all NFT coins when hydratedCoins changes
+  // Load metadata for all NFT coins when they change
   useEffect(() => {
     const nftCoins = hydratedCoins.filter(coin => {
       const driverInfo = coin.parentSpendInfo.driverInfo;
@@ -230,9 +230,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     offerString: string;
     timestamp: number;
     isSigned: boolean;
-    originalRequest?: SimpleMakeUnsignedNFTOfferRequest;
+    originalRequest?: any;
   }) => {
-    if (!publicKey) return;
+    if (!address) return;
 
     try {
       // Helper functions for NFT data
@@ -321,11 +321,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           offerString: offerData.offerString,
           isSigned: offerData.isSigned
         },
-        originalRequest: offerData.originalRequest || {} as SimpleMakeUnsignedNFTOfferRequest
+        originalRequest: offerData.originalRequest || {} as any
       };
 
       // Get existing offers
-      const storageKey = getOffersStorageKey(publicKey);
+      const storageKey = getOffersStorageKey(address);
       const existing = localStorage.getItem(storageKey);
       const existingOffers: SavedOffer[] = existing ? JSON.parse(existing) : [];
 
@@ -339,21 +339,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     } catch (error) {
       console.error('Error saving offer:', error);
     }
-  }, [publicKey, getOffersStorageKey, nftMetadata]);
+  }, [address, getOffersStorageKey, nftMetadata]);
 
   // Utility functions
   const formatAddress = useCallback((address: string): string => {
     if (!address) return '';
     return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
-  }, []);
-
-  const formatBalance = useCallback((bal: number): string => {
-    const result = ChiaCloudWalletClient.mojosToXCH(bal);
-    if (!result.success) return '         0';
-
-    let formatted = result.data.toFixed(13);
-    formatted = formatted.replace(/\.?0+$/, '');
-    return formatted.padStart(15, ' ');
   }, []);
 
   const formatTime = useCallback((timestamp: number): string => {
@@ -405,340 +396,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     const amount = Number(hydratedCoin.coin.amount);
 
     if (coinType === 'XCH') {
-      return `${formatBalance(amount)} XCH`;
+      return `${formattedBalance} XCH`;
     } else if (coinType === 'CAT') {
-      const result = ChiaCloudWalletClient.mojosToXCH(amount);
-      if (result.success) {
-        return `${result.data.toFixed(6)} units`;
-      }
-      return `${amount.toString()} units`;
+      // For CAT tokens, we might need proper decimal handling
+      return `${(amount / 1000000000000).toFixed(6)} units`;
     } else {
       return `${amount.toString()} NFT`;
     }
-  }, [getCoinType, formatBalance]);
-
-  // Core wallet functions
-  const isDataStale = useCallback((): boolean => {
-    return !cachedData || Date.now() - cachedData.timestamp > CACHE_DURATION;
-  }, [cachedData]);
-
-  // Fixed connectWallet function following Svelte pattern
-  const connectWallet = useCallback(async () => {
-    debugLog('connectWallet called', {
-      jwtToken: jwtToken ? `${jwtToken.substring(0, 10)}...` : null,
-      client: !!client
-    });
-
-    if (!jwtToken || !client) {
-      debugLog('Missing JWT token or client', { jwtToken: !!jwtToken, client: !!client });
-      setError('JWT token and client are required for wallet connection');
-      return;
-    }
-
-    setLoading(true);
-    setBalanceLoading(true);
-    setError(null);
-    setBalanceError(null);
-
-    try {
-      // Set JWT token on client first
-      debugLog('Setting JWT token on client');
-      client.setJwtToken(jwtToken);
-
-      // Verify token was set
-      const clientToken = client.getJwtToken();
-      debugLog('Client JWT token set', { hasToken: !!clientToken, tokenMatch: clientToken === jwtToken });
-
-      // Get public key first
-      debugLog('Calling getPublicKey');
-      const pkResponse = await client.getPublicKey();
-      debugLog('getPublicKey response', {
-        success: pkResponse.success,
-        error: pkResponse.success ? null : pkResponse.error,
-        hasData: pkResponse.success && !!pkResponse.data
-      });
-
-      if (!pkResponse.success) {
-        throw new Error(pkResponse.error);
-      }
-
-      debugLog('Setting public key data', {
-        address: pkResponse.data.address ? `${pkResponse.data.address.substring(0, 10)}...` : null,
-        syntheticKey: pkResponse.data.synthetic_public_key ? `${pkResponse.data.synthetic_public_key.substring(0, 10)}...` : null
-      });
-
-      const publicKeyAddress = pkResponse.data.address;
-      setPublicKeyData(pkResponse.data);
-      setPublicKey(publicKeyAddress);
-      setSyntheticPublicKey(pkResponse.data.synthetic_public_key);
-      setCurrentSessionToken(jwtToken);
-
-      // Mark as connected after successful public key fetch
-      setIsConnected(true);
-
-      debugLog('Wallet connected successfully, now loading hydrated coins');
-
-      // Immediately load hydrated coins on first connection
-      let newHydratedCoins: HydratedCoin[] = [];
-      let newUnspentCoins: Coin[] = [];
-      let newBalance = 0;
-      let newCoinCount = 0;
-      let balanceErrorMessage: string | null = null;
-
-      try {
-        debugLog('Making API call to getUnspentHydratedCoins on first connection', {
-          publicKey: publicKeyAddress ? publicKeyAddress.substring(0, 16) + '...' : null,
-          hasJwtToken: !!client.getJwtToken()
-        });
-
-        const hydratedData = await Promise.race([
-          client.getUnspentHydratedCoins(publicKeyAddress),
-          new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Request timeout')), SYNC_TIMEOUT);
-          })
-        ]);
-
-        debugLog('API response received', {
-          success: hydratedData.success,
-          hasData: hydratedData.success && !!hydratedData.data,
-          dataLength: hydratedData.success && hydratedData.data ? hydratedData.data.data?.length : 'N/A',
-          error: hydratedData.success ? null : hydratedData.error
-        });
-
-        if (hydratedData.success) {
-          newHydratedCoins = hydratedData.data.data;
-          newUnspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(newHydratedCoins);
-          newCoinCount = newUnspentCoins.length;
-
-          for (const coin of newUnspentCoins) {
-            try {
-              newBalance += Number(coin.amount);
-            } catch (coinError) {
-              console.warn('Invalid coin amount:', coin.amount, coinError);
-            }
-          }
-
-          debugLog('Balance calculation complete on first connection', {
-            totalBalance: newBalance,
-            coinCount: newCoinCount,
-            hydratedCoinsCount: newHydratedCoins.length
-          });
-
-          setBalance(newBalance);
-          setCoinCount(newCoinCount);
-          setHydratedCoins(newHydratedCoins);
-          setUnspentCoins(newUnspentCoins);
-          setLastSuccessfulRefresh(Date.now());
-          setSyncRetryCount(0);
-
-          setCachedData({
-            hydratedCoins: newHydratedCoins,
-            balance: newBalance,
-            timestamp: Date.now()
-          });
-        } else {
-          debugLog('API call failed on first connection', {
-            error: hydratedData.error
-          });
-          balanceErrorMessage = hydratedData.error;
-        }
-
-      } catch (err) {
-        console.error('Failed to load wallet balance on first connection', err);
-        debugLog('Balance loading failed on first connection', { error: err instanceof Error ? err.message : 'Unknown error' });
-        balanceErrorMessage = err instanceof Error ? err.message : 'Failed to load balance on first connection';
-      }
-
-      setBalanceError(balanceErrorMessage);
-
-      // Emit wallet update event with connected state and initial data
-      onWalletUpdate?.({
-        connected: true,
-        publicKey: publicKeyAddress,
-        publicKeyData: pkResponse.data,
-        syntheticPublicKey: pkResponse.data.synthetic_public_key,
-        balance: newBalance,
-        coinCount: newCoinCount
-      });
-
-      debugLog('Initial wallet connection and data loading complete');
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
-      debugLog('Connection failed', { error: errorMessage, err });
-      setError(errorMessage);
-
-      // Don't clear existing state if we had a connection before for the same session
-      if (!isConnected || currentSessionToken !== jwtToken) {
-        setPublicKey(null);
-        setSyntheticPublicKey(null);
-        setBalance(0);
-        setCoinCount(0);
-        setIsConnected(false);
-        setPublicKeyData(null);
-        setCurrentSessionToken(null);
-
-        onWalletUpdate?.({
-          connected: false,
-          publicKey: null,
-          syntheticPublicKey: null,
-          balance: 0,
-          coinCount: 0
-        });
-      }
-    } finally {
-      setLoading(false);
-      setBalanceLoading(false);
-    }
-  }, [jwtToken, client, isConnected, currentSessionToken, onWalletUpdate, debugLog]);
-
-  const loadWalletBalance = useCallback(async (silent: boolean = false) => {
-    debugLog('loadWalletBalance called', {
-      publicKey: publicKey ? `${publicKey.substring(0, 16)}...` : null,
-      client: !!client,
-      silent,
-      jwtToken: jwtToken ? `${jwtToken.substring(0, 10)}...` : null
-    });
-
-    if (!publicKey || !client) {
-      debugLog('Early return: missing publicKey or client', { publicKey: !!publicKey, client: !!client });
-      return;
-    }
-
-    const now = Date.now();
-
-    // Prevent too frequent sync attempts
-    if (now - lastSyncAttempt < 5000) {
-      debugLog('Sync attempt too soon, skipping', {
-        timeSinceLastAttempt: now - lastSyncAttempt,
-        threshold: 5000
-      });
-      return;
-    }
-
-    setLastSyncAttempt(now);
-
-    // Use cached data if available and not stale
-    if (!silent && cachedData && !isDataStale()) {
-      debugLog('Using cached data', {
-        cacheAge: now - cachedData.timestamp,
-        maxAge: CACHE_DURATION,
-        hydratedCoinsCount: cachedData.hydratedCoins.length
-      });
-      setBalance(cachedData.balance);
-      setHydratedCoins(cachedData.hydratedCoins);
-      setUnspentCoins(ChiaCloudWalletClient.extractCoinsFromHydratedCoins(cachedData.hydratedCoins));
-      setCoinCount(cachedData.hydratedCoins.length);
-
-      onWalletUpdate?.({
-        connected: isConnected,
-        publicKey,
-        syntheticPublicKey,
-        balance: cachedData.balance,
-        coinCount: cachedData.hydratedCoins.length
-      });
-      return;
-    }
-
-    debugLog('Proceeding with fresh API call', {
-      silent,
-      hasCachedData: !!cachedData,
-      cacheStale: cachedData ? isDataStale() : 'no cache'
-    });
-
-    if (!silent) {
-      setBalanceLoading(true);
-      setBalanceError(null);
-    }
-
-    try {
-      debugLog('Making API call to getUnspentHydratedCoins', {
-        publicKey: publicKey.substring(0, 16) + '...',
-        hasJwtToken: !!client.getJwtToken()
-      });
-
-      const hydratedData = await Promise.race([
-        client.getUnspentHydratedCoins(publicKey),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), SYNC_TIMEOUT);
-        })
-      ]);
-
-      debugLog('API response received', {
-        success: hydratedData.success,
-        hasData: hydratedData.success && !!hydratedData.data,
-        dataLength: hydratedData.success && hydratedData.data ? hydratedData.data.data?.length : 'N/A',
-        error: hydratedData.success ? null : hydratedData.error
-      });
-
-      if (!hydratedData.success) {
-        debugLog('API call failed', {
-          error: hydratedData.error
-        });
-        throw new Error(hydratedData.error);
-      }
-
-      const coins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedData.data.data);
-      let totalBalance = 0;
-
-      for (const coin of coins) {
-        try {
-          totalBalance += Number(coin.amount);
-        } catch (coinError) {
-          console.warn('Invalid coin amount:', coin.amount, coinError);
-        }
-      }
-
-      debugLog('Balance calculation complete', {
-        totalBalance,
-        coinCount: coins.length,
-        hydratedCoinsCount: hydratedData.data.data.length
-      });
-
-      setBalance(totalBalance);
-      setCoinCount(coins.length);
-      setHydratedCoins(hydratedData.data.data);
-      setUnspentCoins(coins);
-      setLastSuccessfulRefresh(now);
-      setSyncRetryCount(0);
-
-      setCachedData({
-        hydratedCoins: hydratedData.data.data,
-        balance: totalBalance,
-        timestamp: now
-      });
-
-      onWalletUpdate?.({
-        connected: isConnected,
-        publicKey,
-        syntheticPublicKey,
-        balance: totalBalance,
-        coinCount: coins.length
-      });
-
-    } catch (err) {
-      console.error('Failed to load wallet balance', err);
-      debugLog('Balance loading failed', { error: err instanceof Error ? err.message : 'Unknown error' });
-
-      if (!silent) {
-        setBalanceError(err instanceof Error ? err.message : 'Failed to load balance');
-
-        if (syncRetryCount < MAX_RETRY_ATTEMPTS) {
-          const newRetryCount = syncRetryCount + 1;
-          setSyncRetryCount(newRetryCount);
-          debugLog('Scheduling retry', { attempt: newRetryCount, maxAttempts: MAX_RETRY_ATTEMPTS });
-
-          setTimeout(() => {
-            loadWalletBalance(silent);
-          }, 2000 * newRetryCount);
-        }
-      }
-    } finally {
-      if (!silent) {
-        setBalanceLoading(false);
-      }
-    }
-  }, [publicKey, client, lastSyncAttempt, cachedData, isDataStale, syncRetryCount, isConnected, syntheticPublicKey, onWalletUpdate, debugLog]);
+  }, [getCoinType, formattedBalance]);
 
   const addSentTransaction = useCallback((amount: number, recipient: string, fee: number = 0, transactionId?: string, blockchainStatus?: string) => {
     const transaction: SentTransaction = {
@@ -768,73 +433,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
     // Refresh balance after sending transaction
     setTimeout(() => {
-      loadWalletBalance();
+      refreshBalance();
     }, 1000);
-  }, [addSentTransaction, loadWalletBalance]);
-
-  const disconnectWallet = useCallback(() => {
-    debugLog('disconnectWallet called');
-
-    if (backgroundUpdateInterval.current) {
-      clearInterval(backgroundUpdateInterval.current);
-      backgroundUpdateInterval.current = null;
-    }
-
-    setIsConnected(false);
-    setPublicKey(null);
-    setSyntheticPublicKey(null);
-    setPublicKeyData(null);
-    setBalance(0);
-    setCoinCount(0);
-    setUnspentCoins([]);
-    setHydratedCoins([]);
-    setError(null);
-    setLastSuccessfulRefresh(0);
-    setCurrentSessionToken(null);
-    setBalanceLoading(false);
-    setBalanceError(null);
-    setCachedData(null);
-    setSyncRetryCount(0);
-    setSentTransactions([]);
-    setNftMetadata(new Map());
-    setLoadingMetadata(new Set());
-    // Close NFT details dialog
-    nftDetailsDialog.close();
-
-    onWalletUpdate?.({
-      connected: false,
-      publicKey: null,
-      balance: 0,
-      coinCount: 0
-    });
-
-    debugLog('Wallet disconnected');
-  }, [onWalletUpdate, debugLog]);
-
-  const getConnectionStatus = useCallback((): string => {
-    if (lastSuccessfulRefresh === 0) return 'Not connected';
-
-    const now = Date.now();
-    const timeSinceRefresh = now - lastSuccessfulRefresh;
-
-    if (timeSinceRefresh < 60000) {
-      return 'Connected';
-    } else if (timeSinceRefresh < 300000) {
-      return 'Connected (data may be stale)';
-    } else {
-      return 'Connected (offline)';
-    }
-  }, [lastSuccessfulRefresh]);
-
-  const getDataFreshness = useCallback((): string => {
-    if (!cachedData) return '';
-
-    const age = Date.now() - cachedData.timestamp;
-    if (age < 10000) return 'Just now';
-    if (age < 60000) return `${Math.floor(age / 1000)}s ago`;
-    if (age < 3600000) return `${Math.floor(age / 60000)}m ago`;
-    return `${Math.floor(age / 3600000)}h ago`;
-  }, [cachedData]);
+  }, [addSentTransaction, refreshBalance]);
 
   const copyToClipboard = useCallback(async (text: string) => {
     try {
@@ -844,21 +445,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       console.error('Failed to copy:', err);
     }
   }, []);
-
-  // Initialize wallet connection when JWT token is available
-  useEffect(() => {
-    debugLog('useEffect triggered', {
-      jwtToken: !!jwtToken,
-      client: !!client,
-      isConnected,
-      currentSessionToken: !!currentSessionToken
-    });
-
-    if (jwtToken && client && !isConnected && jwtToken !== currentSessionToken) {
-      debugLog('Initiating wallet connection');
-      connectWallet();
-    }
-  }, [jwtToken, client, isConnected, currentSessionToken, connectWallet, debugLog]);
 
   // Event handlers
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -888,11 +474,16 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     nftDetailsDialog.open(nftCoin);
   };
 
-  const closeNftDetails = () => {
-    nftDetailsDialog.close();
+  const getConnectionStatus = (): string => {
+    if (!isConnected) return 'Not connected';
+    if (isConnecting) return 'Connecting...';
+    if (connectionError) return 'Connection error';
+    return 'Connected';
   };
 
-
+  // Show loading states
+  const isLoading = isConnecting || balanceLoading || coinsLoading;
+  const hasError = connectionError || balanceError || coinsError;
 
   return (
     <>
@@ -913,9 +504,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <MakeOfferModal
         isOpen={makeOfferDialog.isOpen}
         onClose={makeOfferDialog.close}
-        client={client}
-        publicKey={publicKey}
-        syntheticPublicKey={syntheticPublicKey}
+        client={sdk.client}
+        address={address}
+        syntheticPublicKey={walletState.syntheticPublicKey}
         hydratedCoins={hydratedCoins}
         nftMetadata={nftMetadata}
         loadingMetadata={loadingMetadata}
@@ -923,14 +514,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           console.log('Offer created:', offerData);
           saveOffer(offerData);
         }}
-        onRefreshWallet={loadWalletBalance}
+        onRefreshWallet={refreshBalance}
       />
 
       {/* Active Offers Modal */}
       <ActiveOffersModal
         isOpen={activeOffersDialog.isOpen}
         onClose={activeOffersDialog.close}
-        publicKey={publicKey}
+        address={address}
         nftMetadata={nftMetadata}
         loadingMetadata={loadingMetadata}
         onOfferUpdate={() => {
@@ -964,13 +555,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                 </div>
                 <div className="wallet-details">
                   <h3>
-                    {publicKey ? formatAddress(publicKey) : 'Chia Wallet'}
+                    {address ? formatAddress(address) : 'Chia Wallet'}
                   </h3>
                   <p className="connection-status">
                     {getConnectionStatus()}
-                    {cachedData && getDataFreshness() && (
-                      <span className="data-freshness">• {getDataFreshness()}</span>
-                    )}
                   </p>
                 </div>
               </div>
@@ -983,35 +571,20 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
             </div>
 
             <div className="modal-body">
-              {loading ? (
+              {isLoading && !isConnected ? (
                 <div className="loading-state">
                   <div className="spinner"></div>
                   <p>Connecting to wallet...</p>
                 </div>
-              ) : error && !isConnected ? (
+              ) : hasError && !isConnected ? (
                 <div className="error-state">
-                  <p className="error-message">{error}</p>
-                  <button className="retry-btn" onClick={connectWallet}>
+                  <p className="error-message">{connectionError || balanceError || coinsError}</p>
+                  <button className="retry-btn" onClick={connect}>
                     Retry
                   </button>
                 </div>
               ) : isConnected ? (
                 <>
-                  {/* Warning banner for stale data */}
-                  {!balanceError && lastSuccessfulRefresh > 0 && Date.now() - lastSuccessfulRefresh > 60000 && (
-                    <div className="warning-banner">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                      </svg>
-                      <span>Data may be outdated due to network issues</span>
-                      <button className="refresh-btn" onClick={() => loadWalletBalance()}>
-                        Refresh
-                      </button>
-                    </div>
-                  )}
-
                   {currentView === 'main' ? (
                     <>
                       {/* Action Buttons */}
@@ -1046,14 +619,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                             ) : balanceError ? (
                               <div className="balance-error">
                                 <p className="balance-amount error">Failed to load</p>
-                                <button className="balance-retry" onClick={() => loadWalletBalance()}>
+                                <button className="balance-retry" onClick={() => refreshBalance()}>
                                   Retry
                                 </button>
                               </div>
                             ) : (
                               <>
                                 <p className="balance-amount">
-                                  {formatBalance(balance)} XCH
+                                  {formattedBalance}
                                 </p>
                                 <p className="balance-subtitle">{coinCount} coins</p>
                               </>
@@ -1080,34 +653,30 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                             <rect x="3" y="14" width="7" height="7"></rect>
                           </svg>
                           <span>View Assets</span>
-                          {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length > 0 && (
-                            <div className="badge">{hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length}</div>
+                          {nftCoins.length > 0 && (
+                            <div className="badge">{nftCoins.length}</div>
                           )}
                         </button>
 
                         <button
-                          className={`menu-item ${!isConnected || !client ? 'disabled' : ''}`}
+                          className={`menu-item ${!isConnected ? 'disabled' : ''}`}
                           onClick={() => {
                             console.log('Make Offer button clicked!', {
                               isConnected,
-                              hasClient: !!client,
                               showOfferModal: makeOfferDialog.isOpen,
-                              nftCount: hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length
+                              nftCount: nftCoins.length
                             });
                             makeOfferDialog.open();
                           }}
-                          disabled={!isConnected || !client}
-                          title={!isConnected || !client ? 'Please wait for wallet connection to complete' : ''}
+                          disabled={!isConnected}
+                          title={!isConnected ? 'Please wait for wallet connection to complete' : ''}
                         >
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M9 11H1l2-2m0 0l2-2m-2 2l2 2m2-2h8l2-2m0 0l2-2m-2 2l2 2"></path>
                           </svg>
                           <span>Make Offer</span>
-                          {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length > 0 && (
-                            <div className="badge">{hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length}</div>
-                          )}
-                          {!syntheticPublicKey && (
-                            <div className="status-indicator" title="Wallet connection not complete">⚠️</div>
+                          {nftCoins.length > 0 && (
+                            <div className="badge">{nftCoins.length}</div>
                           )}
                         </button>
 
@@ -1127,7 +696,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       </div>
 
                       {/* Disconnect Button */}
-                      <button className="disconnect-btn" onClick={disconnectWallet}>
+                      <button className="disconnect-btn" onClick={disconnect}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                           <polyline points="16,17 21,12 16,7"></polyline>
@@ -1146,7 +715,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           </svg>
                         </button>
                         <h4>Transactions ({coinCount + sentTransactions.length})</h4>
-                        <button className="refresh-btn" onClick={() => loadWalletBalance()}>
+                        <button className="refresh-btn" onClick={() => refreshBalance()}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M1 4v6h6"></path>
                             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
@@ -1165,10 +734,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                               </svg>
                             </div>
                             <div className="transaction-info">
-                              <div className="transaction-amount">-{formatBalance(transaction.amount)} XCH</div>
+                              <div className="transaction-amount">-{(transaction.amount / 1000000000000).toFixed(6)} XCH</div>
                               <div className="transaction-details">
                                 <div className="transaction-address">To: {formatAddress(transaction.recipient)}</div>
-                                <div className="transaction-fee">Fee: {formatBalance(transaction.fee)} XCH</div>
+                                <div className="transaction-fee">Fee: {(transaction.fee / 1000000000000).toFixed(6)} XCH</div>
                                 {transaction.transactionId && (
                                   <div
                                     className="transaction-id"
@@ -1239,8 +808,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                             <path d="M12 19l-7-7 7-7"></path>
                           </svg>
                         </button>
-                        <h4>Assets ({hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length} NFTs)</h4>
-                        <button className="refresh-btn" onClick={() => loadWalletBalance()}>
+                        <h4>Assets ({nftCoins.length} NFTs)</h4>
+                        <button className="refresh-btn" onClick={() => refreshBalance()}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M1 4v6h6"></path>
                             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
@@ -1249,7 +818,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       </div>
 
                       <div className="assets-grid">
-                        {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').map((nftCoin, index) => {
+                        {nftCoins.map((nftCoin, index) => {
                           // Get NFT metadata for this coin
                           const getNftMetadata = (nftCoin: HydratedCoin): any => {
                             const driverInfo = nftCoin.parentSpendInfo.driverInfo;
@@ -1322,7 +891,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           );
                         })}
 
-                        {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length === 0 && (
+                        {nftCoins.length === 0 && (
                           <div className="no-assets">
                             <p>No NFTs found in your wallet</p>
                           </div>
@@ -1334,7 +903,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               ) : (
                 <div className="connect-state">
                   <p>Connect your Chia wallet to get started</p>
-                  <button className="connect-btn" onClick={connectWallet}>
+                  <button className="connect-btn" onClick={connect}>
                     Connect Wallet
                   </button>
                 </div>
@@ -1344,6 +913,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         </div>
       )}
 
+      {/* Keep existing styles */}
       <style>{`
         .modal-overlay {
           position: fixed;

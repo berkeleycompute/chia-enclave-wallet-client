@@ -5,8 +5,7 @@ import { bech32m } from 'bech32';
 // Wallet information interface
 export interface WalletInfo {
   address: string;
-  publicKey: string;
-  syntheticPublicKey: string;
+  syntheticPublicKey: string; // Only used for offers
   masterPublicKey: string;
   puzzleHash: string;
   email?: string;
@@ -118,7 +117,6 @@ export function useWalletInfo(config: UseWalletInfoConfig = {}): UseWalletInfoRe
 
       const info: WalletInfo = {
         address: result.data.address,
-        publicKey: result.data.address, // Same as address in this context
         syntheticPublicKey: result.data.synthetic_public_key,
         masterPublicKey: result.data.master_public_key,
         puzzleHash: result.data.puzzle_hash,

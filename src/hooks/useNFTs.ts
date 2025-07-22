@@ -29,7 +29,7 @@ export interface NFTWithMetadata extends HydratedCoin {
 export interface UseNFTsConfig {
   jwtToken?: string | null;
   client?: ChiaCloudWalletClient;
-  publicKey?: string | null;
+  address?: string | null;
   autoRefresh?: boolean;
   autoLoadMetadata?: boolean;
   refreshInterval?: number;
@@ -67,7 +67,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
   const {
     jwtToken,
     client: externalClient,
-    publicKey: externalPublicKey,
+    address: externalAddress,
     autoRefresh = false,
     autoLoadMetadata = true,
     refreshInterval = 120000, // 2 minutes for NFTs
@@ -85,7 +85,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(0);
-  const [publicKey, setPublicKey] = useState<string | null>(externalPublicKey || null);
+  const [address, setAddress] = useState<string | null>(externalAddress || null);
 
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
@@ -104,10 +104,10 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     return internalClient.current;
   }, [externalClient, jwtToken, baseUrl, enableLogging]);
 
-  // Get public key if not provided
-  const getPublicKey = useCallback(async (): Promise<string | null> => {
-    if (externalPublicKey) return externalPublicKey;
-    if (publicKey) return publicKey;
+  // Get wallet address if not provided
+  const getAddress = useCallback(async (): Promise<string | null> => {
+    if (externalAddress) return externalAddress;
+    if (address) return address;
 
     const client = getClient();
     if (!client) return null;
@@ -115,15 +115,15 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     try {
       const result = await client.getPublicKey();
       if (result.success) {
-        setPublicKey(result.data.address);
+        setAddress(result.data.address);
         return result.data.address;
       }
     } catch (error) {
-      console.warn('Failed to get public key for NFTs:', error);
+      console.warn('Failed to get wallet address for NFTs:', error);
     }
     
     return null;
-  }, [externalPublicKey, publicKey, getClient]);
+  }, [externalAddress, address, getClient]);
 
   // Extract metadata URI from NFT data
   const extractMetadataUri = useCallback((nft: HydratedCoin): string | null => {
@@ -237,12 +237,12 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     setError(null);
 
     try {
-      const currentPublicKey = await getPublicKey();
-      if (!currentPublicKey) {
-        throw new Error('Public key not available');
-      }
+          const currentAddress = await getAddress();
+    if (!currentAddress) {
+      throw new Error('Wallet address not available');
+    }
 
-      const result = await client.getUnspentHydratedCoins(currentPublicKey);
+    const result = await client.getUnspentHydratedCoins(currentAddress);
       if (!result.success) {
         throw new Error(result.error);
       }
@@ -285,7 +285,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       setLoading(false);
       return false;
     }
-  }, [getClient, getPublicKey, nfts, extractMetadataUri, autoLoadMetadata, loadAllMetadata]);
+  }, [getClient, getAddress, nfts, extractMetadataUri, autoLoadMetadata, loadAllMetadata]);
 
   // Reset hook state
   const reset = useCallback(() => {
@@ -360,10 +360,10 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
 
   // Auto-refresh when dependencies change
   useEffect(() => {
-    if (jwtToken || externalClient || externalPublicKey) {
+    if (jwtToken || externalClient || externalAddress) {
       refresh();
     }
-  }, [jwtToken, externalClient, externalPublicKey, refresh]);
+  }, [jwtToken, externalClient, externalAddress, refresh]);
 
   return {
     nfts,

@@ -32,7 +32,11 @@ export {
 // ===== LEGACY API (FOR BACKWARD COMPATIBILITY) =====
 
 // Legacy Client
-export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
+export { 
+  ChiaCloudWalletClient,
+  type HydratedCoin,
+  type Coin
+} from './client/ChiaCloudWalletClient';
 
 // Core Hooks
 export { useChiaWallet, type WalletEvent, type WalletEventListener } from './hooks/useChiaWallet';
@@ -109,7 +113,7 @@ export {
   type ChiaWalletActions,
   type ChiaWalletProviderConfig,
   type ChiaWalletContextValue
-} from './hooks/useChiaWalletProvider';
+} from './hooks/useChiaWalletProvider.tsx';
 
 // Hydrated Coins Provider
 export { 
@@ -164,8 +168,7 @@ export { SendFundsModal } from './components/SendFundsModal';
 export { ChiaWalletModal } from './components/ChiaWalletModal';
 export { ChiaWalletModalWithProvider } from './components/ChiaWalletModalWithProvider';
 
-// Bridge Components
-export { ChiaWalletBridge } from './components/ChiaWalletBridge';
+
 
 // Simplified Dialog Manager (New Easy API)
 export {

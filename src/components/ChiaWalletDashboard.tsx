@@ -27,7 +27,11 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
   className = '',
   style = {},
 }) => {
-  const wallet = useChiaWallet({ baseUrl, enableLogging });
+  const wallet = useChiaWallet({ 
+    baseUrl, 
+    enableLogging,
+    autoConnect: false // We'll manually control connection
+  });
   const dialogs = useAllDialogs();
   
   const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
@@ -35,19 +39,16 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
   const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
 
-  // Set JWT token when it changes
+  // Handle JWT token changes and connection
   useEffect(() => {
-    if (jwtToken !== wallet.jwtToken) {
-      wallet.setJwtToken(jwtToken || null);
+    if (jwtToken && jwtToken !== wallet.jwtToken) {
+      // Connect with the new JWT token
+      wallet.connect(jwtToken);
+    } else if (!jwtToken && wallet.isConnected) {
+      // Disconnect if JWT token is removed
+      wallet.disconnect();
     }
   }, [jwtToken, wallet]);
-
-  // Auto-connect when JWT is available
-  useEffect(() => {
-    if (jwtToken && !wallet.isConnected && !wallet.isConnecting) {
-      wallet.connectWallet();
-    }
-  }, [jwtToken, wallet.isConnected, wallet.isConnecting, wallet]);
 
   // Call onWalletUpdate when wallet state changes
   useEffect(() => {
@@ -55,10 +56,11 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
       onWalletUpdate({
         isConnected: wallet.isConnected,
         isConnecting: wallet.isConnecting,
-        publicKey: wallet.publicKey,
+        publicKey: wallet.address, // Map address to publicKey for backward compatibility
+        address: wallet.address,
         balance: wallet.balance,
         coinCount: wallet.coinCount,
-        error: wallet.error,
+        error: wallet.connectionError, // Use connectionError
         balanceError: wallet.balanceError,
         hydratedCoins: wallet.hydratedCoins,
         unspentCoins: wallet.unspentCoins,
@@ -67,10 +69,10 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
   }, [
     wallet.isConnected,
     wallet.isConnecting,
-    wallet.publicKey,
+    wallet.address,
     wallet.balance,
     wallet.coinCount,
-    wallet.error,
+    wallet.connectionError, // Updated from wallet.error
     wallet.balanceError,
     wallet.hydratedCoins,
     wallet.unspentCoins,
@@ -104,12 +106,12 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
     console.log('Transaction sent:', transaction);
     // Refresh wallet after successful transaction
     setTimeout(() => {
-      wallet.refreshWallet();
+      wallet.refreshBalance(); // Updated from wallet.refreshWallet()
     }, 1000);
   };
 
   const handleRefreshWallet = () => {
-    wallet.refreshWallet();
+    wallet.refreshBalance(); // Updated from wallet.refreshWallet()
   };
 
   const handleOfferCreated = (offerData: any) => {
@@ -122,6 +124,12 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
     // Handle offer update if needed
   };
 
+  const handleConnect = () => {
+    if (jwtToken) {
+      wallet.connect(jwtToken);
+    }
+  };
+
   return (
     <div className={`chia-wallet-dashboard ${className}`} style={style}>
       {/* Header */}
@@ -131,7 +139,7 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
           {wallet.isConnected ? (
             <button
               className="btn btn-secondary"
-              onClick={wallet.refreshWallet}
+              onClick={handleRefreshWallet} // Updated to use handleRefreshWallet
               disabled={wallet.balanceLoading}
             >
               {wallet.balanceLoading ? '⟳' : '🔄'} Refresh
@@ -139,7 +147,7 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
           ) : (
             <button
               className="btn btn-primary"
-              onClick={wallet.connectWallet}
+              onClick={handleConnect} // Updated to use handleConnect
               disabled={wallet.isConnecting}
             >
               {wallet.isConnecting ? 'Connecting...' : 'Connect Wallet'}
@@ -150,10 +158,10 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
 
       {/* Connection Status */}
       <div className="connection-status">
-        {wallet.error && (
+        {wallet.connectionError && ( // Updated from wallet.error
           <div className="alert alert-error">
-            ❌ {wallet.error}
-            <button className="btn btn-sm" onClick={() => wallet.connectWallet()}>
+            ❌ {wallet.connectionError}
+            <button className="btn btn-sm" onClick={handleConnect}>
               Retry
             </button>
           </div>
@@ -165,7 +173,7 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
             <div className="wallet-details">
               <div className="detail-row">
                 <span className="label">Address:</span>
-                <code className="value">{formatAddress(wallet.publicKey || '')}</code>
+                <code className="value">{formatAddress(wallet.address || '')}</code>
               </div>
               <div className="detail-row">
                 <span className="label">Balance:</span>
@@ -276,7 +284,7 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
         isOpen={dialogs.makeOffer.isOpen}
         onClose={dialogs.makeOffer.close}
         client={wallet.client}
-        publicKey={wallet.publicKey}
+        address={wallet.address}
         syntheticPublicKey={wallet.syntheticPublicKey}
         hydratedCoins={wallet.hydratedCoins}
         nftMetadata={nftMetadata}
@@ -289,7 +297,7 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
       <ActiveOffersModal
         isOpen={dialogs.activeOffers.isOpen}
         onClose={dialogs.activeOffers.close}
-        publicKey={wallet.publicKey}
+        address={wallet.address}
         nftMetadata={nftMetadata}
         loadingMetadata={loadingMetadata}
         onOfferUpdate={handleOfferUpdate}

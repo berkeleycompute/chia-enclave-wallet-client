@@ -5,7 +5,7 @@ import { bech32 } from 'bech32';
 interface ActiveOffersModalProps {
   isOpen: boolean;
   onClose: () => void;
-  publicKey: string | null;
+  address: string | null;
   nftMetadata: Map<string, any>;
   loadingMetadata: Set<string>;
   onOfferUpdate?: () => void;
@@ -14,7 +14,7 @@ interface ActiveOffersModalProps {
 export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({ 
   isOpen, 
   onClose, 
-  publicKey, 
+  address, 
   nftMetadata, 
   loadingMetadata, 
   onOfferUpdate 
@@ -98,10 +98,10 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
 
   // Load saved offers
   const loadActiveOffers = useCallback(() => {
-    if (!publicKey) return;
+    if (!address) return;
     
     try {
-      const stored = localStorage.getItem(getOffersStorageKey(publicKey));
+      const stored = localStorage.getItem(getOffersStorageKey(address));
       if (stored) {
         const offers = JSON.parse(stored);
         setActiveOffers(offers.filter((offer: SavedOffer) => offer.status === 'active'));
@@ -109,27 +109,27 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     } catch (error) {
       console.error('Error loading active offers:', error);
     }
-  }, [publicKey, getOffersStorageKey]);
+  }, [address, getOffersStorageKey]);
 
   // Update offer status
   const updateOfferStatus = useCallback((offerId: string, newStatus: SavedOffer['status']) => {
-    if (!publicKey) return;
+    if (!address) return;
 
     try {
-      const stored = localStorage.getItem(getOffersStorageKey(publicKey));
+      const stored = localStorage.getItem(getOffersStorageKey(address));
       if (stored) {
         const allOffers = JSON.parse(stored);
         const updatedOffers = allOffers.map((offer: SavedOffer) => 
           offer.id === offerId ? { ...offer, status: newStatus } : offer
         );
-        localStorage.setItem(getOffersStorageKey(publicKey), JSON.stringify(updatedOffers));
+        localStorage.setItem(getOffersStorageKey(address), JSON.stringify(updatedOffers));
         setActiveOffers(updatedOffers.filter((offer: SavedOffer) => offer.status === 'active'));
         onOfferUpdate?.();
       }
     } catch (error) {
       console.error('Error updating offer status:', error);
     }
-  }, [publicKey, getOffersStorageKey, onOfferUpdate]);
+  }, [address, getOffersStorageKey, onOfferUpdate]);
 
   // Copy offer to clipboard
   const copyOfferToClipboard = useCallback(async (offerString: string) => {

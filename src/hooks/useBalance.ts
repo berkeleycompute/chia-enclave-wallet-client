@@ -20,7 +20,7 @@ export interface BalanceBreakdown {
 export interface UseBalanceConfig {
   jwtToken?: string | null;
   client?: ChiaCloudWalletClient;
-  publicKey?: string | null;
+  address?: string | null;
   autoRefresh?: boolean;
   refreshInterval?: number;
   baseUrl?: string;
@@ -48,7 +48,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
   const {
     jwtToken,
     client: externalClient,
-    publicKey: externalPublicKey,
+    address: externalAddress,
     autoRefresh = false,
     refreshInterval = 60000,
     baseUrl,
@@ -63,7 +63,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(0);
-  const [publicKey, setPublicKey] = useState<string | null>(externalPublicKey || null);
+  const [address, setAddress] = useState<string | null>(externalAddress || null);
 
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
@@ -136,26 +136,26 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
     };
   }, [formatBalance]);
 
-  // Get public key if not provided
-  const getPublicKey = useCallback(async (): Promise<string | null> => {
-    if (externalPublicKey) return externalPublicKey;
-    if (publicKey) return publicKey;
-
+  // Get wallet address if not provided
+  const getAddress = useCallback(async (): Promise<string | null> => {
+    if (externalAddress) return externalAddress;
+    if (address) return address;
+    
     const client = getClient();
     if (!client) return null;
 
     try {
       const result = await client.getPublicKey();
       if (result.success) {
-        setPublicKey(result.data.address);
+        setAddress(result.data.address);
         return result.data.address;
       }
     } catch (error) {
-      console.warn('Failed to get public key for balance:', error);
+      console.warn('Failed to get wallet address for balance:', error);
     }
     
     return null;
-  }, [externalPublicKey, publicKey, getClient]);
+  }, [externalAddress, address, getClient]);
 
   // Refresh balance data
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -169,12 +169,12 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
     setError(null);
 
     try {
-      const currentPublicKey = await getPublicKey();
-      if (!currentPublicKey) {
-        throw new Error('Public key not available');
-      }
+          const currentAddress = await getAddress();
+    if (!currentAddress) {
+      throw new Error('Wallet address not available');
+    }
 
-      const result = await client.getUnspentHydratedCoins(currentPublicKey);
+    const result = await client.getUnspentHydratedCoins(currentAddress);
       if (!result.success) {
         throw new Error(result.error);
       }
@@ -191,7 +191,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
       setLoading(false);
       return false;
     }
-  }, [getClient, getPublicKey, calculateBalanceBreakdown]);
+  }, [getClient, getAddress, calculateBalanceBreakdown]);
 
   // Reset hook state
   const reset = useCallback(() => {
@@ -231,10 +231,10 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
 
   // Auto-refresh when dependencies change
   useEffect(() => {
-    if (jwtToken || externalClient || externalPublicKey) {
+    if (jwtToken || externalClient || externalAddress) {
       refresh();
     }
-  }, [jwtToken, externalClient, externalPublicKey, refresh]);
+  }, [jwtToken, externalClient, externalAddress, refresh]);
 
   return {
     balance,

@@ -6,7 +6,7 @@ interface MakeOfferModalProps {
   isOpen: boolean;
   onClose: () => void;
   client: ChiaCloudWalletClient | null;
-  publicKey: string | null;
+  address: string | null;
   syntheticPublicKey: string | null;
   hydratedCoins: HydratedCoin[];
   nftMetadata: Map<string, any>;
@@ -23,7 +23,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   isOpen, 
   onClose, 
   client, 
-  publicKey, 
+  address, 
   syntheticPublicKey, 
   hydratedCoins, 
   nftMetadata, 
@@ -59,10 +59,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     // Update initial values when modal opens
     if (isOpen) {
       setOfferAmount(initialOfferAmount || '');
-      setDepositAddress(initialDepositAddress || (publicKey || ''));
+      setDepositAddress(initialDepositAddress || (address || ''));
       setError(null);
     }
-  }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, publicKey]);
+  }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address]);
 
   // Filter NFTs only
   const nftCoins = hydratedCoins.filter(coin => {
@@ -72,10 +72,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   // Auto-populate deposit address with main wallet address
   useEffect(() => {
-    if (publicKey && !depositAddress) {
-      setDepositAddress(publicKey);
+    if (address && !depositAddress) {
+      setDepositAddress(address);
     }
-  }, [publicKey, depositAddress]);
+  }, [address, depositAddress]);
 
   // Utility functions
   const formatAddress = (address: string): string => {
@@ -171,7 +171,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setStep('select-nft');
       setSelectedNft(null);
       setOfferAmount('');
-      setDepositAddress(publicKey || '');
+      setDepositAddress(address || '');
     }
   };
 
@@ -281,7 +281,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const closeModal = () => {
     setSelectedNft(null);
     setOfferAmount('');
-    setDepositAddress(publicKey || '');
+    setDepositAddress(address || '');
     setStep('select-nft');
     setError(null);
     onClose();

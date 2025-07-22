@@ -1,226 +1,271 @@
 import React, { useState } from 'react';
-import { ChiaWalletSDKProvider, useWalletConnection, SimpleDashboard } from 'chia-enclave-wallet-client';
 import './App.css';
 
-type ExampleTab = 'dashboard' | 'widget' | 'button';
+// Import the providers and components from your library
+import { ChiaWalletSDKProvider } from '../../src/providers/ChiaWalletSDKProvider';
+import { GlobalDialogProvider } from '../../src/components/GlobalDialogProvider';
+import { ChiaWalletButton } from '../../src/components/ChiaWalletButton';
 
-const tabConfig = [
-  {
-    id: 'dashboard' as const,
-    icon: '📊',
-    title: 'Dashboard',
-    description: 'Complete wallet dashboard with balance, coins, and actions',
-    gradient: 'from-purple-500 to-pink-500'
-  },
-  {
-    id: 'widget' as const,
-    icon: '🧩',
-    title: 'Widget',
-    description: 'Compact wallet widget for embedding',
-    gradient: 'from-blue-500 to-cyan-500'
-  },
-  {
-    id: 'button' as const,
-    icon: '🔘',
-    title: 'Button',
-    description: 'Simple wallet connection button',
-    gradient: 'from-green-500 to-emerald-500'
+// Import hooks for wallet functionality
+import {
+  useWalletState,
+  useWalletConnection,
+  useWalletBalance,
+} from '../../src/hooks/useChiaWalletSDK';
+
+// Import dialog hooks
+import {
+  useSendDialog,
+  useReceiveDialog,
+  useMakeOfferDialog,
+  useOffersDialog,
+} from '../../src/components/GlobalDialogProvider';
+
+// JWT Token Input Component
+const JWTTokenInput: React.FC = () => {
+  const [jwtTokenInput, setJwtTokenInput] = useState('');
+  const { connect, disconnect, setJwtToken, isConnected, isConnecting, error } = useWalletConnection();
+
+  // Load saved JWT token on component mount
+  React.useEffect(() => {
+    const savedToken = localStorage.getItem('chia-wallet-jwt-token');
+    if (savedToken) {
+      setJwtTokenInput(savedToken);
+    }
+  }, []);
+
+  const handleConnect = async () => {
+    if (jwtTokenInput.trim()) {
+      const token = jwtTokenInput.trim();
+      // Save token to localStorage
+      localStorage.setItem('chia-wallet-jwt-token', token);
+      await setJwtToken(token);
+      await connect();
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+    setJwtTokenInput('');
+    // Clear token from localStorage
+    localStorage.removeItem('chia-wallet-jwt-token');
+  };
+
+  const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newToken = e.target.value;
+    setJwtTokenInput(newToken);
+    // Save to localStorage as user types
+    if (newToken.trim()) {
+      localStorage.setItem('chia-wallet-jwt-token', newToken.trim());
+    }
+  };
+
+  return (
+    <div className="jwt-section">
+      <h2>🔐 JWT Authentication</h2>
+      <div className="jwt-input-group">
+        <input
+          type="text"
+          value={jwtTokenInput}
+          onChange={handleTokenChange}
+          placeholder="Enter your JWT token..."
+          className="jwt-input"
+          disabled={isConnected || isConnecting}
+        />
+        {!isConnected ? (
+          <button
+            onClick={handleConnect}
+            disabled={!jwtTokenInput.trim() || isConnecting}
+            className="connect-btn"
+          >
+            {isConnecting ? 'Connecting...' : 'Connect'}
+          </button>
+        ) : (
+          <button
+            onClick={handleDisconnect}
+            className="disconnect-btn"
+          >
+            Disconnect
+          </button>
+        )}
+      </div>
+      
+      {error && (
+        <div className="error-message">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+      
+      <div className="connection-status">
+        <strong>Status:</strong>
+        <span className={`status ${isConnected ? 'connected' : 'disconnected'}`}>
+          {isConnecting ? 'Connecting...' : isConnected ? '✅ Connected' : '❌ Disconnected'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// ChiaWalletButton Examples
+const ChiaWalletButtonExample: React.FC = () => {
+  const [walletState, setWalletState] = useState<any>(null);
+
+  const handleWalletUpdate = (state: any) => {
+    console.log('Wallet state updated from ChiaWalletButton:', state);
+    setWalletState(state);
+  };
+
+  return (
+    <div className="button-example-section">
+      <h2>🌱 ChiaWalletButton Component</h2>
+      <p>This is the ready-to-use button component from your library:</p>
+      
+      <div className="button-showcase">
+        <div className="button-group">
+          <h3>Wallet Button</h3>
+          <div className="single-button-demo">
+            <ChiaWalletButton 
+              variant="primary"
+              size="large"
+              onWalletUpdate={handleWalletUpdate}
+            />
+          </div>
+        </div>
+      </div>
+
+      {walletState && (
+        <div className="button-debug">
+          <h3>Button Callback Data:</h3>
+          <pre>{JSON.stringify(walletState, null, 2)}</pre>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Wallet Information Display
+const WalletInfo: React.FC = () => {
+  const { publicKey, address, totalBalance, coinCount } = useWalletState();
+  const { formattedBalance } = useWalletBalance();
+  const { isConnected } = useWalletConnection();
+
+  if (!isConnected) {
+    return (
+      <div className="wallet-info-section">
+        <h2>💰 Wallet Information</h2>
+        <p className="not-connected">Please connect with a JWT token to see wallet information.</p>
+      </div>
+    );
   }
-];
 
-function AppContent() {
-  const [activeTab, setActiveTab] = useState<ExampleTab>('dashboard');
-  const { jwtToken, setJwtToken } = useWalletConnection();
+  return (
+    <div className="wallet-info-section">
+      <h2>💰 Wallet Information</h2>
+      <div className="info-grid">
+        <div className="info-item">
+          <strong>Address:</strong>
+          <span className="address">{address || 'Loading...'}</span>
+        </div>
+        <div className="info-item">
+          <strong>Public Key:</strong>
+          <span className="key">{publicKey || 'Loading...'}</span>
+        </div>
+        <div className="info-item">
+          <strong>Balance:</strong>
+          <span className="balance">{formattedBalance}</span>
+        </div>
+        <div className="info-item">
+          <strong>Coin Count:</strong>
+          <span>{coinCount}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-  const isTokenValid = jwtToken && jwtToken.trim().length > 0;
-  const activeTabConfig = tabConfig.find(tab => tab.id === activeTab);
+// Dialog Actions Component
+const DialogActions: React.FC = () => {
+  const sendDialog = useSendDialog();
+  const receiveDialog = useReceiveDialog();
+  const makeOfferDialog = useMakeOfferDialog();
+  const offersDialog = useOffersDialog();
+  const { isConnected } = useWalletConnection();
 
-  const [jwtInput, setJwtInput] = useState('');
+  if (!isConnected) {
+    return (
+      <div className="dialog-actions-section">
+        <h2>🔧 Wallet Actions</h2>
+        <p className="not-connected">Connect to enable wallet actions.</p>
+      </div>
+    );
+  }
 
-  const handleSetToken = async () => {
-    if (jwtInput.trim()) {
-      await setJwtToken(jwtInput.trim());
-      setJwtInput(''); // Clear input after setting
-    }
-  };
+  return (
+    <div className="dialog-actions-section">
+      <h2>🔧 Wallet Actions</h2>
+      <div className="action-buttons">
+        <button
+          onClick={() => sendDialog.open()}
+          className="action-btn send-btn"
+        >
+          💸 Send XCH
+        </button>
+        
+        <button
+          onClick={() => receiveDialog.open()}
+          className="action-btn receive-btn"
+        >
+          📨 Receive
+        </button>
+        
+        <button
+          onClick={() => makeOfferDialog.open()}
+          className="action-btn offer-btn"
+        >
+          🤝 Make Offer
+        </button>
+        
+        <button
+          onClick={() => offersDialog.open()}
+          className="action-btn offers-btn"
+        >
+          📋 Active Offers
+        </button>
+      </div>
+    </div>
+  );
+};
 
-  const handleClearToken = () => {
-    setJwtToken(null);
-  };
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return (
-          <div className="example-content">
-            <h3>🌱 Chia Wallet Dashboard</h3>
-            <p>A complete wallet dashboard with balance display, transaction capabilities, and coin management.</p>
-            <div className="component-demo">
-              <SimpleDashboard showFullModal={true} />
-            </div>
-          </div>
-        );
-      case 'widget':
-        return (
-          <div className="example-content">
-            <h3>🧩 Wallet Widget</h3>
-            <p>A compact wallet widget perfect for embedding in other applications.</p>
-            <div className="component-demo">
-              <SimpleDashboard />
-            </div>
-          </div>
-        );
-      case 'button':
-        return (
-          <div className="example-content">
-            <h3>🔘 Wallet Connection Button</h3>
-            <p>A simple button component for wallet connection and basic info display.</p>
-            <div className="component-demo">
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div>
-                  <h4>Primary Button (Medium)</h4>
-                  <div>Button component would go here - check SimpleDashboard for the connection pattern</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
+// Main Example App
+const ExampleApp: React.FC = () => {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="header-content">
-          <h1>🌾 Chia Wallet SDK - Simplified API</h1>
-          <p>Easy-to-use React components for Chia wallet integration</p>
-          <div className="header-decoration"></div>
-        </div>
+        <h1>🌱 Chia Wallet SDK Example</h1>
+        <p>Demonstrate the Chia Wallet library with JWT authentication</p>
       </header>
 
-      <main className="app-main">
-        {/* JWT Token Section */}
-        <div className="token-section">
-          <div className="token-input-group">
-            <input
-              type="password"
-              placeholder="Enter JWT Token to connect wallet"
-              value={jwtInput}
-              onChange={(e) => setJwtInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSetToken()}
-              className="jwt-input"
-            />
-            <button onClick={handleSetToken} disabled={!jwtInput.trim()} className="set-token-btn">
-              Set Token
-            </button>
-            {isTokenValid && (
-              <button onClick={handleClearToken} className="clear-token-btn">
-                Clear
-              </button>
-            )}
-          </div>
-          <div className="token-status">
-            Status: {isTokenValid ? '✅ Token Set' : '⚪ No Token'}
-          </div>
-        </div>
-
-        {/* Examples Section */}
-        <div className="examples-section">
-          <div className="section-header">
-            <h2>🧪 Component Examples</h2>
-            <p>Explore the new simplified SDK components with real-time testing</p>
-          </div>
-
-          <nav className="examples-nav">
-            {tabConfig.map((tab) => (
-              <button 
-                key={tab.id}
-                className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-                data-gradient={tab.gradient}
-              >
-                <span className="tab-icon">{tab.icon}</span>
-                <span className="tab-title">{tab.title}</span>
-                <div className="tab-glow"></div>
-              </button>
-            ))}
-          </nav>
-
-          <div className="examples-content">
-            {activeTabConfig && (
-              <div className="content-header">
-                <div className="content-title">
-                  <span className="title-icon">{activeTabConfig.icon}</span>
-                  <h3>{activeTabConfig.title}</h3>
-                </div>
-                <p className="content-description">{activeTabConfig.description}</p>
-              </div>
-            )}
-            
-            <div className="content-body">
-              {renderTabContent()}
-            </div>
-          </div>
-        </div>
-
-        {/* Features Showcase */}
-        <div className="features-section">
-          <h2>✨ Why Use the Simplified SDK?</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">🎯</div>
-              <h3>Easy to Use</h3>
-              <p>Just wrap your app with ChiaWalletSDKProvider and use simple hooks</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🔄</div>
-              <h3>Auto State Sync</h3>
-              <p>All components automatically share the same wallet state</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">⚡</div>
-              <h3>Built-in Optimization</h3>
-              <p>Automatic caching, refresh intervals, and memory management</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🎨</div>
-              <h3>Modern UI</h3>
-              <p>Beautiful, responsive components with built-in styling</p>
-            </div>
-          </div>
-        </div>
+      <main className="main-content">
+        <JWTTokenInput />
+        <ChiaWalletButtonExample />
+        <WalletInfo />
+        <DialogActions />
       </main>
-
-      <footer className="app-footer">
-        <div className="footer-content">
-          <p>Built with ❤️ for the Chia Blockchain ecosystem using the new Simplified SDK</p>
-          <div className="footer-links">
-            <span>🌾 Powered by Chia</span>
-            <span>⚡ Lightning Fast</span>
-            <span>🔒 Secure by Design</span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
-}
+};
 
+// Root App with Providers
 function App() {
   return (
-    <ChiaWalletSDKProvider
-      config={{
-        baseUrl: 'https://chia-enclave.silicon-dev.net',
-        enableLogging: true,
-        autoConnect: false, // Don't auto-connect, let user enter JWT token first
-        autoRefresh: true,
-        refreshInterval: 30000
-      }}
-    >
-      <AppContent />
+    <ChiaWalletSDKProvider config={{
+      autoConnect: false
+    }}>
+      <GlobalDialogProvider>
+        <ExampleApp />
+      </GlobalDialogProvider>
     </ChiaWalletSDKProvider>
   );
 }
 
-export default App; 
+export default App;

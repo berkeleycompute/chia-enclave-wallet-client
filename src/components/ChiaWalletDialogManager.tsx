@@ -11,7 +11,7 @@ import { NFTDetailsModal } from './NFTDetailsModal';
 // Simple configuration interface for the dialog manager
 export interface ChiaWalletDialogConfig {
   client?: ChiaCloudWalletClient;
-  publicKey?: string;
+  address?: string;
   jwtToken?: string;
   autoConnect?: boolean;
   baseUrl?: string;
@@ -102,7 +102,7 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
     
     // Data states
     config: this.props.initialConfig,
-    publicKey: this.props.initialConfig.publicKey || null,
+    address: this.props.initialConfig.address || null,
     syntheticPublicKey: null as string | null,
     hydratedCoins: [] as HydratedCoin[],
     unspentCoins: [] as any[],
@@ -161,21 +161,21 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
 
     try {
       // Get public key if not provided
-      let publicKey = this.state.publicKey;
+      let address = this.state.address;
       let syntheticPublicKey = this.state.syntheticPublicKey;
 
-      if (!publicKey) {
+      if (!address) {
         const publicKeyResult = await this.client.getPublicKey();
         if (publicKeyResult.success) {
-          publicKey = publicKeyResult.data.address;
+          address = publicKeyResult.data.address;
           syntheticPublicKey = publicKeyResult.data.synthetic_public_key;
-          this.setState({ publicKey, syntheticPublicKey });
+          this.setState({ address, syntheticPublicKey });
         }
       }
 
-      if (publicKey) {
+      if (address) {
         // Load hydrated coins
-        const hydratedResult = await this.client.getUnspentHydratedCoins(publicKey);
+        const hydratedResult = await this.client.getUnspentHydratedCoins(address);
         if (hydratedResult.success) {
           const hydratedCoins = hydratedResult.data.data;
           const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
@@ -249,7 +249,7 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
       makeOfferDialogOpen,
       nftDetailsDialogOpen,
       walletDialogOpen,
-      publicKey,
+      address,
       syntheticPublicKey,
       hydratedCoins,
       unspentCoins,
@@ -278,7 +278,7 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
           isOpen={makeOfferDialogOpen}
           onClose={() => this.setState({ makeOfferDialogOpen: false, selectedNft: null })}
           client={this.client}
-          publicKey={publicKey}
+          address={address}
           syntheticPublicKey={syntheticPublicKey}
           hydratedCoins={hydratedCoins}
           nftMetadata={nftMetadata}
@@ -292,7 +292,7 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         <ActiveOffersModal
           isOpen={offersDialogOpen}
           onClose={() => this.setState({ offersDialogOpen: false })}
-          publicKey={publicKey}
+          address={address}
           nftMetadata={nftMetadata}
           loadingMetadata={loadingMetadata}
           onOfferUpdate={this.handleOfferUpdate}

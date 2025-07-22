@@ -16,8 +16,8 @@ export interface HydratedCoinsState {
   coinCount: number;
   
   // Metadata
-  publicKey: string | null;
-  syntheticPublicKey: string | null;
+  address: string | null;
+  syntheticPublicKey: string | null; // Only used for offers
   
   // Status
   isLoading: boolean;
@@ -52,7 +52,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
     unspentCoins: [] as Coin[],
     balance: 0,
     coinCount: 0,
-    publicKey: null as string | null,
+    address: null as string | null,
     syntheticPublicKey: null as string | null,
     isLoading: false,
     isConnected: false,
@@ -86,24 +86,24 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
       // Set JWT token on client
       client.setJwtToken(config.jwtToken);
 
-      // Get public key first
-      console.log('📝 useHydratedCoins: Fetching public key...');
+      // Get wallet address first
+      console.log('📝 useHydratedCoins: Fetching wallet address...');
       const pkResponse = await client.getPublicKey();
       if (!pkResponse.success) {
         throw new Error(pkResponse.error);
       }
 
-      const publicKey = pkResponse.data.address;
+      const address = pkResponse.data.address;
       const syntheticPublicKey = pkResponse.data.synthetic_public_key;
       
-      console.log('✅ useHydratedCoins: Public key fetched', {
-        publicKey: publicKey.substring(0, 16) + '...',
+      console.log('✅ useHydratedCoins: Wallet address fetched', {
+        address: address.substring(0, 16) + '...',
         syntheticKey: syntheticPublicKey ? syntheticPublicKey.substring(0, 16) + '...' : null
       });
 
       // Get hydrated coins
       console.log('💰 useHydratedCoins: Fetching hydrated coins...');
-      const hydratedResult = await client.getUnspentHydratedCoins(publicKey);
+      const hydratedResult = await client.getUnspentHydratedCoins(address);
       if (!hydratedResult.success) {
         throw new Error(hydratedResult.error);
       }
@@ -126,7 +126,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
         unspentCoins,
         balance: totalBalance,
         coinCount: unspentCoins.length,
-        publicKey,
+        address,
         syntheticPublicKey,
         isLoading: false,
         isConnected: true,
@@ -164,7 +164,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
       unspentCoins: [],
       balance: 0,
       coinCount: 0,
-      publicKey: null,
+      address: null,
       syntheticPublicKey: null,
       isLoading: false,
       isConnected: false,

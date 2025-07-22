@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useWalletConnection, useWalletBalance, useWalletState } from '../hooks/useChiaWalletSDK';
 import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
-import { SimpleWalletModal } from './SimpleWalletModal';
+import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider';
 
 export interface ChiaWalletButtonProps {
   variant?: 'primary' | 'secondary';
@@ -134,9 +134,10 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
         </div>
       </button>
 
-      <SimpleWalletModal
+      <ChiaWalletModalWithProvider
         isOpen={isModalOpen}
         onClose={closeModal}
+        onWalletUpdate={onWalletUpdate}
       />
       
       <style>{`
