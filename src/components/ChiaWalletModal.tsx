@@ -519,10 +519,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <MakeOfferModal
         isOpen={makeOfferDialog.isOpen}
         onClose={makeOfferDialog.close}
-        onOfferCreated={(offerData) => {
-          console.log('Offer created:', offerData);
-          saveOffer(offerData);
-        }}
+        // onOfferCreated={(offerData) => {
+        //   console.log('Offer created:', offerData);
+        //   saveOffer(offerData);
+        // }}
         onRefreshWallet={refreshBalance}
       />
 

@@ -8,6 +8,7 @@ import {
   useNFTOffers
 } from '../hooks/useChiaWalletSDK';
 import { injectModalStyles } from './modal-styles';
+import { SavedOffer } from './types';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -265,13 +266,86 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return 'Unknown Collection';
   };
 
-  const getNftEditionInfo = (nftCoin: HydratedCoin): string | null => {
+  const getNftEditionInfo = (nftCoin: HydratedCoin): string | undefined => {
     const metadata = getNftMetadata(nftCoin);
     if (metadata?.series_number && metadata?.series_total) {
       return `#${metadata.series_number} of ${metadata.series_total}`;
     }
-    return null;
+    return undefined;
   };
+
+  // Offer saving helper functions
+  const getOffersStorageKey = useCallback((pubKey: string | null): string => {
+    if (!pubKey) return 'chia_active_offers';
+    return `chia_active_offers_${pubKey.substring(0, 16)}`;
+  }, []);
+
+  const getNftImageUrl = useCallback((nftCoin: HydratedCoin): string | undefined => {
+    const metadata = getNftMetadata(nftCoin);
+    if (metadata?.data_uris && metadata.data_uris.length > 0) {
+      return metadata.data_uris[0];
+    }
+    if (metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value) {
+      return metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value;
+    }
+    return undefined;
+  }, [getNftMetadata]);
+
+  const saveOfferToStorage = useCallback((offerData: {
+    nft: HydratedCoin;
+    amount: number;
+    depositAddress: string;
+    wusdcAssetId: string;
+    offerString: string;
+    timestamp: number;
+    isSigned: boolean;
+    originalRequest?: any;
+  }) => {
+    if (!address) return;
+
+    try {
+      // Create SavedOffer object
+      const savedOffer: SavedOffer = {
+        id: `offer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: offerData.timestamp,
+        status: 'active',
+        nft: {
+          coin: offerData.nft,
+          metadata: getNftMetadata(offerData.nft),
+          name: getNftDisplayName(offerData.nft),
+          collection: getNftCollectionName(offerData.nft),
+          edition: getNftEditionInfo(offerData.nft),
+          imageUrl: getNftImageUrl(offerData.nft)
+        },
+        requestedPayment: {
+          amount: offerData.amount,
+          assetId: offerData.wusdcAssetId,
+          assetName: 'wUSDC.b',
+          depositAddress: offerData.depositAddress
+        },
+        offerData: {
+          offerString: offerData.offerString,
+          isSigned: offerData.isSigned
+        },
+        originalRequest: offerData.originalRequest || {} as any
+      };
+
+      // Get existing offers
+      const storageKey = getOffersStorageKey(address);
+      const existing = localStorage.getItem(storageKey);
+      const existingOffers: SavedOffer[] = existing ? JSON.parse(existing) : [];
+
+      // Add new offer
+      const updatedOffers = [savedOffer, ...existingOffers];
+
+      // Save to localStorage
+      localStorage.setItem(storageKey, JSON.stringify(updatedOffers));
+
+      console.log('Offer saved to localStorage:', savedOffer.id);
+    } catch (error) {
+      console.error('Error saving offer to localStorage:', error);
+    }
+  }, [address, getOffersStorageKey, getNftMetadata, getNftDisplayName, getNftCollectionName, getNftEditionInfo, getNftImageUrl]);
 
   // Event handlers
   const selectNft = (nft: HydratedCoin) => {
@@ -368,7 +442,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         throw new Error(result.error);
       }
 
-      // Emit success event with the signed offer
+      // Prepare the offer data
       const offerData = {
         nft: selectedNft,
         amount: parseFloat(offerAmount),
@@ -380,6 +454,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         originalRequest: simpleOfferRequest
       };
       
+      // Always save to localStorage directly
+      saveOfferToStorage(offerData);
+      
+      // Also call the callback if provided (for parent component compatibility)
       onOfferCreated?.(offerData);
 
       closeModal();

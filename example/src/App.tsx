@@ -298,8 +298,8 @@ const DialogsView: React.FC<{
     
     setLastAction(`Selected random NFT: ${randomNFT.coin?.parentCoinInfo?.substring(0, 16)}... for offer`);
     
-    // Open the make offer dialog
-    makeOfferDialog.open();
+    // Open the make offer dialog WITH the selected NFT
+    makeOfferDialog.open({ selectedNft: randomNFT });
   };
 
   // Function to open NFT details with a random NFT
