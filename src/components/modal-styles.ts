@@ -12,6 +12,7 @@ export const sharedModalStyles = `
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(4px);
+    z-index: 1000;
   }
 
   /* Modal Content Base */
@@ -81,6 +82,29 @@ export const sharedModalStyles = `
   .close-btn {
     position: absolute;
     right: 20px;
+  }
+
+  /* View Header for internal navigation */
+  .view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #333;
+    background: #262626;
+  }
+
+  .view-header h4 {
+    margin: 0;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    flex: 1;
+    text-align: center;
+  }
+
+  .view-header .back-btn {
+    position: static;
   }
 
   .refresh-btn {
@@ -347,6 +371,128 @@ export const sharedModalStyles = `
 
   .grid-3 {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  /* Info Item Styles - Dark Theme */
+  .info-item,
+  .metadata-item,
+  .coin-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .info-item label,
+  .metadata-item label,
+  .coin-item label {
+    font-weight: 500;
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .info-value,
+  .metadata-value,
+  .coin-value {
+    font-family: monospace;
+    font-size: 13px;
+    background: #333;
+    border: 1px solid #404040;
+    padding: 8px 12px;
+    border-radius: 6px;
+    word-break: break-all;
+    color: #ccc;
+    line-height: 1.4;
+  }
+
+  .info-value.monospace,
+  .metadata-value.monospace,
+  .coin-value.monospace {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+  }
+
+  .info-value.description,
+  .metadata-value.description {
+    font-family: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Attribute Styles */
+  .attribute-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: #333;
+    border: 1px solid #404040;
+    border-radius: 8px;
+  }
+
+  .attribute-name,
+  .attribute-type {
+    font-weight: 500;
+    color: #888;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .attribute-value {
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  /* URI List Styles */
+  .uri-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .uri-item {
+    padding: 8px;
+    background: #333;
+    border: 1px solid #404040;
+    border-radius: 6px;
+  }
+
+  .uri-link {
+    color: #6bc36b;
+    text-decoration: underline;
+    font-size: 13px;
+    word-break: break-all;
+    font-family: monospace;
+  }
+
+  .uri-link:hover {
+    color: #4a9f4a;
+  }
+
+  /* NFT Image Styles */
+  .nft-image-large {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    background: #333;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .nft-image-large img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  .nft-placeholder-large {
+    font-size: 64px;
+    color: #666;
+    text-align: center;
   }
 
   /* List Styles */

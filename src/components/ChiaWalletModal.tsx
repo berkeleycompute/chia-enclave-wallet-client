@@ -13,6 +13,7 @@ import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
 import { ActiveOffersModal } from './ActiveOffersModal';
 import { NFTDetailsModal } from './NFTDetailsModal';
+import { sharedModalStyles } from './modal-styles';
 // Import the new dialog hooks
 import {
   useSendFundsDialog,
@@ -90,7 +91,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const nftDetailsDialog = useNFTDetailsDialog();
 
   // Local UI state
-  const [currentView, setCurrentView] = useState<'main' | 'transactions' | 'assets'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'transactions' | 'assets' | 'nft-details'>('main');
+  const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
   const [sentTransactions, setSentTransactions] = useState<SentTransaction[]>([]);
 
   // NFT metadata state (keep this as it's specific to this modal)
@@ -411,14 +413,52 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     const amount = Number(hydratedCoin.coin.amount);
 
     if (coinType === 'XCH') {
-      return `${formattedBalance} XCH`;
+      return `${(amount / 1000000000000).toFixed(6)} XCH`;
     } else if (coinType === 'CAT') {
       // For CAT tokens, we might need proper decimal handling
       return `${(amount / 1000000000000).toFixed(6)} units`;
     } else {
       return `${amount.toString()} NFT`;
     }
-  }, [getCoinType, formattedBalance]);
+  }, [getCoinType]);
+
+  // NFT metadata utility functions
+  const getNftMetadata = useCallback((nftCoin: HydratedCoin): any => {
+    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
+      return null;
+    }
+
+    const metadataUri = driverInfo.info.metadata.metadataUris[0];
+    const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
+    return nftMetadata.get(cacheKey);
+  }, [nftMetadata]);
+
+  const isNftMetadataLoading = useCallback((nftCoin: HydratedCoin): boolean => {
+    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
+      return false;
+    }
+
+    const metadataUri = driverInfo.info.metadata.metadataUris[0];
+    const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
+    return loadingMetadata.has(cacheKey);
+  }, [loadingMetadata]);
+
+  const convertIpfsUrl = useCallback((url: string): string => {
+    if (!url) return url;
+
+    if (url.startsWith('ipfs://')) {
+      const hash = url.replace('ipfs://', '');
+      return `https://ipfs.io/ipfs/${hash}`;
+    }
+
+    if (!url.startsWith('http') && url.length > 40) {
+      return `https://ipfs.io/ipfs/${url}`;
+    }
+
+    return url;
+  }, []);
 
   const addSentTransaction = useCallback((amount: number, recipient: string, fee: number = 0, transactionId?: string, blockchainStatus?: string) => {
     const transaction: SentTransaction = {
@@ -477,6 +517,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const closeModal = () => {
     onClose();
     setCurrentView('main');
+    setSelectedNft(null);
     // Close all dialogs using hooks
     sendFundsDialog.close();
     receiveFundsDialog.close();
@@ -486,7 +527,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   };
 
   const openNftDetails = (nftCoin: HydratedCoin) => {
-    nftDetailsDialog.open(nftCoin);
+    setSelectedNft(nftCoin);
+    setCurrentView('nft-details');
   };
 
   const getConnectionStatus = (): string => {
@@ -713,7 +755,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                     </>
                   ) : currentView === 'transactions' ? (
                     <div className="transactions-view">
-                      <div className="transactions-header">
+                      <div className="view-header">
                         <button className="back-btn" onClick={() => setCurrentView('main')}>
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M19 12H5"></path>
@@ -807,7 +849,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                     </div>
                   ) : currentView === 'assets' ? (
                     <div className="assets-view">
-                      <div className="assets-header">
+                      <div className="view-header">
                         <button className="back-btn" onClick={() => setCurrentView('main')}>
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M19 12H5"></path>
@@ -823,87 +865,267 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         </button>
                       </div>
 
-                      <div className="assets-grid">
-                        {nftCoins.map((nftCoin, index) => {
-                          // Get NFT metadata for this coin
-                          const getNftMetadata = (nftCoin: HydratedCoin): any => {
-                            const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-                            if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
-                              return null;
-                            }
+                      <div className="assets-content">
+                        <div className="grid grid-3">
+                          {nftCoins.map((nftCoin, index) => {
+                            const metadata = getNftMetadata(nftCoin);
+                            const isLoading = isNftMetadataLoading(nftCoin);
+                            const nftInfo = nftCoin.parentSpendInfo.driverInfo?.info;
+                            const onChainMetadata = nftInfo?.metadata;
 
-                            const metadataUri = driverInfo.info.metadata.metadataUris[0]; // Use first URI
-                            const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
-                            return nftMetadata.get(cacheKey);
-                          };
-
-                          const isNftMetadataLoading = (nftCoin: HydratedCoin): boolean => {
-                            const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-                            if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
-                              return false;
-                            }
-
-                            const metadataUri = driverInfo.info.metadata.metadataUris[0]; // Use first URI
-                            const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
-                            return loadingMetadata.has(cacheKey);
-                          };
-
-                          // Utility function to convert IPFS URLs to HTTP gateway URLs
-                          const convertIpfsUrl = (url: string): string => {
-                            if (!url) return url;
-
-                            // Convert IPFS URLs to HTTP gateway URLs
-                            if (url.startsWith('ipfs://')) {
-                              // Remove ipfs:// and use a public gateway
-                              const hash = url.replace('ipfs://', '');
-                              return `https://ipfs.io/ipfs/${hash}`;
-                            }
-
-                            // If it's just a hash without protocol
-                            if (!url.startsWith('http') && url.length > 40) {
-                              return `https://ipfs.io/ipfs/${url}`;
-                            }
-
-                            return url;
-                          };
-
-                          const metadata = getNftMetadata(nftCoin);
-                          const isLoading = isNftMetadataLoading(nftCoin);
-
-                          return (
-                            <div key={index} className="asset-card" onClick={() => openNftDetails(nftCoin)}>
-                              <div className="asset-image">
-                                {isLoading ? (
-                                  <div className="asset-loading">
-                                    <div className="asset-spinner"></div>
-                                  </div>
-                                ) : metadata ? (
-                                  metadata.data_uris && metadata.data_uris.length > 0 ? (
+                            return (
+                              <div key={index} className="asset-card" onClick={() => openNftDetails(nftCoin)}>
+                                <div className="asset-image">
+                                  {isLoading ? (
+                                    <div className="loading-state">
+                                      <div className="spinner"></div>
+                                    </div>
+                                  ) : metadata?.data_uris && metadata.data_uris.length > 0 ? (
                                     <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
-                                  ) : metadata.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
+                                  ) : metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
                                     <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
                                   ) : (
                                     <div className="asset-placeholder">🖼️</div>
-                                  )
-                                ) : (
-                                  <div className="asset-placeholder">🖼️</div>
-                                )}
+                                  )}
+                                </div>
+                                <div className="asset-info">
+                                  <h5 className="asset-name">{metadata?.name || `NFT #${index + 1}`}</h5>
+                                  <p className="asset-collection">{metadata?.collection?.name || 'Unknown Collection'}</p>
+                                  
+                                  {/* Edition Info */}
+                                  {(onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) ? (
+                                    <div className="asset-edition">#{onChainMetadata.editionNumber} of {onChainMetadata.editionTotal}</div>
+                                  ) : (metadata?.series_number && metadata?.series_total) ? (
+                                    <div className="asset-edition">#{metadata.series_number} of {metadata.series_total}</div>
+                                  ) : null}
+
+                                  {/* Key Attributes Preview */}
+                                  {metadata?.attributes && metadata.attributes.length > 0 && (
+                                    <div className="asset-attributes">
+                                      {metadata.attributes.slice(0, 2).map((attr: any, attrIndex: number) => (
+                                        <div key={attrIndex} className="attribute-preview">
+                                          <span className="attr-name">{attr.trait_type || attr.name}</span>
+                                          <span className="attr-value">{attr.value}</span>
+                                        </div>
+                                      ))}
+                                      {metadata.attributes.length > 2 && (
+                                        <div className="more-attributes">+{metadata.attributes.length - 2} more</div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Rarity/Special indicators */}
+                                  <div className="asset-badges">
+                                    {nftInfo?.royaltyTenThousandths && nftInfo.royaltyTenThousandths > 0 && (
+                                      <span className="badge royalty">
+                                        {(nftInfo.royaltyTenThousandths / 100).toFixed(1)}% Royalty
+                                      </span>
+                                    )}
+                                    {metadata?.properties?.category && (
+                                      <span className="badge category">{metadata.properties.category}</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="asset-info">
-                                <h5>{metadata?.name || `NFT #${index + 1}`}</h5>
-                                <p className="asset-collection">{metadata?.collection?.name || 'Unknown Collection'}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
 
                         {nftCoins.length === 0 && (
                           <div className="no-assets">
-                            <p>No NFTs found in your wallet</p>
+                            <div className="no-assets-icon">🖼️</div>
+                            <h4>No NFTs Found</h4>
+                            <p>Your wallet doesn't contain any NFTs yet.</p>
                           </div>
                         )}
                       </div>
                     </div>
+                                     ) : currentView === 'nft-details' && selectedNft ? (
+                     <div className="nft-details-view">
+                       <div className="view-header">
+                         <button className="back-btn" onClick={() => setCurrentView('assets')}>
+                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                             <path d="M19 12H5"></path>
+                             <path d="M12 19l-7-7 7-7"></path>
+                           </svg>
+                         </button>
+                         <h4>NFT Details</h4>
+                         <div></div>
+                       </div>
+
+                       <div className="nft-details-content">
+                         {(() => {
+                           const metadata = getNftMetadata(selectedNft);
+                           const isLoading = isNftMetadataLoading(selectedNft);
+                           const nftInfo = selectedNft.parentSpendInfo.driverInfo?.info;
+                           const onChainMetadata = nftInfo?.metadata;
+
+                           return (
+                             <>
+                               {/* NFT Image */}
+                               <div className="section-card">
+                                 <div className="nft-image-large">
+                                   {isLoading ? (
+                                     <div className="loading-state">
+                                       <div className="spinner"></div>
+                                     </div>
+                                   ) : metadata?.data_uris && metadata.data_uris.length > 0 ? (
+                                     <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
+                                   ) : metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
+                                     <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
+                                   ) : (
+                                     <div className="nft-placeholder-large">🖼️</div>
+                                   )}
+                                 </div>
+                               </div>
+
+                               {/* Basic Information */}
+                               <div className="section-card">
+                                 <h3>Basic Information</h3>
+                                 <div className="grid grid-2">
+                                   <div className="info-item">
+                                     <label>Name</label>
+                                     <span className="info-value">
+                                       {metadata?.name || `NFT ${nftInfo?.launcherId?.substring(0, 8)}...${nftInfo?.launcherId?.substring(nftInfo.launcherId.length - 8)}` || 'Unknown'}
+                                     </span>
+                                   </div>
+                                   <div className="info-item">
+                                     <label>Collection</label>
+                                     <span className="info-value">
+                                       {metadata?.collection?.name || 'Unknown Collection'}
+                                     </span>
+                                   </div>
+                                   {metadata?.description && (
+                                     <div className="info-item">
+                                       <label>Description</label>
+                                       <span className="info-value description">{metadata.description}</span>
+                                     </div>
+                                   )}
+                                   <div className="info-item">
+                                     <label>Edition</label>
+                                     <span className="info-value">
+                                       {onChainMetadata?.editionNumber && onChainMetadata?.editionTotal 
+                                         ? `${onChainMetadata.editionNumber} of ${onChainMetadata.editionTotal}`
+                                         : metadata?.series_number && metadata?.series_total
+                                         ? `#${metadata.series_number} of ${metadata.series_total}`
+                                         : 'N/A'
+                                       }
+                                     </span>
+                                   </div>
+                                   <div className="info-item">
+                                     <label>Launcher ID</label>
+                                     <code className="info-value monospace">{nftInfo?.launcherId || 'N/A'}</code>
+                                   </div>
+                                   <div className="info-item">
+                                     <label>Royalty</label>
+                                     <span className="info-value">
+                                       {nftInfo?.royaltyTenThousandths 
+                                         ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
+                                         : '0%'
+                                       }
+                                     </span>
+                                   </div>
+                                 </div>
+                               </div>
+
+                               {/* Metadata Attributes */}
+                               {metadata?.attributes && metadata.attributes.length > 0 && (
+                                 <div className="section-card">
+                                   <h3>Attributes</h3>
+                                   <div className="grid grid-3">
+                                     {metadata.attributes.map((attr: any, index: number) => (
+                                       <div key={index} className="attribute-item">
+                                         <div className="attribute-name">{attr.trait_type || attr.name || `Attribute ${index + 1}`}</div>
+                                         <div className="attribute-value">{attr.value}</div>
+                                         {attr.display_type && (
+                                           <div className="attribute-type">{attr.display_type}</div>
+                                         )}
+                                       </div>
+                                     ))}
+                                   </div>
+                                 </div>
+                               )}
+
+                               {/* Collection Information */}
+                               {metadata?.collection && (
+                                 <div className="section-card">
+                                   <h3>Collection Details</h3>
+                                   <div className="grid grid-2">
+                                     <div className="info-item">
+                                       <label>Collection Name</label>
+                                       <span className="info-value">{metadata.collection.name || 'Unknown'}</span>
+                                     </div>
+                                     {metadata.collection.family && (
+                                       <div className="info-item">
+                                         <label>Family</label>
+                                         <span className="info-value">{metadata.collection.family}</span>
+                                       </div>
+                                     )}
+                                     {metadata.collection.description && (
+                                       <div className="info-item">
+                                         <label>Collection Description</label>
+                                         <span className="info-value description">{metadata.collection.description}</span>
+                                       </div>
+                                     )}
+                                   </div>
+                                 </div>
+                               )}
+
+                               {/* Technical Details */}
+                               <div className="section-card">
+                                 <h3>Technical Information</h3>
+                                 <div className="grid grid-2">
+                                   <div className="info-item">
+                                     <label>Parent Coin Info</label>
+                                     <code className="info-value monospace">{selectedNft.coin.parentCoinInfo}</code>
+                                   </div>
+                                   <div className="info-item">
+                                     <label>Puzzle Hash</label>
+                                     <code className="info-value monospace">{selectedNft.coin.puzzleHash}</code>
+                                   </div>
+                                   <div className="info-item">
+                                     <label>Amount</label>
+                                     <span className="info-value">{selectedNft.coin.amount} mojos</span>
+                                   </div>
+                                   <div className="info-item">
+                                     <label>Created Height</label>
+                                     <span className="info-value">{selectedNft.createdHeight}</span>
+                                   </div>
+                                   {onChainMetadata?.dataHash && (
+                                     <div className="info-item">
+                                       <label>Data Hash</label>
+                                       <code className="info-value monospace">{onChainMetadata.dataHash}</code>
+                                     </div>
+                                   )}
+                                   {onChainMetadata?.metadataHash && (
+                                     <div className="info-item">
+                                       <label>Metadata Hash</label>
+                                       <code className="info-value monospace">{onChainMetadata.metadataHash}</code>
+                                     </div>
+                                   )}
+                                 </div>
+                               </div>
+
+                               {/* Data URIs */}
+                               {metadata?.data_uris && metadata.data_uris.length > 0 && (
+                                 <div className="section-card">
+                                   <h3>Data URIs</h3>
+                                   <div className="uri-list">
+                                     {metadata.data_uris.map((uri: string, index: number) => (
+                                       <div key={index} className="uri-item">
+                                         <a href={convertIpfsUrl(uri)} target="_blank" rel="noopener noreferrer" className="uri-link">
+                                           {uri.startsWith('ipfs://') ? `IPFS: ${uri.substring(7, 20)}...` : uri}
+                                         </a>
+                                       </div>
+                                     ))}
+                                   </div>
+                                 </div>
+                               )}
+                             </>
+                           );
+                         })()}
+                       </div>
+                     </div>
                   ) : null}
                 </>
               ) : (
@@ -919,29 +1141,16 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         </div>
       )}
 
-      {/* Keep existing styles */}
+      {/* Modal Styles */}
       <style>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.7);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          backdrop-filter: blur(4px);
-        }
+        ${sharedModalStyles}
 
-
-
+        /* Wallet Modal Specific Styles */
         .modal-content {
           background: #1a1a1a;
           border-radius: 16px;
           width: 90%;
-          max-width: 400px;
+          max-width: 475px;
           max-height: 90vh;
           overflow-y: auto;
           border: 1px solid #333;
