@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient';
 import { bech32m } from 'bech32';
+import { 
+  useWalletConnection, 
+  useWalletCoins,
+  useWalletState,
+  useNFTOffers
+} from '../hooks/useChiaWalletSDK';
+import { injectModalStyles } from './modal-styles';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
   onClose: () => void;
-  client: ChiaCloudWalletClient | null;
-  address: string | null;
-  syntheticPublicKey: string | null;
-  hydratedCoins: HydratedCoin[];
-  nftMetadata: Map<string, any>;
-  loadingMetadata: Set<string>;
   selectedNft?: HydratedCoin | null;
   onOfferCreated?: (offerData: any) => void;
   onRefreshWallet?: () => void;
@@ -22,18 +23,28 @@ interface MakeOfferModalProps {
 export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ 
   isOpen, 
   onClose, 
-  client, 
-  address, 
-  syntheticPublicKey, 
-  hydratedCoins, 
-  nftMetadata, 
-  loadingMetadata, 
   selectedNft: initialSelectedNft,
   onOfferCreated,
   onRefreshWallet,
   initialOfferAmount,
   initialDepositAddress
 }) => {
+  // Get wallet state from hooks (using same pattern as other modals)
+  const { address, isConnected } = useWalletConnection();
+  const { hydratedCoins } = useWalletCoins();
+  const walletState = useWalletState();
+  const { syntheticPublicKey } = walletState;
+  const { createNFTOffer, isCreatingOffer } = useNFTOffers();
+  
+  // Inject shared modal styles
+  React.useEffect(() => {
+    injectModalStyles();
+  }, []);
+  
+  // Local NFT metadata state (similar to ChiaWalletModal pattern)
+  const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
+  const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
+
   // wUSDC.b asset ID
   const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
 
@@ -65,7 +76,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address]);
 
   // Filter NFTs only
-  const nftCoins = hydratedCoins.filter(coin => {
+  const nftCoinsToDisplay = hydratedCoins.filter((coin: HydratedCoin) => {
     const driverInfo = coin.parentSpendInfo.driverInfo;
     return driverInfo?.type === 'NFT';
   });
@@ -76,6 +87,108 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setDepositAddress(address);
     }
   }, [address, depositAddress]);
+
+  // NFT metadata management functions
+  const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
+    try {
+      const response = await fetch(metadataUri);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metadata: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching NFT metadata:', error);
+      return null;
+    }
+  }, []);
+
+  const getCachedNftMetadata = useCallback((cacheKey: string): any => {
+    if (!address) return null;
+
+    try {
+      const storageKey = `chia_nft_metadata_${address.substring(0, 16)}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const cache = JSON.parse(stored);
+        const cached = cache[cacheKey];
+        if (cached && Date.now() - cached.timestamp < 86400000) { // 24 hours
+          return cached.data;
+        }
+      }
+    } catch (error) {
+      console.error('Error reading cached NFT metadata:', error);
+    }
+    return null;
+  }, [address]);
+
+  const setCachedNftMetadata = useCallback((cacheKey: string, metadata: any): void => {
+    if (!address) return;
+
+    try {
+      const storageKey = `chia_nft_metadata_${address.substring(0, 16)}`;
+      const existing = localStorage.getItem(storageKey);
+      const cache = existing ? JSON.parse(existing) : {};
+
+      cache[cacheKey] = {
+        data: metadata,
+        timestamp: Date.now()
+      };
+
+      localStorage.setItem(storageKey, JSON.stringify(cache));
+    } catch (error) {
+      console.error('Error caching NFT metadata:', error);
+    }
+  }, [address]);
+
+  const loadNftMetadata = useCallback(async (nftCoin: HydratedCoin): Promise<void> => {
+    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
+      return;
+    }
+
+    const metadataUri = driverInfo.info.metadata.metadataUris[0];
+    const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
+
+    // Check if already loaded or loading
+    if (nftMetadata.has(cacheKey) || loadingMetadata.has(cacheKey)) {
+      return;
+    }
+
+    // Check localStorage cache first
+    const cachedData = getCachedNftMetadata(cacheKey);
+    if (cachedData) {
+      setNftMetadata(prev => new Map(prev.set(cacheKey, cachedData)));
+      return;
+    }
+
+    // Mark as loading
+    setLoadingMetadata(prev => new Set(prev.add(cacheKey)));
+
+    try {
+      const metadata = await fetchNftMetadata(metadataUri);
+      if (metadata) {
+        setNftMetadata(prev => new Map(prev.set(cacheKey, metadata)));
+        setCachedNftMetadata(cacheKey, metadata);
+      }
+    } catch (error) {
+      console.error('Error loading NFT metadata:', error);
+    } finally {
+      setLoadingMetadata(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(cacheKey);
+        return newSet;
+      });
+    }
+  }, [nftMetadata, loadingMetadata, fetchNftMetadata, getCachedNftMetadata, setCachedNftMetadata]);
+
+  // Load metadata for all NFT coins when they change
+  useEffect(() => {
+    if (nftCoinsToDisplay.length > 0) {
+      nftCoinsToDisplay.forEach((nftCoin: HydratedCoin) => {
+        loadNftMetadata(nftCoin);
+      });
+    }
+  }, [nftCoinsToDisplay, loadNftMetadata]);
 
   // Utility functions
   const formatAddress = (address: string): string => {
@@ -228,7 +341,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   };
 
   const submitOffer = async () => {
-    if (!validateOfferAmount() || !selectedNft || !client || !syntheticPublicKey) {
+    if (!validateOfferAmount() || !selectedNft || !syntheticPublicKey) {
       return;
     }
 
@@ -236,20 +349,20 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     setError(null);
 
     try {
-      // Use the new simplified signed offer method
+      // Use the SDK hook to create the offer
       const simpleOfferRequest: SimpleMakeUnsignedNFTOfferRequest = {
         requested_payments: {
           cats: [{
             asset_id: WUSDC_ASSET_ID,
-            deposit_address: depositAddress,  // The client will handle address conversion
+            deposit_address: depositAddress,
             amount: parseFloat(offerAmount)
           }]
         },
         nft_data: selectedNft
       };
 
-      // Create and sign the offer directly
-      const result = await client.makeSignedNFTOfferSimple(syntheticPublicKey, simpleOfferRequest);
+      // Create the offer using the hook
+      const result = await createNFTOffer(simpleOfferRequest);
 
       if (!result.success) {
         throw new Error(result.error);
@@ -261,9 +374,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         amount: parseFloat(offerAmount),
         depositAddress: depositAddress,
         wusdcAssetId: WUSDC_ASSET_ID,
-        offerString: result.data.signed_offer,  // Use signed offer instead of unsigned
+        offerString: result.data.signed_offer,
         timestamp: Date.now(),
-        isSigned: true,  // Add flag to indicate this is a signed offer
+        isSigned: true,
         originalRequest: simpleOfferRequest
       };
       
@@ -301,29 +414,30 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   }
 
   return (
-    <div className="modal-overlay make-offer-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal-content make-offer-content">
-        <div className="modal-header">
-          <div className="header-content">
-            {step !== 'select-nft' && (
-              <button className="back-btn" onClick={goBack}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 12H5"></path>
-                  <path d="M12 19l-7-7 7-7"></path>
-                </svg>
-              </button>
-            )}
-            <h3>
-              {step === 'select-nft' ? 'Make Offer - Select NFT' : 'Make Offer - Confirm'}
-            </h3>
+    <>
+      <div className="modal-overlay make-offer-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+        <div className="modal-content make-offer-content">
+          <div className="modal-header">
+            <div className="header-content">
+              {step !== 'select-nft' && (
+                <button className="back-btn" onClick={goBack}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 12H5"></path>
+                    <path d="M12 19l-7-7 7-7"></path>
+                  </svg>
+                </button>
+              )}
+              <h3>
+                {step === 'select-nft' ? 'Make Offer - Select NFT' : 'Make Offer - Confirm'}
+              </h3>
+            </div>
+            <button className="close-btn" onClick={closeModal}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
           </div>
-          <button className="close-btn" onClick={closeModal}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
 
         <div className="modal-body">
           {error && (
@@ -374,13 +488,13 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
             <div className="step-content">
               <p className="step-description">Select the NFT you want to make an offer for:</p>
               
-              {nftCoins.length === 0 ? (
+              {nftCoinsToDisplay.length === 0 ? (
                 <div className="no-items">
                   <p>No NFTs found in your wallet</p>
                 </div>
               ) : (
                 <div className="nft-grid">
-                  {nftCoins.map((nft, index) => {
+                  {nftCoinsToDisplay.map((nft: HydratedCoin, index: number) => {
                     const metadata = getNftMetadata(nft);
                     const isLoading = isNftMetadataLoading(nft);
                     const editionInfo = getNftEditionInfo(nft);
@@ -489,15 +603,15 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               </div>
 
               <div className="action-buttons">
-                <button className="cancel-btn" onClick={closeModal} disabled={isSubmitting}>
+                <button className="cancel-btn" onClick={closeModal} disabled={isSubmitting || isCreatingOffer}>
                   Cancel
                 </button>
                 <button 
                   className="submit-btn" 
                   onClick={submitOffer} 
-                  disabled={isSubmitting || !offerAmount || !depositAddress || !syntheticPublicKey}
+                  disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
                 >
-                  {isSubmitting ? (
+                  {isSubmitting || isCreatingOffer ? (
                     <>
                       <div className="button-spinner"></div>
                       Creating Offer...
@@ -514,5 +628,459 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         </div>
       </div>
     </div>
+
+    {/* MakeOfferModal-specific styles */}
+      <style>{`
+        /* Make Offer Modal Specific Styles */
+        .modal-overlay.make-offer-overlay {
+          z-index: 1001;
+        }
+
+        .modal-content.make-offer-content {
+          width: 90%;
+          max-width: 600px;
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+
+        .header-content {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .header-content h3 {
+          margin: 0;
+          color: white;
+          font-size: 18px;
+          font-weight: 600;
+        }
+
+        .back-btn {
+          background: none;
+          border: none;
+          color: #888;
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+          color: white;
+          background: #333;
+        }
+
+        .close-btn {
+          background: none;
+          border: none;
+          color: #888;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+          color: white;
+          background: #333;
+        }
+
+        .error-message {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 8px;
+          margin-bottom: 20px;
+          color: #ef4444;
+          font-size: 14px;
+        }
+
+        .info-message {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px;
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          border-radius: 8px;
+          margin-bottom: 20px;
+          color: #3b82f6;
+          font-size: 14px;
+        }
+
+        .refresh-wallet-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px 12px;
+          background: rgba(59, 130, 246, 0.2);
+          border: 1px solid rgba(59, 130, 246, 0.4);
+          border-radius: 6px;
+          color: #3b82f6;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          margin-left: auto;
+        }
+
+        .refresh-wallet-btn:hover:not(:disabled) {
+          background: rgba(59, 130, 246, 0.3);
+          border-color: rgba(59, 130, 246, 0.6);
+        }
+
+        .refresh-wallet-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .refresh-spinner {
+          width: 12px;
+          height: 12px;
+          border: 1.5px solid rgba(59, 130, 246, 0.3);
+          border-top: 1.5px solid #3b82f6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        .step-content {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .step-description {
+          margin: 0;
+          color: #ccc;
+          font-size: 14px;
+        }
+
+        .no-items {
+          text-align: center;
+          padding: 40px 20px;
+          color: #888;
+          background: #262626;
+          border-radius: 12px;
+          border: 1px solid #333;
+        }
+
+        .no-items p {
+          margin: 0;
+          font-size: 14px;
+        }
+
+        .nft-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 16px;
+        }
+
+        .nft-card {
+          background: #262626;
+          border-radius: 12px;
+          border: 1px solid #333;
+          padding: 16px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .nft-card:hover {
+          background: #333;
+          border-color: #6bc36b;
+          transform: translateY(-2px);
+        }
+
+        .nft-image {
+          width: 100%;
+          height: 120px;
+          border-radius: 8px;
+          overflow: hidden;
+          margin-bottom: 12px;
+          background: #333;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .nft-placeholder {
+          font-size: 48px;
+          color: #666;
+        }
+
+        .nft-loading {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+        }
+
+        .nft-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid #333;
+          border-top: 2px solid #6bc36b;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        .nft-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .nft-info h4 {
+          margin: 0 0 4px 0;
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.3;
+        }
+
+        .nft-collection {
+          margin: 0 0 4px 0;
+          color: #888;
+          font-size: 12px;
+        }
+
+        .nft-edition {
+          margin: 0;
+          color: #6bc36b;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .offer-summary {
+          background: #262626;
+          border-radius: 12px;
+          padding: 20px;
+          border: 1px solid #333;
+        }
+
+        .offer-summary h4 {
+          margin: 0 0 20px 0;
+          color: white;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .summary-section {
+          margin-bottom: 20px;
+        }
+
+        .summary-section:last-child {
+          margin-bottom: 0;
+        }
+
+        .summary-section h5 {
+          margin: 0 0 8px 0;
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .nft-summary-card {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          background: #333;
+          border-radius: 8px;
+        }
+
+        .nft-summary-image {
+          width: 48px;
+          height: 48px;
+          border-radius: 8px;
+          background: #333;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          flex-shrink: 0;
+          overflow: hidden;
+        }
+
+        .nft-summary-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .nft-summary-info h6 {
+          margin: 0;
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .nft-summary-info p {
+          margin: 4px 0 0 0;
+          color: #888;
+          font-size: 12px;
+        }
+
+        .cat-summary-card {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          background: #333;
+          border-radius: 8px;
+        }
+
+        .cat-summary-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #404040;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+
+        .cat-summary-info h6 {
+          margin: 0;
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .cat-summary-info p {
+          margin: 4px 0 0 0;
+          color: #888;
+          font-size: 12px;
+        }
+
+        .amount-input-group {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .amount-input {
+          flex: 1;
+          padding: 12px;
+          background: #333;
+          border: 1px solid #404040;
+          border-radius: 8px;
+          color: white;
+          font-size: 14px;
+          font-family: monospace;
+        }
+
+        .amount-input:focus {
+          outline: none;
+          border-color: #6bc36b;
+        }
+
+        .amount-input:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .amount-unit {
+          color: #888;
+          font-size: 14px;
+          font-weight: 500;
+        }
+
+        .deposit-address-input {
+          width: 100%;
+          padding: 12px;
+          background: #333;
+          border: 1px solid #404040;
+          border-radius: 8px;
+          color: white;
+          font-size: 14px;
+          font-family: monospace;
+        }
+
+        .deposit-address-input:focus {
+          outline: none;
+          border-color: #6bc36b;
+        }
+
+        .deposit-address-input:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .action-buttons {
+          display: flex;
+          gap: 12px;
+          margin-top: 20px;
+        }
+
+        .cancel-btn {
+          flex: 1;
+          padding: 12px;
+          background: none;
+          border: 1px solid #333;
+          border-radius: 8px;
+          color: #888;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .cancel-btn:hover:not(:disabled) {
+          background: #333;
+          color: white;
+        }
+
+        .cancel-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .submit-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px;
+          background: #6bc36b;
+          border: none;
+          border-radius: 8px;
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+          background: #4a9f4a;
+        }
+
+        .submit-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .button-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top: 2px solid white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+      `}</style>
+    </>
   );
 }; 

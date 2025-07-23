@@ -519,12 +519,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <MakeOfferModal
         isOpen={makeOfferDialog.isOpen}
         onClose={makeOfferDialog.close}
-        client={sdk.client}
-        address={address}
-        syntheticPublicKey={walletState.syntheticPublicKey}
-        hydratedCoins={hydratedCoins}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
         onOfferCreated={(offerData) => {
           console.log('Offer created:', offerData);
           saveOffer(offerData);
@@ -536,9 +530,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <ActiveOffersModal
         isOpen={activeOffersDialog.isOpen}
         onClose={activeOffersDialog.close}
-        address={address}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
         onOfferUpdate={() => {
           // Refresh offers when status changes
           console.log('Offers updated');

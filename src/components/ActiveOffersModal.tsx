@@ -2,24 +2,33 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 import { injectModalStyles } from './modal-styles';
+import { useWalletConnection } from '../hooks/useChiaWalletSDK';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
   onClose: () => void;
-  address: string | null;
-  nftMetadata: Map<string, any>;
-  loadingMetadata: Set<string>;
   onOfferUpdate?: () => void;
 }
 
 export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({ 
   isOpen, 
   onClose, 
-  address, 
-  nftMetadata, 
-  loadingMetadata, 
   onOfferUpdate 
 }) => {
+  // Get wallet state from hook (using same pattern as other modals)
+  const { address, isConnected } = useWalletConnection();
+  
+  // Debug logging
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log('ActiveOffersModal: Modal opened with state:', {
+        isOpen,
+        hasAddress: !!address,
+        address: address ? `${address.substring(0, 10)}...` : 'null',
+        isConnected
+      });
+    }
+  }, [isOpen, address, isConnected]);
   
   // Inject shared modal styles
   React.useEffect(() => {
@@ -393,6 +402,59 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
       margin-left: auto;
     }
 
+    /* Loading state styles */
+    .loading-offers {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #333;
+      border-top: 3px solid #6bc36b;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-offers p {
+      margin: 0;
+      color: #888;
+      font-size: 14px;
+    }
+
+    /* No address state styles */
+    .no-address {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+    }
+
+    .no-address-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .no-address h4 {
+      margin: 0 0 12px 0;
+      color: #fb923c;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .no-address p {
+      margin: 0;
+      color: #888;
+      font-size: 14px;
+    }
+
     /* Responsive styles for offers modal */
     @media (max-width: 768px) {
       .modal-content.active-offers-modal,
@@ -439,6 +501,21 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
         font-size: 12px;
       }
     }
+
+    .refresh-btn:hover {
+      color: white;
+      background: #333;
+    }
+
+    .refresh-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .refresh-btn:disabled:hover {
+      color: #888;
+      background: none;
+    }
   `;
 
   // Add offers-specific styles to document head
@@ -464,16 +541,28 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
 
   // Load saved offers
   const loadActiveOffers = useCallback(() => {
-    if (!address) return;
+    if (!address) {
+      console.log('ActiveOffersModal: No address available, cannot load offers');
+      return;
+    }
     
+    setLoading(true);
     try {
+      console.log('ActiveOffersModal: Loading offers for address:', address);
       const stored = localStorage.getItem(getOffersStorageKey(address));
       if (stored) {
         const offers = JSON.parse(stored);
         setActiveOffers(offers.filter((offer: SavedOffer) => offer.status === 'active'));
+        console.log('ActiveOffersModal: Loaded', offers.filter((offer: SavedOffer) => offer.status === 'active').length, 'active offers');
+      } else {
+        setActiveOffers([]);
+        console.log('ActiveOffersModal: No stored offers found');
       }
     } catch (error) {
       console.error('Error loading active offers:', error);
+      setActiveOffers([]);
+    } finally {
+      setLoading(false);
     }
   }, [address, getOffersStorageKey]);
 
@@ -559,12 +648,25 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     return url;
   }, []);
 
-  // Load offers when modal opens
+  // Load offers when modal opens OR when address becomes available
   useEffect(() => {
     if (isOpen) {
+      if (address) {
+        loadActiveOffers();
+      } else {
+        console.log('ActiveOffersModal: Modal opened but no address yet, waiting...');
+        setLoading(true);
+      }
+    }
+  }, [isOpen, address, loadActiveOffers]);
+
+  // Retry loading when address becomes available
+  useEffect(() => {
+    if (isOpen && address && activeOffers.length === 0 && !loading) {
+      console.log('ActiveOffersModal: Address became available, loading offers...');
       loadActiveOffers();
     }
-  }, [isOpen, loadActiveOffers]);
+  }, [isOpen, address, activeOffers.length, loading, loadActiveOffers]);
 
   const closeModal = () => {
     onClose();
@@ -737,16 +839,33 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
             </svg>
           </button>
           <h3>Active Offers ({activeOffers.length})</h3>
-          <button className="refresh-btn" onClick={loadActiveOffers}>
+          <button 
+            className="refresh-btn" 
+            onClick={loadActiveOffers}
+            disabled={!address || loading}
+            title={!address ? 'Wallet not connected' : loading ? 'Loading...' : 'Refresh offers'}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M1 4v6h6"></path>
               <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
             </svg>
+            {loading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
 
         <div className="modal-body">
-          {activeOffers.length === 0 ? (
+          {loading ? (
+            <div className="loading-offers">
+              <div className="loading-spinner"></div>
+              <p>Loading offers...</p>
+            </div>
+          ) : !address ? (
+            <div className="no-address">
+              <div className="no-address-icon">🔒</div>
+              <h4>Wallet Not Connected</h4>
+              <p>Please connect your wallet to view active offers.</p>
+            </div>
+          ) : activeOffers.length === 0 ? (
             <div className="no-offers">
               <div className="no-offers-icon">📝</div>
               <h4>No Active Offers</h4>

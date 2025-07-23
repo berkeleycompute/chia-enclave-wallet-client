@@ -49,7 +49,7 @@ export interface GlobalDialogContextValue {
 
   // Wallet state
   isConnected: boolean;
-  publicKey: string | null;
+  address: string | null;
   syntheticPublicKey: string | null;
   hydratedCoins: HydratedCoin[];
   unspentCoins: any[];
@@ -480,12 +480,6 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       <MakeOfferModal
         isOpen={dialogStates.makeOffer.isOpen}
         onClose={() => closeDialog('makeOffer')}
-        client={clientRef.current}
-        address={walletState.address}
-        syntheticPublicKey={walletState.syntheticPublicKey}
-        hydratedCoins={walletState.hydratedCoins}
-        nftMetadata={walletState.nftMetadata}
-        loadingMetadata={walletState.loadingMetadata}
         selectedNft={dialogStates.makeOffer.args?.selectedNft}
         onOfferCreated={handleOfferCreated}
         onRefreshWallet={refreshWalletData}
@@ -498,9 +492,6 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       <ActiveOffersModal
         isOpen={dialogStates.offers.isOpen}
         onClose={() => closeDialog('offers')}
-        address={walletState.address}
-        nftMetadata={walletState.nftMetadata}
-        loadingMetadata={walletState.loadingMetadata}
         onOfferUpdate={handleOfferUpdate}
       />
 

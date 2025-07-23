@@ -283,12 +283,6 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
       <MakeOfferModal
         isOpen={dialogs.makeOffer.isOpen}
         onClose={dialogs.makeOffer.close}
-        client={wallet.client}
-        address={wallet.address}
-        syntheticPublicKey={wallet.syntheticPublicKey}
-        hydratedCoins={wallet.hydratedCoins}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
         selectedNft={dialogs.makeOffer.selectedNft}
         onOfferCreated={handleOfferCreated}
         onRefreshWallet={handleRefreshWallet}
@@ -297,9 +291,6 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
       <ActiveOffersModal
         isOpen={dialogs.activeOffers.isOpen}
         onClose={dialogs.activeOffers.close}
-        address={wallet.address}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
         onOfferUpdate={handleOfferUpdate}
       />
 

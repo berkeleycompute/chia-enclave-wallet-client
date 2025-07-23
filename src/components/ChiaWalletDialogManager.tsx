@@ -277,12 +277,6 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         <MakeOfferModal
           isOpen={makeOfferDialogOpen}
           onClose={() => this.setState({ makeOfferDialogOpen: false, selectedNft: null })}
-          client={this.client}
-          address={address}
-          syntheticPublicKey={syntheticPublicKey}
-          hydratedCoins={hydratedCoins}
-          nftMetadata={nftMetadata}
-          loadingMetadata={loadingMetadata}
           selectedNft={selectedNft}
           onOfferCreated={this.handleOfferCreated}
           onRefreshWallet={this.loadWalletData}
@@ -292,9 +286,6 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         <ActiveOffersModal
           isOpen={offersDialogOpen}
           onClose={() => this.setState({ offersDialogOpen: false })}
-          address={address}
-          nftMetadata={nftMetadata}
-          loadingMetadata={loadingMetadata}
           onOfferUpdate={this.handleOfferUpdate}
         />
 
