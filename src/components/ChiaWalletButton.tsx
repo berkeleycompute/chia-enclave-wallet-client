@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useWalletConnection, useWalletBalance, useWalletState } from '../hooks/useChiaWalletSDK';
-import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
+import { useUnifiedWalletClient } from '../hooks/useChiaWalletSDK';
 import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider';
+import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
 
 export interface ChiaWalletButtonProps {
   variant?: 'primary' | 'secondary';
@@ -17,6 +17,8 @@ export interface ChiaWalletButtonProps {
   }) => void;
   className?: string;
   style?: React.CSSProperties;
+  // Unified client prop
+  walletClient?: UnifiedWalletClient;
 }
 
 export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
@@ -26,26 +28,28 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
   onWalletUpdate,
   className = '',
   style,
+  walletClient,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Use the new simplified hooks
-  const { 
-    isConnected, 
-    isConnecting, 
-    address, 
-    error: connectionError 
-  } = useWalletConnection();
+  // Use provided client or fall back to hook
+  const hookWalletClient = useUnifiedWalletClient();
+  const actualWalletClient = walletClient || hookWalletClient;
   
-  const { 
-    totalBalance, 
-    coinCount, 
-    formattedBalance, 
-    error: balanceError 
-  } = useWalletBalance();
-
-  // Get publicKey from the full wallet state for backward compatibility
-  const { publicKey } = useWalletState();
+  // Extract values for easier access
+  const { sdk, walletState } = actualWalletClient;
+  
+  // Extract values for easier access
+  const {
+    isConnected,
+    publicKey,
+    address,
+    totalBalance,
+    coinCount,
+    formattedBalance,
+    error,
+    isConnecting = false,
+  } = walletState;
   
   // Call onWalletUpdate when wallet state changes
   React.useEffect(() => {
@@ -56,7 +60,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
         address,
         totalBalance,
         coinCount,
-        error: connectionError || balanceError,
+        error,
       });
     }
   }, [
@@ -65,8 +69,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
     address,
     totalBalance,
     coinCount,
-    connectionError,
-    balanceError,
+    error,
     onWalletUpdate,
   ]);
   
@@ -138,6 +141,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
         isOpen={isModalOpen}
         onClose={closeModal}
         onWalletUpdate={onWalletUpdate}
+        walletClient={actualWalletClient}
       />
       
       <style>{`

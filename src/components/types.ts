@@ -1,4 +1,4 @@
-import { 
+import type { 
   HydratedCoin, 
   SimpleMakeUnsignedNFTOfferRequest 
 } from '../client/ChiaCloudWalletClient';
@@ -39,3 +39,41 @@ export interface SavedOffer {
   };
   originalRequest: SimpleMakeUnsignedNFTOfferRequest;
 } 
+
+// Shared wallet state type for passing between components
+export interface UnifiedWalletState {
+  isConnected: boolean;
+  publicKey: string | null;
+  syntheticPublicKey: string | null;
+  address: string | null;
+  totalBalance: number;
+  coinCount: number;
+  formattedBalance: string;
+  error: string | null;
+  isConnecting?: boolean;
+} 
+
+// Utility function to create UnifiedWalletState from external data
+export const createUnifiedWalletState = (options: {
+  isConnected?: boolean;
+  publicKey?: string | null;
+  syntheticPublicKey?: string | null;
+  address?: string | null;
+  totalBalance?: number;
+  coinCount?: number;
+  formattedBalance?: string;
+  error?: string | null;
+  isConnecting?: boolean;
+}): UnifiedWalletState => {
+  return {
+    isConnected: options.isConnected ?? false,
+    publicKey: options.publicKey ?? null,
+    syntheticPublicKey: options.syntheticPublicKey ?? null,
+    address: options.address ?? null,
+    totalBalance: options.totalBalance ?? 0,
+    coinCount: options.coinCount ?? 0,
+    formattedBalance: options.formattedBalance ?? '0.000000',
+    error: options.error ?? null,
+    isConnecting: options.isConnecting ?? false,
+  };
+}; 

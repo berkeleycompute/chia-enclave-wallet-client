@@ -4,10 +4,10 @@ import {
   useWalletBalance, 
   useWalletCoins,
   useSendTransaction,
-  useWalletState,
-  useRawSDK
+  useUnifiedWalletClient
 } from '../hooks/useChiaWalletSDK';
 import { SentTransaction, SavedOffer } from './types';
+import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
@@ -28,6 +28,8 @@ export interface ChiaWalletModalProps {
   onClose: () => void;
   jwtToken?: string | null;
   onWalletUpdate?: (walletData: any) => void;
+  // Unified client prop
+  walletClient?: UnifiedWalletClient;
 }
 
 export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
@@ -35,28 +37,41 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   onClose,
   jwtToken,
   onWalletUpdate,
+  walletClient,
 }) => {
-  // Use the new SDK hooks
-  const sdk = useRawSDK();
-  const walletState = useWalletState();
+  // Use provided client or fall back to hooks
+  const hookWalletClient = useUnifiedWalletClient();
+  const actualWalletClient = walletClient || hookWalletClient;
+  
+  // Extract values for easier access
+  const { sdk, walletState } = actualWalletClient;
+  
+  // Still need hooks for connection methods and balance operations
+  const hookConnection = useWalletConnection();
+  const hookBalance = useWalletBalance();
+  
+  // Extract connection methods (always use hooks for these)
   const { 
-    isConnected, 
-    isConnecting, 
-    address, 
-    error: connectionError,
     connect,
     disconnect,
     setJwtToken 
-  } = useWalletConnection();
+  } = hookConnection;
   
   const { 
-    totalBalance, 
-    coinCount, 
-    formattedBalance,
     isLoading: balanceLoading,
-    error: balanceError,
     refresh: refreshBalance 
-  } = useWalletBalance();
+  } = hookBalance;
+  
+  // Extract values from unified wallet state
+  const {
+    isConnected,
+    address,
+    totalBalance,
+    coinCount,
+    formattedBalance,
+    error,
+    isConnecting = false,
+  } = walletState;
 
   const { 
     hydratedCoins, 
@@ -477,13 +492,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const getConnectionStatus = (): string => {
     if (!isConnected) return 'Not connected';
     if (isConnecting) return 'Connecting...';
-    if (connectionError) return 'Connection error';
+    if (error) return 'Connection error';
     return 'Connected';
   };
 
   // Show loading states
   const isLoading = isConnecting || balanceLoading || coinsLoading;
-  const hasError = connectionError || balanceError || coinsError;
+  const hasError = error || coinsError;
 
   return (
     <>
@@ -578,7 +593,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                 </div>
               ) : hasError && !isConnected ? (
                 <div className="error-state">
-                  <p className="error-message">{connectionError || balanceError || coinsError}</p>
+                  <p className="error-message">{error || coinsError}</p>
                   <button className="retry-btn" onClick={connect}>
                     Retry
                   </button>
@@ -616,7 +631,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                 <div className="balance-spinner"></div>
                                 <p className="balance-amount syncing">Syncing...</p>
                               </div>
-                            ) : balanceError ? (
+                            ) : error ? (
                               <div className="balance-error">
                                 <p className="balance-amount error">Failed to load</p>
                                 <button className="balance-retry" onClick={() => refreshBalance()}>

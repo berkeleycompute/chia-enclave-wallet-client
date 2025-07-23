@@ -9,6 +9,9 @@ export {
   type EventListener
 } from './client/ChiaWalletSDK';
 
+// Unified Wallet Client - High-level client combining SDK and state (RECOMMENDED)
+export { UnifiedWalletClient } from './client/UnifiedWalletClient';
+
 // Simple Provider - Easy React context setup
 export { 
   ChiaWalletSDKProvider,
@@ -26,7 +29,9 @@ export {
   useSendTransaction,
   useNFTOffers,
   useWalletEvents,
-  useRawSDK
+  useRawSDK,
+  useUnifiedWalletState,
+  useUnifiedWalletClient
 } from './hooks/useChiaWalletSDK';
 
 // ===== LEGACY API (FOR BACKWARD COMPATIBILITY) =====
@@ -155,9 +160,7 @@ export { NFTDetailsModal } from './components/NFTDetailsModal';
 // ===== NEW SIMPLIFIED COMPONENTS (RECOMMENDED) =====
 
 // Main Components (use these for new projects)
-export { ChiaWalletButton } from './components/ChiaWalletButton';
-export { SimpleWalletModal } from './components/SimpleWalletModal';
-export { SimpleDashboard } from './components/SimpleDashboard';
+export { ChiaWalletButton } from './components/ChiaWalletButton'; 
 
 // Modal Components (refactored for new SDK)
 export { SendFundsModal } from './components/SendFundsModal';
@@ -194,5 +197,11 @@ export {
   type OffersDialogArgs
 } from './components/GlobalDialogProvider';
 
-// Types
-export type { SentTransaction, SavedOffer } from './components/types'; 
+// Types and Utilities
+export type { SentTransaction, SavedOffer, UnifiedWalletState } from './components/types';
+export { createUnifiedWalletState } from './components/types';
+
+// ===== EXAMPLES =====
+
+// Examples showing different usage patterns
+export { UnifiedWalletExample } from './examples/UnifiedWalletExample'; 

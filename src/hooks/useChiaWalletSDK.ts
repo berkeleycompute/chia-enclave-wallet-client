@@ -10,6 +10,8 @@ import {
   type SimpleMakeUnsignedNFTOfferRequest,
   type HydratedCoin 
 } from '../client/ChiaCloudWalletClient';
+import { UnifiedWalletState } from '../components/types';
+import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
 
 /**
  * Hook that provides reactive access to the complete wallet state
@@ -359,3 +361,36 @@ export function useWalletEvents() {
 export function useRawSDK(): ChiaWalletSDK {
   return useChiaWalletSDK();
 } 
+
+/**
+ * Unified wallet state hook - combines all wallet state into a single object
+ * This is the recommended way to get complete wallet state for passing between components
+ */
+export const useUnifiedWalletState = (): UnifiedWalletState => {
+  const walletState = useWalletState();
+  const connectionState = useWalletConnection();
+  const balanceState = useWalletBalance();
+
+  return {
+    isConnected: connectionState.isConnected,
+    publicKey: walletState.publicKey,
+    syntheticPublicKey: walletState.syntheticPublicKey,
+    address: connectionState.address,
+    totalBalance: balanceState.totalBalance,
+    coinCount: balanceState.coinCount,
+    formattedBalance: balanceState.formattedBalance,
+    error: connectionState.error || balanceState.error,
+    isConnecting: connectionState.isConnecting,
+  };
+};
+
+/**
+ * Unified wallet client hook - combines SDK and wallet state into a single client
+ * This is the BEST way to get a complete wallet client for passing to components
+ */
+export const useUnifiedWalletClient = (): UnifiedWalletClient => {
+  const sdk = useRawSDK();
+  const walletState = useUnifiedWalletState();
+  
+  return UnifiedWalletClient.create(sdk, walletState);
+}; 
