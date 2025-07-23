@@ -4,7 +4,7 @@ import {
   useWalletCoins, 
   useSendTransaction
 } from '../hooks/useChiaWalletSDK';
-import { ChiaCloudWalletClient } from '../client/ChiaCloudWalletClient';
+import { ChiaCloudWalletClient, type Coin } from '../client/ChiaCloudWalletClient';
 
 interface SendFundsModalProps {
   isOpen: boolean;
@@ -87,13 +87,28 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
       // Convert XCH amounts to mojos
       const amountInMojos = Math.round(parseFloat(amount) * 1000000000000).toString();
       const feeInMojos = Math.round(parseFloat(fee) * 1000000000000).toString();
+      const totalNeededMojos = parseInt(amountInMojos) + parseInt(feeInMojos);
+
+      // Check if we have enough balance
+      const availableBalance = getAvailableBalance();
+      if (totalNeededMojos > availableBalance) {
+        setError(`Insufficient balance. Need ${formatXCH(totalNeededMojos)} XCH, have ${formatXCH(availableBalance)} XCH`);
+        return;
+      }
+
+      // Select coins for the transaction
+      const selectedCoins = selectCoinsForAmount(totalNeededMojos);
+      if (!selectedCoins || selectedCoins.length === 0) {
+        setError('Unable to select coins for transaction. Please try again.');
+        return;
+      }
 
       const request = {
         payments: [{
           address: recipientAddress.trim(),
           amount: amountInMojos
         }],
-        selected_coins: [], // Let the SDK auto-select coins
+        selected_coins: selectedCoins,
         fee: feeInMojos
       };
 
@@ -146,6 +161,38 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
   const getFormattedAvailableBalance = (): string => {
     const totalMojos = getAvailableBalance();
     return formatXCH(totalMojos);
+  };
+
+  // Select coins for transaction using greedy algorithm
+  const selectCoinsForAmount = (totalNeededMojos: number): Coin[] | null => {
+    if (!xchCoins || xchCoins.length === 0) {
+      return null;
+    }
+
+    // Convert HydratedCoins to Coins format and sort by amount descending
+    const availableCoins = xchCoins
+      .map(hydratedCoin => hydratedCoin.coin)
+      .sort((a, b) => parseInt(b.amount) - parseInt(a.amount));
+
+    const selectedCoins = [];
+    let totalSelected = 0;
+
+    // Greedy selection: pick coins until we have enough
+    for (const coin of availableCoins) {
+      selectedCoins.push(coin);
+      totalSelected += parseInt(coin.amount);
+
+      if (totalSelected >= totalNeededMojos) {
+        break;
+      }
+    }
+
+    // Check if we have enough
+    if (totalSelected < totalNeededMojos) {
+      return null;
+    }
+
+    return selectedCoins;
   };
 
   if (!isOpen) return null;
@@ -355,7 +402,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 1001;
+          z-index: 1100;
           backdrop-filter: blur(4px);
         }
 

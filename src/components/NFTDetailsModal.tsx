@@ -260,11 +260,11 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.8);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            z-index: 1100;
             animation: fadeIn 0.2s ease;
           }
 
@@ -274,7 +274,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .nft-details-modal {
-            background: white;
+            background: #1f2937;
             border-radius: 16px;
             width: 90%;
             max-width: 700px;
@@ -283,7 +283,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             display: flex;
             flex-direction: column;
             animation: slideUp 0.3s ease;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            border: 1px solid #374151;
           }
 
           @keyframes slideUp {
@@ -296,8 +297,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             justify-content: space-between;
             align-items: center;
             padding: 1.5rem;
-            border-bottom: 1px solid #e5e7eb;
-            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border-bottom: 1px solid #374151;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
             color: white;
           }
 
@@ -328,8 +329,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .modal-tabs {
             display: flex;
-            background: #f9fafb;
-            border-bottom: 1px solid #e5e7eb;
+            background: #111827;
+            border-bottom: 1px solid #374151;
           }
 
           .tab-button {
@@ -341,16 +342,18 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             font-weight: 500;
             transition: all 0.2s;
             border-bottom: 3px solid transparent;
+            color: #9ca3af;
           }
 
           .tab-button:hover:not(:disabled) {
-            background: #f3f4f6;
+            background: #1f2937;
+            color: #d1d5db;
           }
 
           .tab-button.active {
-            background: white;
-            border-bottom-color: #8b5cf6;
-            color: #8b5cf6;
+            background: #1f2937;
+            border-bottom-color: #6366f1;
+            color: #6366f1;
           }
 
           .tab-button:disabled {
@@ -362,6 +365,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             flex: 1;
             padding: 1.5rem;
             overflow-y: auto;
+            background: #1f2937;
+            color: #f3f4f6;
           }
 
           .nft-image-section {
@@ -373,7 +378,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             max-width: 200px;
             max-height: 200px;
             border-radius: 12px;
-            border: 2px solid #e5e7eb;
+            border: 2px solid #374151;
           }
 
           .info-section, .metadata-section, .coin-section, .offer-info {
@@ -382,7 +387,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .info-section h3, .metadata-section h3, .coin-section h3, .offer-info h3 {
             margin: 0 0 1rem 0;
-            color: #374151;
+            color: #f9fafb;
             font-size: 1.1rem;
             font-weight: 600;
           }
@@ -401,18 +406,19 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .info-item label, .metadata-item label, .coin-item label {
             font-weight: 500;
-            color: #6b7280;
+            color: #9ca3af;
             font-size: 14px;
           }
 
           .info-value, .metadata-value, .coin-value {
             font-family: monospace;
             font-size: 12px;
-            background: #f3f4f6;
+            background: #111827;
             padding: 8px;
             border-radius: 6px;
             word-break: break-all;
-            color: #374151;
+            color: #e5e7eb;
+            border: 1px solid #374151;
           }
 
           .coin-details {
@@ -428,7 +434,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           .uris-section label {
             display: block;
             font-weight: 500;
-            color: #6b7280;
+            color: #9ca3af;
             margin-bottom: 0.5rem;
           }
 
@@ -439,20 +445,20 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .uri-link {
-            color: #3b82f6;
+            color: #60a5fa;
             text-decoration: underline;
             font-size: 14px;
             word-break: break-all;
           }
 
           .uri-link:hover {
-            color: #2563eb;
+            color: #93c5fd;
           }
 
           .error-state {
             text-align: center;
             padding: 2rem;
-            color: #dc2626;
+            color: #f87171;
           }
 
           .offer-form {
@@ -467,40 +473,46 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #374151;
+            color: #f3f4f6;
           }
 
           .form-input {
             width: 100%;
             padding: 12px 16px;
-            border: 2px solid #e5e7eb;
+            border: 2px solid #374151;
             border-radius: 8px;
             font-size: 14px;
             transition: border-color 0.2s;
             box-sizing: border-box;
+            background: #111827;
+            color: #f3f4f6;
           }
 
           .form-input:focus {
             outline: none;
-            border-color: #8b5cf6;
+            border-color: #6366f1;
+          }
+
+          .form-input::placeholder {
+            color: #6b7280;
           }
 
           .error-message {
             padding: 12px 16px;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+            background: #431d1d;
+            border: 1px solid #7f1d1d;
             border-radius: 8px;
-            color: #dc2626;
+            color: #f87171;
             font-size: 14px;
             margin: 1rem 0;
           }
 
           .success-message {
             padding: 12px 16px;
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
+            background: #14532d;
+            border: 1px solid #166534;
             border-radius: 8px;
-            color: #16a34a;
+            color: #4ade80;
             font-size: 14px;
             margin: 1rem 0;
           }
@@ -508,7 +520,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           .create-offer-button {
             width: 100%;
             padding: 12px 24px;
-            background: linear-gradient(45deg, #8b5cf6, #7c3aed);
+            background: linear-gradient(45deg, #6366f1, #4f46e5);
             color: white;
             border: none;
             border-radius: 8px;
@@ -520,7 +532,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .create-offer-button:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
           }
 
           .create-offer-button:disabled {

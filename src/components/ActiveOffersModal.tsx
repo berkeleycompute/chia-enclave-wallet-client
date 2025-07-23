@@ -39,7 +39,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
   const offersSpecificStyles = `
     /* Active Offers Modal Specific Styles */
     .modal-overlay.active-offers-overlay {
-      z-index: 1001;
+      z-index: 1100;
     }
 
     .modal-content.active-offers-modal,
