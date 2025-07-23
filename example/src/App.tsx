@@ -18,6 +18,7 @@ import {
   useReceiveDialog,
   useMakeOfferDialog,
   useOffersDialog,
+  useNFTDetailsDialog,
   useGlobalDialogs,
 } from '../../src/components/GlobalDialogProvider';
 
@@ -33,6 +34,7 @@ const Navigation: React.FC<{
     { id: 'main', label: '🏠 Main', description: 'Wallet connection and info' },
     { id: 'components', label: '🧩 Components', description: 'Test wallet components' },
     { id: 'dialogs', label: '💬 Dialogs', description: 'Test individual dialogs' },
+    { id: 'coins', label: '🪙 Coins', description: 'View hydrated coins details' },
   ];
 
   return (
@@ -265,15 +267,57 @@ const DialogsView: React.FC<{
   const receiveDialog = useReceiveDialog();
   const makeOfferDialog = useMakeOfferDialog();
   const offersDialog = useOffersDialog();
+  const nftDetailsDialog = useNFTDetailsDialog();
   
   // Get access to dialog states from the main context
   const globalDialogs = useGlobalDialogs();
 
   const [lastAction, setLastAction] = useState<string>('');
 
+  // Get categorized coins from the SDK
+  const hydratedCoins = walletClient.sdk.walletState.hydratedCoins || [];
+  const xchCoins = walletClient.sdk.walletState.xchCoins || [];
+  const catCoins = walletClient.sdk.walletState.catCoins || [];
+  const nftCoins = walletClient.sdk.walletState.nftCoins || [];
+
   const handleDialogAction = (actionName: string, action: () => void) => {
     setLastAction(`Opened ${actionName} at ${new Date().toLocaleTimeString()}`);
     action();
+  };
+
+  // Function to open make offer dialog with a random NFT
+  const openMakeOfferWithRandomNFT = () => {
+    if (nftCoins.length === 0) {
+      setLastAction('No NFT coins available for making offers');
+      return;
+    }
+    
+    // Pick a random NFT coin
+    const randomIndex = Math.floor(Math.random() * nftCoins.length);
+    const randomNFT = nftCoins[randomIndex];
+    
+    setLastAction(`Selected random NFT: ${randomNFT.coin?.parentCoinInfo?.substring(0, 16)}... for offer`);
+    
+    // Open the make offer dialog
+    makeOfferDialog.open();
+  };
+
+  // Function to open NFT details with a random NFT
+  const openRandomNFTDetails = () => {
+    if (nftCoins.length === 0) {
+      setLastAction('No NFT coins available for viewing details');
+      return;
+    }
+    
+    // Pick a random NFT coin
+    const randomIndex = Math.floor(Math.random() * nftCoins.length);
+    const randomNFT = nftCoins[randomIndex];
+    
+    setLastAction(`Viewing details for NFT: ${randomNFT.coin?.parentCoinInfo?.substring(0, 16)}...`);
+    
+    // Open the NFT details dialog with the selected NFT
+    nftDetailsDialog.open({ nft: randomNFT });
+    console.log('Opening NFT Details Dialog for:', randomNFT);
   };
 
   if (!walletClient.isConnected) {
@@ -335,10 +379,11 @@ const DialogsView: React.FC<{
           <h3>🤝 Trading Dialogs</h3>
           <div className="dialog-buttons">
             <button
-              onClick={() => handleDialogAction('Make Offer Dialog', makeOfferDialog.open)}
+              onClick={() => handleDialogAction('Make Offer Dialog', () => openMakeOfferWithRandomNFT())}
               className="dialog-btn offer-btn"
+              disabled={nftCoins.length === 0}
             >
-              🤝 Open Make Offer Dialog
+              🤝 Make Offer (Random NFT)
             </button>
             
             <button
@@ -349,7 +394,39 @@ const DialogsView: React.FC<{
             </button>
           </div>
           <div className="dialog-info">
-            <small>Test NFT offers and view active offers</small>
+            <small>Test NFT offers and view active offers • {nftCoins.length} NFTs available</small>
+          </div>
+        </div>
+
+        <div className="dialog-section">
+          <h3>🖼️ NFT Actions</h3>
+          <div className="dialog-buttons">
+            <button
+              onClick={() => handleDialogAction('NFT Details View', openRandomNFTDetails)}
+              className="dialog-btn nft-btn"
+              disabled={nftCoins.length === 0}
+            >
+              🖼️ View Random NFT Details
+            </button>
+            
+            <button
+              onClick={() => {
+                const nftSummary = {
+                  totalNFTs: nftCoins.length,
+                  totalCoins: hydratedCoins.length,
+                  xchCoins: xchCoins.length,
+                  catCoins: catCoins.length
+                };
+                console.log('Coins Summary:', nftSummary);
+                setLastAction(`Coins summary: ${nftCoins.length} NFTs, ${xchCoins.length} XCH, ${catCoins.length} CAT coins`);
+              }}
+              className="dialog-btn utility-btn"
+            >
+              📊 Log Coins Summary
+            </button>
+          </div>
+          <div className="dialog-info">
+            <small>View NFT details and coin statistics • {nftCoins.length} NFTs available</small>
           </div>
         </div>
 
@@ -376,6 +453,22 @@ const DialogsView: React.FC<{
               className="utility-btn"
             >
               🔄 Test Mojos Conversion
+            </button>
+            
+            <button
+              onClick={() => {
+                if (hydratedCoins.length > 0) {
+                  const randomCoin = hydratedCoins[Math.floor(Math.random() * hydratedCoins.length)];
+                  const amount = walletClient.mojosToXch(parseInt(randomCoin.coin?.amount || '0'));
+                  setLastAction(`Random coin: ${amount} XCH, type: ${randomCoin.parentSpendInfo?.driverInfo?.type || 'XCH'}`);
+                } else {
+                  setLastAction('No coins available to pick from');
+                }
+              }}
+              className="utility-btn"
+              disabled={hydratedCoins.length === 0}
+            >
+              🎰 Pick Random Coin
             </button>
             
             <button
@@ -420,6 +513,211 @@ const DialogsView: React.FC<{
   );
 };
 
+// Coins View - Display hydrated coins details
+const CoinsView: React.FC<{ 
+  walletClient: UnifiedWalletClient 
+}> = ({ walletClient }) => {
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedCoinType, setSelectedCoinType] = useState<'all' | 'xch' | 'cat' | 'nft'>('all');
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Use the SDK to refresh balance and coins
+    try {
+      await walletClient.sdk.refreshBalance();
+    } catch (error) {
+      console.error('Error refreshing coins:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (!walletClient.isConnected) {
+    return (
+      <div className="view coins-view">
+        <h2>🪙 Hydrated Coins</h2>
+        <div className="not-connected-message">
+          <p>🔒 Please connect your wallet to view coin details</p>
+          <p>Switch to the "Main" tab to connect with your JWT token.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Get categorized coins from the SDK
+  const hydratedCoins = walletClient.sdk.walletState.hydratedCoins || [];
+  const xchCoins = walletClient.sdk.walletState.xchCoins || [];
+  const catCoins = walletClient.sdk.walletState.catCoins || [];
+  const nftCoins = walletClient.sdk.walletState.nftCoins || [];
+
+  // Filter coins based on selected type
+  const filteredCoins = (() => {
+    switch (selectedCoinType) {
+      case 'xch': return xchCoins;
+      case 'cat': return catCoins;
+      case 'nft': return nftCoins;
+      default: return hydratedCoins;
+    }
+  })();
+
+  const formatCoinAmount = (amount: string): string => {
+    try {
+      const amountNum = parseInt(amount);
+      return walletClient.mojosToXch(amountNum).toFixed(12).replace(/\.?0+$/, '');
+    } catch {
+      return 'Invalid';
+    }
+  };
+
+  const formatCoinId = (coin: any): string => {
+    if (!coin.coin) return 'N/A';
+    const { parentCoinInfo, puzzleHash, amount } = coin.coin;
+    return `${parentCoinInfo?.substring(0, 8)}...${puzzleHash?.substring(0, 8)}...${amount}`;
+  };
+
+  const getCoinType = (coin: any): string => {
+    const driverInfo = coin.parentSpendInfo?.driverInfo;
+    if (driverInfo?.type === 'CAT') return 'CAT';
+    if (driverInfo?.type === 'NFT') return 'NFT';
+    return 'XCH';
+  };
+
+  return (
+    <div className="view coins-view">
+      <div className="coins-header">
+        <h2>🪙 Hydrated Coins</h2>
+        <button 
+          onClick={handleRefresh} 
+          disabled={refreshing}
+          className="refresh-btn"
+        >
+          {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Coins'}
+        </button>
+      </div>
+
+      {/* Summary Statistics */}
+      <div className="coins-summary">
+        <h3>📊 Coins Summary</h3>
+        <div className="summary-grid">
+          <div className="summary-card">
+            <strong>Total Coins:</strong>
+            <span className="count">{hydratedCoins.length}</span>
+          </div>
+          <div className="summary-card">
+            <strong>XCH Coins:</strong>
+            <span className="count">{xchCoins.length}</span>
+          </div>
+          <div className="summary-card">
+            <strong>CAT Coins:</strong>
+            <span className="count">{catCoins.length}</span>
+          </div>
+          <div className="summary-card">
+            <strong>NFT Coins:</strong>
+            <span className="count">{nftCoins.length}</span>
+          </div>
+          <div className="summary-card">
+            <strong>Total Balance:</strong>
+            <span className="balance">{walletClient.formattedBalance} XCH</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Coin Type Filter */}
+      <div className="coin-filter">
+        <h3>🔍 Filter by Type</h3>
+        <div className="filter-buttons">
+          <button
+            onClick={() => setSelectedCoinType('all')}
+            className={`filter-btn ${selectedCoinType === 'all' ? 'active' : ''}`}
+          >
+            All ({hydratedCoins.length})
+          </button>
+          <button
+            onClick={() => setSelectedCoinType('xch')}
+            className={`filter-btn ${selectedCoinType === 'xch' ? 'active' : ''}`}
+          >
+            XCH ({xchCoins.length})
+          </button>
+          <button
+            onClick={() => setSelectedCoinType('cat')}
+            className={`filter-btn ${selectedCoinType === 'cat' ? 'active' : ''}`}
+          >
+            CAT ({catCoins.length})
+          </button>
+          <button
+            onClick={() => setSelectedCoinType('nft')}
+            className={`filter-btn ${selectedCoinType === 'nft' ? 'active' : ''}`}
+          >
+            NFT ({nftCoins.length})
+          </button>
+        </div>
+      </div>
+
+      {/* Coins List */}
+      <div className="coins-list">
+        <h3>💰 Coin Details ({filteredCoins.length} coins)</h3>
+        {filteredCoins.length === 0 ? (
+          <div className="no-coins">
+            <p>No {selectedCoinType === 'all' ? '' : selectedCoinType.toUpperCase() + ' '}coins found.</p>
+          </div>
+        ) : (
+          <div className="coins-table">
+            <div className="table-header">
+              <div className="header-cell">Type</div>
+              <div className="header-cell">Amount (XCH)</div>
+              <div className="header-cell">Amount (Mojos)</div>
+              <div className="header-cell">Parent Coin Info</div>
+              <div className="header-cell">Puzzle Hash</div>
+              <div className="header-cell">Created Height</div>
+            </div>
+            {filteredCoins.map((coin: any, index: number) => (
+              <div key={index} className="table-row">
+                <div className="cell coin-type">
+                  <span className={`type-badge ${getCoinType(coin).toLowerCase()}`}>
+                    {getCoinType(coin)}
+                  </span>
+                </div>
+                <div className="cell amount-xch">
+                  {formatCoinAmount(coin.coin?.amount || '0')}
+                </div>
+                <div className="cell amount-mojos">
+                  {coin.coin?.amount || 'N/A'}
+                </div>
+                <div className="cell parent-coin">
+                  <span className="hash" title={coin.coin?.parentCoinInfo}>
+                    {coin.coin?.parentCoinInfo?.substring(0, 16)}...
+                  </span>
+                </div>
+                <div className="cell puzzle-hash">
+                  <span className="hash" title={coin.coin?.puzzleHash}>
+                    {coin.coin?.puzzleHash?.substring(0, 16)}...
+                  </span>
+                </div>
+                <div className="cell created-height">
+                  {coin.createdHeight || 'N/A'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Additional Debug Info */}
+      <div className="debug-section">
+        <h3>🔧 Debug Information</h3>
+        <details>
+          <summary>View Raw Coin Data (First 3 coins)</summary>
+          <pre>{JSON.stringify(filteredCoins.slice(0, 3), null, 2)}</pre>
+        </details>
+        <details>
+          <summary>View Wallet State Summary</summary>
+          <pre>{JSON.stringify(walletClient.getSummary(), null, 2)}</pre>
+        </details>
+      </div>
+    </div>
+  );
+};
+
 // Main Example App - Updated to use unified client
 const ExampleApp: React.FC = () => {
   const [currentView, setCurrentView] = useState('main');
@@ -435,6 +733,8 @@ const ExampleApp: React.FC = () => {
         return <ComponentsView walletClient={walletClient} />;
       case 'dialogs':
         return <DialogsView walletClient={walletClient} />;
+      case 'coins':
+        return <CoinsView walletClient={walletClient} />;
       default:
         return <MainView walletClient={walletClient} />;
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
+import { injectModalStyles } from './modal-styles';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
@@ -20,8 +21,326 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
   onOfferUpdate 
 }) => {
   
-  // Styles for address components
-  const addressStyles = `
+  // Inject shared modal styles
+  React.useEffect(() => {
+    injectModalStyles();
+  }, []);
+
+  // Styles for address components and offers-specific styles
+  const offersSpecificStyles = `
+    /* Active Offers Modal Specific Styles */
+    .modal-overlay.active-offers-overlay {
+      z-index: 1001;
+    }
+
+    .modal-content.active-offers-modal,
+    .modal-content.offer-details-modal {
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+    }
+
+    .offers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .offer-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: #262626;
+      border: 1px solid #333;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .offer-item:hover {
+      background: #333;
+      border-color: #6bc36b;
+      transform: translateY(-1px);
+    }
+
+    .offer-nft-preview {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .offer-nft-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .offer-nft-placeholder {
+      font-size: 32px;
+      color: #666;
+    }
+
+    .offer-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .offer-nft-name {
+      font-weight: 600;
+      color: white;
+      font-size: 16px;
+      margin: 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-nft-collection {
+      color: #888;
+      font-size: 14px;
+      margin: 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-payment {
+      color: #6bc36b;
+      font-weight: 600;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .offer-time {
+      color: #666;
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .offer-status {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .offer-type {
+      color: #888;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .offer-arrow {
+      color: #666;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Offer Details Styles */
+    .offer-detail-content {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .offer-nft-section h4,
+    .offer-payment-section h4,
+    .offer-raw-section h4 {
+      margin: 0 0 12px 0;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .offer-nft-card {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      background: #262626;
+      border-radius: 12px;
+      border: 1px solid #333;
+    }
+
+    .offer-nft-image {
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .offer-nft-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .offer-nft-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .offer-nft-info h5 {
+      margin: 0;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.3;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-nft-info p {
+      margin: 0;
+      color: #888;
+      font-size: 14px;
+      line-height: 1.3;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .nft-edition {
+      color: #6bc36b !important;
+      font-weight: 600 !important;
+    }
+
+    .payment-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .payment-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      background: #262626;
+      border-radius: 12px;
+      border: 1px solid #333;
+    }
+
+    .payment-info-item label {
+      font-weight: 500;
+      color: #888;
+      font-size: 14px;
+    }
+
+    .payment-info-item .value {
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-raw-data {
+      background: #262626;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #ccc;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .offer-raw-data::-webkit-scrollbar {
+      display: none;
+    }
+
+    .offer-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #333;
+    }
+
+    .copy-offer-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #6bc36b;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .copy-offer-btn:hover {
+      background: #4a9f4a;
+      transform: translateY(-1px);
+    }
+
+    .offer-status-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .status-btn {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+
+    .complete-btn {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .complete-btn:hover {
+      background: rgba(59, 130, 246, 0.3);
+      border-color: rgba(59, 130, 246, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .cancel-btn {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .cancel-btn:hover {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: rgba(239, 68, 68, 0.6);
+      transform: translateY(-1px);
+    }
+
+    /* Address components */
     .nft-address-container {
       margin-top: 8px;
       display: flex;
@@ -37,7 +356,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     
     .address-copy-btn {
       background: none;
-      border: 1px solid #e0e0e0;
+      border: 1px solid #333;
       display: flex;
       align-items: center;
       gap: 4px;
@@ -49,12 +368,12 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     }
     
     .address-copy-btn:hover {
-      background-color: #f8f9fa;
-      border-color: #c0c0c0;
+      background-color: #333;
+      border-color: #404040;
     }
     
     .address-text {
-      color: #333;
+      color: #ccc;
       font-size: 12px;
       font-family: monospace;
     }
@@ -62,29 +381,76 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     .address-copy-btn svg {
       opacity: 0.7;
       transition: opacity 0.2s;
-      color: #666;
+      color: #888;
     }
     
     .address-copy-btn:hover svg {
       opacity: 1;
-      color: #333;
+      color: #ccc;
     }
     
     .payment-address-btn {
       margin-left: auto;
     }
+
+    /* Responsive styles for offers modal */
+    @media (max-width: 768px) {
+      .modal-content.active-offers-modal,
+      .modal-content.offer-details-modal {
+        width: 95%;
+        margin: 1rem;
+        max-height: 95vh;
+      }
+
+      .offer-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .offer-nft-card {
+        flex-direction: column;
+      }
+
+      .payment-info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .offer-status-actions {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .offer-item {
+        padding: 12px;
+      }
+
+      .offer-nft-preview {
+        width: 48px;
+        height: 48px;
+      }
+
+      .offer-nft-name {
+        font-size: 14px;
+      }
+
+      .offer-nft-collection {
+        font-size: 12px;
+      }
+    }
   `;
 
-  // Add styles to document head
+  // Add offers-specific styles to document head
   React.useEffect(() => {
     const styleElement = document.createElement('style');
-    styleElement.textContent = addressStyles;
+    styleElement.textContent = offersSpecificStyles;
     document.head.appendChild(styleElement);
     
     return () => {
       document.head.removeChild(styleElement);
     };
-  }, [addressStyles]);
+  }, [offersSpecificStyles]);
   const [activeOffers, setActiveOffers] = useState<SavedOffer[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<SavedOffer | null>(null);
