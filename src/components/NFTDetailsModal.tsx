@@ -264,7 +264,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            z-index: 1100;
             animation: fadeIn 0.2s ease;
           }
 

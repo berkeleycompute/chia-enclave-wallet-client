@@ -711,7 +711,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       <style>{`
         /* Make Offer Modal Specific Styles */
         .modal-overlay.make-offer-overlay {
-          z-index: 1001;
+          z-index: 1100;
         }
 
         .modal-content.make-offer-content {

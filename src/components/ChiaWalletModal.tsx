@@ -935,12 +935,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           backdrop-filter: blur(4px);
         }
 
-        .modal-overlay.send-modal-overlay,
-        .modal-overlay.receive-modal-overlay,
-        .modal-overlay.nft-details-overlay,
-        .modal-overlay.make-offer-overlay {
-          z-index: 1001;
-        }
+
 
         .modal-content {
           background: #1a1a1a;
@@ -2473,9 +2468,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         }
 
         /* Active Offers Modal Specific Styles */
-        .modal-overlay.active-offers-overlay {
-          z-index: 1001;
-        }
 
         .active-offers-modal {
           max-width: 700px;

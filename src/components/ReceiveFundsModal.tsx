@@ -223,7 +223,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 1001;
+          z-index: 1100;
           backdrop-filter: blur(4px);
         }
 
