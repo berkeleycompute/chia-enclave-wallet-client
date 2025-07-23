@@ -1,27 +1,355 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SavedOffer } from './types.ts';
+import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
+import { injectModalStyles } from './modal-styles';
+import { useWalletConnection } from '../hooks/useChiaWalletSDK';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
   onClose: () => void;
-  publicKey: string | null;
-  nftMetadata: Map<string, any>;
-  loadingMetadata: Set<string>;
   onOfferUpdate?: () => void;
 }
 
 export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({ 
   isOpen, 
   onClose, 
-  publicKey, 
-  nftMetadata, 
-  loadingMetadata, 
   onOfferUpdate 
 }) => {
+  // Get wallet state from hook (using same pattern as other modals)
+  const { address, isConnected } = useWalletConnection();
   
-  // Styles for address components
-  const addressStyles = `
+  // Debug logging
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log('ActiveOffersModal: Modal opened with state:', {
+        isOpen,
+        hasAddress: !!address,
+        address: address ? `${address.substring(0, 10)}...` : 'null',
+        isConnected
+      });
+    }
+  }, [isOpen, address, isConnected]);
+  
+  // Inject shared modal styles
+  React.useEffect(() => {
+    injectModalStyles();
+  }, []);
+
+  // Styles for address components and offers-specific styles
+  const offersSpecificStyles = `
+    /* Active Offers Modal Specific Styles */
+    .modal-overlay.active-offers-overlay {
+      z-index: 1001;
+    }
+
+    .modal-content.active-offers-modal,
+    .modal-content.offer-details-modal {
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+    }
+
+    .offers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .offer-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: #262626;
+      border: 1px solid #333;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .offer-item:hover {
+      background: #333;
+      border-color: #6bc36b;
+      transform: translateY(-1px);
+    }
+
+    .offer-nft-preview {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .offer-nft-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .offer-nft-placeholder {
+      font-size: 32px;
+      color: #666;
+    }
+
+    .offer-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .offer-nft-name {
+      font-weight: 600;
+      color: white;
+      font-size: 16px;
+      margin: 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-nft-collection {
+      color: #888;
+      font-size: 14px;
+      margin: 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-payment {
+      color: #6bc36b;
+      font-weight: 600;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .offer-time {
+      color: #666;
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .offer-status {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .offer-type {
+      color: #888;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .offer-arrow {
+      color: #666;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Offer Details Styles */
+    .offer-detail-content {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .offer-nft-section h4,
+    .offer-payment-section h4,
+    .offer-raw-section h4 {
+      margin: 0 0 12px 0;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .offer-nft-card {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      background: #262626;
+      border-radius: 12px;
+      border: 1px solid #333;
+    }
+
+    .offer-nft-image {
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .offer-nft-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .offer-nft-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .offer-nft-info h5 {
+      margin: 0;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.3;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-nft-info p {
+      margin: 0;
+      color: #888;
+      font-size: 14px;
+      line-height: 1.3;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .nft-edition {
+      color: #6bc36b !important;
+      font-weight: 600 !important;
+    }
+
+    .payment-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .payment-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      background: #262626;
+      border-radius: 12px;
+      border: 1px solid #333;
+    }
+
+    .payment-info-item label {
+      font-weight: 500;
+      color: #888;
+      font-size: 14px;
+    }
+
+    .payment-info-item .value {
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .offer-raw-data {
+      background: #262626;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #ccc;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .offer-raw-data::-webkit-scrollbar {
+      display: none;
+    }
+
+    .offer-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #333;
+    }
+
+    .copy-offer-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #6bc36b;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .copy-offer-btn:hover {
+      background: #4a9f4a;
+      transform: translateY(-1px);
+    }
+
+    .offer-status-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .status-btn {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+
+    .complete-btn {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .complete-btn:hover {
+      background: rgba(59, 130, 246, 0.3);
+      border-color: rgba(59, 130, 246, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .cancel-btn {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .cancel-btn:hover {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: rgba(239, 68, 68, 0.6);
+      transform: translateY(-1px);
+    }
+
+    /* Address components */
     .nft-address-container {
       margin-top: 8px;
       display: flex;
@@ -37,7 +365,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     
     .address-copy-btn {
       background: none;
-      border: 1px solid #e0e0e0;
+      border: 1px solid #333;
       display: flex;
       align-items: center;
       gap: 4px;
@@ -49,12 +377,12 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     }
     
     .address-copy-btn:hover {
-      background-color: #f8f9fa;
-      border-color: #c0c0c0;
+      background-color: #333;
+      border-color: #404040;
     }
     
     .address-text {
-      color: #333;
+      color: #ccc;
       font-size: 12px;
       font-family: monospace;
     }
@@ -62,29 +390,144 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     .address-copy-btn svg {
       opacity: 0.7;
       transition: opacity 0.2s;
-      color: #666;
+      color: #888;
     }
     
     .address-copy-btn:hover svg {
       opacity: 1;
-      color: #333;
+      color: #ccc;
     }
     
     .payment-address-btn {
       margin-left: auto;
     }
+
+    /* Loading state styles */
+    .loading-offers {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #333;
+      border-top: 3px solid #6bc36b;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-offers p {
+      margin: 0;
+      color: #888;
+      font-size: 14px;
+    }
+
+    /* No address state styles */
+    .no-address {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+    }
+
+    .no-address-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .no-address h4 {
+      margin: 0 0 12px 0;
+      color: #fb923c;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .no-address p {
+      margin: 0;
+      color: #888;
+      font-size: 14px;
+    }
+
+    /* Responsive styles for offers modal */
+    @media (max-width: 768px) {
+      .modal-content.active-offers-modal,
+      .modal-content.offer-details-modal {
+        width: 95%;
+        margin: 1rem;
+        max-height: 95vh;
+      }
+
+      .offer-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .offer-nft-card {
+        flex-direction: column;
+      }
+
+      .payment-info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .offer-status-actions {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .offer-item {
+        padding: 12px;
+      }
+
+      .offer-nft-preview {
+        width: 48px;
+        height: 48px;
+      }
+
+      .offer-nft-name {
+        font-size: 14px;
+      }
+
+      .offer-nft-collection {
+        font-size: 12px;
+      }
+    }
+
+    .refresh-btn:hover {
+      color: white;
+      background: #333;
+    }
+
+    .refresh-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .refresh-btn:disabled:hover {
+      color: #888;
+      background: none;
+    }
   `;
 
-  // Add styles to document head
+  // Add offers-specific styles to document head
   React.useEffect(() => {
     const styleElement = document.createElement('style');
-    styleElement.textContent = addressStyles;
+    styleElement.textContent = offersSpecificStyles;
     document.head.appendChild(styleElement);
     
     return () => {
       document.head.removeChild(styleElement);
     };
-  }, [addressStyles]);
+  }, [offersSpecificStyles]);
   const [activeOffers, setActiveOffers] = useState<SavedOffer[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<SavedOffer | null>(null);
@@ -98,38 +541,50 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
 
   // Load saved offers
   const loadActiveOffers = useCallback(() => {
-    if (!publicKey) return;
+    if (!address) {
+      console.log('ActiveOffersModal: No address available, cannot load offers');
+      return;
+    }
     
+    setLoading(true);
     try {
-      const stored = localStorage.getItem(getOffersStorageKey(publicKey));
+      console.log('ActiveOffersModal: Loading offers for address:', address);
+      const stored = localStorage.getItem(getOffersStorageKey(address));
       if (stored) {
         const offers = JSON.parse(stored);
         setActiveOffers(offers.filter((offer: SavedOffer) => offer.status === 'active'));
+        console.log('ActiveOffersModal: Loaded', offers.filter((offer: SavedOffer) => offer.status === 'active').length, 'active offers');
+      } else {
+        setActiveOffers([]);
+        console.log('ActiveOffersModal: No stored offers found');
       }
     } catch (error) {
       console.error('Error loading active offers:', error);
+      setActiveOffers([]);
+    } finally {
+      setLoading(false);
     }
-  }, [publicKey, getOffersStorageKey]);
+  }, [address, getOffersStorageKey]);
 
   // Update offer status
   const updateOfferStatus = useCallback((offerId: string, newStatus: SavedOffer['status']) => {
-    if (!publicKey) return;
+    if (!address) return;
 
     try {
-      const stored = localStorage.getItem(getOffersStorageKey(publicKey));
+      const stored = localStorage.getItem(getOffersStorageKey(address));
       if (stored) {
         const allOffers = JSON.parse(stored);
         const updatedOffers = allOffers.map((offer: SavedOffer) => 
           offer.id === offerId ? { ...offer, status: newStatus } : offer
         );
-        localStorage.setItem(getOffersStorageKey(publicKey), JSON.stringify(updatedOffers));
+        localStorage.setItem(getOffersStorageKey(address), JSON.stringify(updatedOffers));
         setActiveOffers(updatedOffers.filter((offer: SavedOffer) => offer.status === 'active'));
         onOfferUpdate?.();
       }
     } catch (error) {
       console.error('Error updating offer status:', error);
     }
-  }, [publicKey, getOffersStorageKey, onOfferUpdate]);
+  }, [address, getOffersStorageKey, onOfferUpdate]);
 
   // Copy offer to clipboard
   const copyOfferToClipboard = useCallback(async (offerString: string) => {
@@ -193,12 +648,25 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     return url;
   }, []);
 
-  // Load offers when modal opens
+  // Load offers when modal opens OR when address becomes available
   useEffect(() => {
     if (isOpen) {
+      if (address) {
+        loadActiveOffers();
+      } else {
+        console.log('ActiveOffersModal: Modal opened but no address yet, waiting...');
+        setLoading(true);
+      }
+    }
+  }, [isOpen, address, loadActiveOffers]);
+
+  // Retry loading when address becomes available
+  useEffect(() => {
+    if (isOpen && address && activeOffers.length === 0 && !loading) {
+      console.log('ActiveOffersModal: Address became available, loading offers...');
       loadActiveOffers();
     }
-  }, [isOpen, loadActiveOffers]);
+  }, [isOpen, address, activeOffers.length, loading, loadActiveOffers]);
 
   const closeModal = () => {
     onClose();
@@ -371,16 +839,33 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
             </svg>
           </button>
           <h3>Active Offers ({activeOffers.length})</h3>
-          <button className="refresh-btn" onClick={loadActiveOffers}>
+          <button 
+            className="refresh-btn" 
+            onClick={loadActiveOffers}
+            disabled={!address || loading}
+            title={!address ? 'Wallet not connected' : loading ? 'Loading...' : 'Refresh offers'}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M1 4v6h6"></path>
               <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
             </svg>
+            {loading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
 
         <div className="modal-body">
-          {activeOffers.length === 0 ? (
+          {loading ? (
+            <div className="loading-offers">
+              <div className="loading-spinner"></div>
+              <p>Loading offers...</p>
+            </div>
+          ) : !address ? (
+            <div className="no-address">
+              <div className="no-address-icon">🔒</div>
+              <h4>Wallet Not Connected</h4>
+              <p>Please connect your wallet to view active offers.</p>
+            </div>
+          ) : activeOffers.length === 0 ? (
             <div className="no-offers">
               <div className="no-offers-icon">📝</div>
               <h4>No Active Offers</h4>

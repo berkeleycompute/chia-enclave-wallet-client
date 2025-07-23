@@ -1,105 +1,129 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UseChiaWalletResult } from '../hooks/useChiaWallet';
 import { 
-  ChiaCloudWalletClient,
-  type Coin, 
-  type HydratedCoin, 
-  type PublicKeyResponse,
-  type SimpleMakeUnsignedNFTOfferRequest
-} from '../client/ChiaCloudWalletClient';
+  useWalletConnection, 
+  useWalletBalance, 
+  useWalletCoins,
+  useSendTransaction,
+  useUnifiedWalletClient
+} from '../hooks/useChiaWalletSDK';
 import { SentTransaction, SavedOffer } from './types';
+import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
 import { ActiveOffersModal } from './ActiveOffersModal';
 import { NFTDetailsModal } from './NFTDetailsModal';
+// Import the new dialog hooks
+import {
+  useSendFundsDialog,
+  useMakeOfferDialog,
+  useReceiveFundsDialog,
+  useActiveOffersDialog,
+  useNFTDetailsDialog
+} from '../hooks/useDialogs';
+import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
 
 export interface ChiaWalletModalProps {
   isOpen: boolean;
   onClose: () => void;
-  wallet: UseChiaWalletResult;
+  jwtToken?: string | null;
   onWalletUpdate?: (walletData: any) => void;
+  // Unified client prop
+  walletClient?: UnifiedWalletClient;
 }
 
 export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   isOpen,
   onClose,
-  wallet,
+  jwtToken,
   onWalletUpdate,
+  walletClient,
 }) => {
-  // Extract what we need from the wallet object
-  const { client, jwtToken } = wallet;
+  // Use provided client or fall back to hooks
+  const hookWalletClient = useUnifiedWalletClient();
+  const actualWalletClient = walletClient || hookWalletClient;
   
-  // State management
-  const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [publicKeyData, setPublicKeyData] = useState<PublicKeyResponse | null>(null);
-  const [syntheticPublicKey, setSyntheticPublicKey] = useState<string | null>(null);
-  const [balance, setBalance] = useState<number>(0);
-  const [coinCount, setCoinCount] = useState(0);
-  const [unspentCoins, setUnspentCoins] = useState<Coin[]>([]);
-  const [hydratedCoins, setHydratedCoins] = useState<HydratedCoin[]>([]);
-  const [coinIds, setCoinIds] = useState<Map<string, string>>(new Map());
-  const [calculatingCoinIds, setCalculatingCoinIds] = useState(false);
+  // Extract values for easier access
+  const { sdk, walletState } = actualWalletClient;
   
-  // UI state
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [balanceLoading, setBalanceLoading] = useState(false);
-  const [balanceError, setBalanceError] = useState<string | null>(null);
+  // Still need hooks for connection methods and balance operations
+  const hookConnection = useWalletConnection();
+  const hookBalance = useWalletBalance();
+  
+  // Extract connection methods (always use hooks for these)
+  const { 
+    connect,
+    disconnect,
+    setJwtToken 
+  } = hookConnection;
+  
+  const { 
+    isLoading: balanceLoading,
+    refresh: refreshBalance 
+  } = hookBalance;
+  
+  // Extract values from unified wallet state
+  const {
+    isConnected,
+    address,
+    totalBalance,
+    coinCount,
+    formattedBalance,
+    error,
+    isConnecting = false,
+  } = walletState;
+
+  const { 
+    hydratedCoins, 
+    nftCoins,
+    isLoading: coinsLoading,
+    error: coinsError 
+  } = useWalletCoins();
+
+  const { sendXCH, isSending } = useSendTransaction();
+
+  // Replace manual modal states with dialog hooks
+  const sendFundsDialog = useSendFundsDialog();
+  const makeOfferDialog = useMakeOfferDialog();
+  const receiveFundsDialog = useReceiveFundsDialog();
+  const activeOffersDialog = useActiveOffersDialog();
+  const nftDetailsDialog = useNFTDetailsDialog();
+
+  // Local UI state
   const [currentView, setCurrentView] = useState<'main' | 'transactions' | 'assets'>('main');
-  const [isConnected, setIsConnected] = useState(false);
-  
-  // Modal states
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [showReceiveModal, setShowReceiveModal] = useState(false);
-  const [showOfferModal, setShowOfferModal] = useState(false);
-  const [showActiveOffersModal, setShowActiveOffersModal] = useState(false);
-  const [showNftDetails, setShowNftDetails] = useState(false);
-  const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
-  
-  // Transaction and NFT data
   const [sentTransactions, setSentTransactions] = useState<SentTransaction[]>([]);
+
+  // NFT metadata state (keep this as it's specific to this modal)
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
   const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
-  
-  // Background update management
-  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState(0);
-  const [lastSyncAttempt, setLastSyncAttempt] = useState(0);
-  const [syncRetryCount, setSyncRetryCount] = useState(0);
-  const [cachedData, setCachedData] = useState<{ hydratedCoins: HydratedCoin[]; balance: number; timestamp: number } | null>(null);
-  const [currentSessionToken, setCurrentSessionToken] = useState<string | null>(null);
-  const backgroundUpdateInterval = useRef<number | null>(null);
-  
-  // Constants
-  const CACHE_DURATION = 30000; // 30 seconds
-  const SYNC_TIMEOUT = 60000; // 1 minute
-  const BACKGROUND_UPDATE_INTERVAL = 60000; // 1 minute
-  const MAX_RETRY_ATTEMPTS = 3;
 
-  // Debug logging function
-  const debugLog = useCallback((message: string, data?: any) => {
-    console.log(`🐛 ChiaWalletModal: ${message}`, data || '');
-  }, []);
+  // Auto-connect when JWT token is provided
+  useEffect(() => {
+    if (jwtToken && !isConnected && !isConnecting) {
+      console.log('🔑 Auto-connecting with provided JWT token');
+      setJwtToken(jwtToken).then(() => {
+        connect();
+      });
+    }
+  }, [jwtToken, isConnected, isConnecting, setJwtToken, connect]);
 
-  // Storage key generators
-  const getStorageKey = useCallback((pubKey: string | null): string => {
-    if (!pubKey) return 'chia_wallet_state';
-    return `chia_wallet_state_${pubKey.substring(0, 16)}`;
-  }, []);
+  // Emit wallet updates
+  useEffect(() => {
+    if (onWalletUpdate) {
+      onWalletUpdate({
+        connected: isConnected,
+        address: address,
+        balance: totalBalance,
+        coinCount: coinCount,
+        formattedBalance: formattedBalance
+      });
+    }
+  }, [isConnected, address, totalBalance, coinCount, formattedBalance, onWalletUpdate]);
 
-  const getTransactionsStorageKey = useCallback((pubKey: string | null): string => {
-    if (!pubKey) return 'chia_sent_transactions';
-    return `chia_sent_transactions_${pubKey.substring(0, 16)}`;
-  }, []);
-
+  // Storage key generators for NFT metadata
   const getNftMetadataStorageKey = useCallback((pubKey: string | null): string => {
     if (!pubKey) return 'chia_nft_metadata';
     return `chia_nft_metadata_${pubKey.substring(0, 16)}`;
-  }, []);
-
-  const getPublicDataStorageKey = useCallback((pubKey: string | null): string => {
-    if (!pubKey) return 'chia_public_data';
-    return `chia_public_data_${pubKey.substring(0, 16)}`;
   }, []);
 
   const getOffersStorageKey = useCallback((pubKey: string | null): string => {
@@ -107,7 +131,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return `chia_active_offers_${pubKey.substring(0, 16)}`;
   }, []);
 
-  // NFT metadata functions
+  // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
     try {
       const response = await fetch(metadataUri);
@@ -122,10 +146,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, []);
 
   const getCachedNftMetadata = useCallback((cacheKey: string): any => {
-    if (!publicKey) return null;
-    
+    if (!address) return null;
+
     try {
-      const stored = localStorage.getItem(getNftMetadataStorageKey(publicKey));
+      const stored = localStorage.getItem(getNftMetadataStorageKey(address));
       if (stored) {
         const cache = JSON.parse(stored);
         const cached = cache[cacheKey];
@@ -137,26 +161,26 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       console.error('Error reading cached NFT metadata:', error);
     }
     return null;
-  }, [publicKey, getNftMetadataStorageKey]);
+  }, [address, getNftMetadataStorageKey]);
 
   const setCachedNftMetadata = useCallback((cacheKey: string, metadata: any): void => {
-    if (!publicKey) return;
-    
+    if (!address) return;
+
     try {
-      const storageKey = getNftMetadataStorageKey(publicKey);
+      const storageKey = getNftMetadataStorageKey(address);
       const existing = localStorage.getItem(storageKey);
       const cache = existing ? JSON.parse(existing) : {};
-      
+
       cache[cacheKey] = {
         data: metadata,
         timestamp: Date.now()
       };
-      
+
       localStorage.setItem(storageKey, JSON.stringify(cache));
     } catch (error) {
       console.error('Error caching NFT metadata:', error);
     }
-  }, [publicKey, getNftMetadataStorageKey]);
+  }, [address, getNftMetadataStorageKey]);
 
   const loadNftMetadata = useCallback(async (nftCoin: HydratedCoin): Promise<void> => {
     const driverInfo = nftCoin.parentSpendInfo.driverInfo;
@@ -186,8 +210,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       const metadata = await fetchNftMetadata(metadataUri);
       if (metadata) {
         setNftMetadata(prev => new Map(prev.set(cacheKey, metadata)));
-        
-        // Cache in localStorage
         setCachedNftMetadata(cacheKey, metadata);
       }
     } catch (error) {
@@ -201,7 +223,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
   }, [nftMetadata, loadingMetadata, fetchNftMetadata, getCachedNftMetadata, setCachedNftMetadata]);
 
-  // Load metadata for all NFT coins when hydratedCoins changes
+  // Load metadata for all NFT coins when they change
   useEffect(() => {
     const nftCoins = hydratedCoins.filter(coin => {
       const driverInfo = coin.parentSpendInfo.driverInfo;
@@ -223,9 +245,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     offerString: string;
     timestamp: number;
     isSigned: boolean;
-    originalRequest?: SimpleMakeUnsignedNFTOfferRequest;
+    originalRequest?: any;
   }) => {
-    if (!publicKey) return;
+    if (!address) return;
 
     try {
       // Helper functions for NFT data
@@ -245,7 +267,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         if (metadata?.name) {
           return metadata.name;
         }
-        
+
         const driverInfo = nftCoin.parentSpendInfo.driverInfo;
         if (driverInfo?.type === 'NFT') {
           const onChainMetadata = driverInfo.info?.metadata;
@@ -263,7 +285,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         if (metadata?.collection?.name) {
           return metadata.collection.name;
         }
-        
+
         const driverInfo = nftCoin.parentSpendInfo.driverInfo;
         if (driverInfo?.type === 'NFT') {
           const launcherId = driverInfo.info?.launcherId || 'Unknown';
@@ -314,11 +336,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           offerString: offerData.offerString,
           isSigned: offerData.isSigned
         },
-        originalRequest: offerData.originalRequest || {} as SimpleMakeUnsignedNFTOfferRequest
+        originalRequest: offerData.originalRequest || {} as any
       };
 
       // Get existing offers
-      const storageKey = getOffersStorageKey(publicKey);
+      const storageKey = getOffersStorageKey(address);
       const existing = localStorage.getItem(storageKey);
       const existingOffers: SavedOffer[] = existing ? JSON.parse(existing) : [];
 
@@ -332,7 +354,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     } catch (error) {
       console.error('Error saving offer:', error);
     }
-  }, [publicKey, getOffersStorageKey, nftMetadata]);
+  }, [address, getOffersStorageKey, nftMetadata]);
 
   // Utility functions
   const formatAddress = useCallback((address: string): string => {
@@ -340,24 +362,15 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
   }, []);
 
-  const formatBalance = useCallback((bal: number): string => {
-    const result = ChiaCloudWalletClient.mojosToXCH(bal);
-    if (!result.success) return '         0';
-    
-    let formatted = result.data.toFixed(13);
-    formatted = formatted.replace(/\.?0+$/, '');
-    return formatted.padStart(15, ' ');
-  }, []);
-
   const formatTime = useCallback((timestamp: number): string => {
     const now = Date.now();
     const diff = now - timestamp;
-    
+
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
     if (diff < 2592000000) return `${Math.floor(diff / 86400000)}d ago`;
-    
+
     return new Date(timestamp).toLocaleDateString();
   }, []);
 
@@ -396,342 +409,16 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const formatCoinAmount = useCallback((hydratedCoin: HydratedCoin): string => {
     const coinType = getCoinType(hydratedCoin);
     const amount = Number(hydratedCoin.coin.amount);
-    
+
     if (coinType === 'XCH') {
-      return `${formatBalance(amount)} XCH`;
+      return `${formattedBalance} XCH`;
     } else if (coinType === 'CAT') {
-      const result = ChiaCloudWalletClient.mojosToXCH(amount);
-      if (result.success) {
-        return `${result.data.toFixed(6)} units`;
-      }
-      return `${amount.toString()} units`;
+      // For CAT tokens, we might need proper decimal handling
+      return `${(amount / 1000000000000).toFixed(6)} units`;
     } else {
       return `${amount.toString()} NFT`;
     }
-  }, [getCoinType, formatBalance]);
-
-  // Core wallet functions
-  const isDataStale = useCallback((): boolean => {
-    return !cachedData || Date.now() - cachedData.timestamp > CACHE_DURATION;
-  }, [cachedData]);
-
-  // Fixed connectWallet function following Svelte pattern
-  const connectWallet = useCallback(async () => {
-    debugLog('connectWallet called', { 
-      jwtToken: jwtToken ? `${jwtToken.substring(0, 10)}...` : null, 
-      client: !!client 
-    });
-
-    if (!jwtToken || !client) {
-      debugLog('Missing JWT token or client', { jwtToken: !!jwtToken, client: !!client });
-      setError('JWT token and client are required for wallet connection');
-      return;
-    }
-    
-    setLoading(true);
-    setBalanceLoading(true);
-    setError(null);
-    setBalanceError(null);
-    
-    try {
-      // Set JWT token on client first
-      debugLog('Setting JWT token on client');
-      client.setJwtToken(jwtToken);
-      
-      // Verify token was set
-      const clientToken = client.getJwtToken();
-      debugLog('Client JWT token set', { hasToken: !!clientToken, tokenMatch: clientToken === jwtToken });
-      
-      // Get public key first
-      debugLog('Calling getPublicKey');
-      const pkResponse = await client.getPublicKey();
-      debugLog('getPublicKey response', { 
-        success: pkResponse.success, 
-        error: pkResponse.success ? null : pkResponse.error,
-        hasData: pkResponse.success && !!pkResponse.data
-      });
-
-      if (!pkResponse.success) {
-        throw new Error(pkResponse.error);
-      }
-      
-      debugLog('Setting public key data', { 
-        address: pkResponse.data.address ? `${pkResponse.data.address.substring(0, 10)}...` : null,
-        syntheticKey: pkResponse.data.synthetic_public_key ? `${pkResponse.data.synthetic_public_key.substring(0, 10)}...` : null
-      });
-
-      const publicKeyAddress = pkResponse.data.address;
-      setPublicKeyData(pkResponse.data);
-      setPublicKey(publicKeyAddress);
-      setSyntheticPublicKey(pkResponse.data.synthetic_public_key);
-      setCurrentSessionToken(jwtToken);
-      
-      // Mark as connected after successful public key fetch
-      setIsConnected(true);
-      
-      debugLog('Wallet connected successfully, now loading hydrated coins');
-      
-      // Immediately load hydrated coins on first connection
-      let newHydratedCoins: HydratedCoin[] = [];
-      let newUnspentCoins: Coin[] = [];
-      let newBalance = 0;
-      let newCoinCount = 0;
-      let balanceErrorMessage: string | null = null;
-      
-      try {
-        debugLog('Making API call to getUnspentHydratedCoins on first connection', { 
-          publicKey: publicKeyAddress.substring(0, 16) + '...',
-          hasJwtToken: !!client.getJwtToken()
-        });
-
-        const hydratedData = await Promise.race([
-          client.getUnspentHydratedCoins(publicKeyAddress),
-          new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Request timeout')), SYNC_TIMEOUT);
-          })
-        ]);
-        
-        debugLog('API response received', { 
-          success: hydratedData.success,
-          hasData: hydratedData.success && !!hydratedData.data,
-          dataLength: hydratedData.success && hydratedData.data ? hydratedData.data.data?.length : 'N/A',
-          error: hydratedData.success ? null : hydratedData.error
-        });
-        
-        if (hydratedData.success) {
-          newHydratedCoins = hydratedData.data.data;
-          newUnspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(newHydratedCoins);
-          newCoinCount = newUnspentCoins.length;
-          
-          for (const coin of newUnspentCoins) {
-            try {
-              newBalance += Number(coin.amount);
-            } catch (coinError) {
-              console.warn('Invalid coin amount:', coin.amount, coinError);
-            }
-          }
-          
-          debugLog('Balance calculation complete on first connection', {
-            totalBalance: newBalance,
-            coinCount: newCoinCount,
-            hydratedCoinsCount: newHydratedCoins.length
-          });
-          
-          setBalance(newBalance);
-          setCoinCount(newCoinCount);
-          setHydratedCoins(newHydratedCoins);
-          setUnspentCoins(newUnspentCoins);
-          setLastSuccessfulRefresh(Date.now());
-          setSyncRetryCount(0);
-          
-          setCachedData({
-            hydratedCoins: newHydratedCoins,
-            balance: newBalance,
-            timestamp: Date.now()
-          });
-        } else {
-          debugLog('API call failed on first connection', { 
-            error: hydratedData.error 
-          });
-          balanceErrorMessage = hydratedData.error;
-        }
-        
-      } catch (err) {
-        console.error('Failed to load wallet balance on first connection', err);
-        debugLog('Balance loading failed on first connection', { error: err instanceof Error ? err.message : 'Unknown error' });
-        balanceErrorMessage = err instanceof Error ? err.message : 'Failed to load balance on first connection';
-      }
-      
-      setBalanceError(balanceErrorMessage);
-      
-      // Emit wallet update event with connected state and initial data
-      onWalletUpdate?.({
-        connected: true,
-        publicKey: publicKeyAddress,
-        publicKeyData: pkResponse.data,
-        syntheticPublicKey: pkResponse.data.synthetic_public_key,
-        balance: newBalance,
-        coinCount: newCoinCount
-      });
-      
-      debugLog('Initial wallet connection and data loading complete');
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
-      debugLog('Connection failed', { error: errorMessage, err });
-      setError(errorMessage);
-      
-      // Don't clear existing state if we had a connection before for the same session
-      if (!isConnected || currentSessionToken !== jwtToken) {
-        setPublicKey(null);
-        setSyntheticPublicKey(null);
-        setBalance(0);
-        setCoinCount(0);
-        setIsConnected(false);
-        setPublicKeyData(null);
-        setCurrentSessionToken(null);
-        
-        onWalletUpdate?.({
-          connected: false,
-          publicKey: null,
-          syntheticPublicKey: null,
-          balance: 0,
-          coinCount: 0
-        });
-      }
-    } finally {
-      setLoading(false);
-      setBalanceLoading(false);
-    }
-  }, [jwtToken, client, isConnected, currentSessionToken, onWalletUpdate, debugLog]);
-
-  const loadWalletBalance = useCallback(async (silent: boolean = false) => {
-    debugLog('loadWalletBalance called', { 
-      publicKey: publicKey ? `${publicKey.substring(0, 16)}...` : null, 
-      client: !!client, 
-      silent, 
-      jwtToken: jwtToken ? `${jwtToken.substring(0, 10)}...` : null 
-    });
-
-    if (!publicKey || !client) {
-      debugLog('Early return: missing publicKey or client', { publicKey: !!publicKey, client: !!client });
-      return;
-    }
-    
-    const now = Date.now();
-    
-    // Prevent too frequent sync attempts
-    if (now - lastSyncAttempt < 5000) {
-      debugLog('Sync attempt too soon, skipping', { 
-        timeSinceLastAttempt: now - lastSyncAttempt,
-        threshold: 5000 
-      });
-      return;
-    }
-    
-    setLastSyncAttempt(now);
-    
-    // Use cached data if available and not stale
-    if (!silent && cachedData && !isDataStale()) {
-      debugLog('Using cached data', { 
-        cacheAge: now - cachedData.timestamp,
-        maxAge: CACHE_DURATION,
-        hydratedCoinsCount: cachedData.hydratedCoins.length 
-      });
-      setBalance(cachedData.balance);
-      setHydratedCoins(cachedData.hydratedCoins);
-      setUnspentCoins(ChiaCloudWalletClient.extractCoinsFromHydratedCoins(cachedData.hydratedCoins));
-      setCoinCount(cachedData.hydratedCoins.length);
-      
-      onWalletUpdate?.({
-        connected: isConnected,
-        publicKey,
-        syntheticPublicKey,
-        balance: cachedData.balance,
-        coinCount: cachedData.hydratedCoins.length
-      });
-      return;
-    }
-    
-    debugLog('Proceeding with fresh API call', { 
-      silent, 
-      hasCachedData: !!cachedData,
-      cacheStale: cachedData ? isDataStale() : 'no cache'
-    });
-    
-    if (!silent) {
-      setBalanceLoading(true);
-      setBalanceError(null);
-    }
-    
-    try {
-      debugLog('Making API call to getUnspentHydratedCoins', { 
-        publicKey: publicKey.substring(0, 16) + '...',
-        hasJwtToken: !!client.getJwtToken()
-      });
-
-      const hydratedData = await Promise.race([
-        client.getUnspentHydratedCoins(publicKey),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), SYNC_TIMEOUT);
-        })
-      ]);
-      
-      debugLog('API response received', { 
-        success: hydratedData.success,
-        hasData: hydratedData.success && !!hydratedData.data,
-        dataLength: hydratedData.success && hydratedData.data ? hydratedData.data.data?.length : 'N/A',
-        error: hydratedData.success ? null : hydratedData.error
-      });
-      
-      if (!hydratedData.success) {
-        debugLog('API call failed', { 
-          error: hydratedData.error 
-        });
-        throw new Error(hydratedData.error);
-      }
-      
-      const coins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedData.data.data);
-      let totalBalance = 0;
-      
-      for (const coin of coins) {
-        try {
-          totalBalance += Number(coin.amount);
-        } catch (coinError) {
-          console.warn('Invalid coin amount:', coin.amount, coinError);
-        }
-      }
-      
-      debugLog('Balance calculation complete', {
-        totalBalance,
-        coinCount: coins.length,
-        hydratedCoinsCount: hydratedData.data.data.length
-      });
-      
-      setBalance(totalBalance);
-      setCoinCount(coins.length);
-      setHydratedCoins(hydratedData.data.data);
-      setUnspentCoins(coins);
-      setLastSuccessfulRefresh(now);
-      setSyncRetryCount(0);
-      
-      setCachedData({
-        hydratedCoins: hydratedData.data.data,
-        balance: totalBalance,
-        timestamp: now
-      });
-      
-      onWalletUpdate?.({
-        connected: isConnected,
-        publicKey,
-        syntheticPublicKey,
-        balance: totalBalance,
-        coinCount: coins.length
-      });
-      
-    } catch (err) {
-      console.error('Failed to load wallet balance', err);
-      debugLog('Balance loading failed', { error: err instanceof Error ? err.message : 'Unknown error' });
-      
-      if (!silent) {
-        setBalanceError(err instanceof Error ? err.message : 'Failed to load balance');
-        
-        if (syncRetryCount < MAX_RETRY_ATTEMPTS) {
-          const newRetryCount = syncRetryCount + 1;
-          setSyncRetryCount(newRetryCount);
-          debugLog('Scheduling retry', { attempt: newRetryCount, maxAttempts: MAX_RETRY_ATTEMPTS });
-          
-          setTimeout(() => {
-            loadWalletBalance(silent);
-          }, 2000 * newRetryCount);
-        }
-      }
-    } finally {
-      if (!silent) {
-        setBalanceLoading(false);
-      }
-    }
-  }, [publicKey, client, lastSyncAttempt, cachedData, isDataStale, syncRetryCount, isConnected, syntheticPublicKey, onWalletUpdate, debugLog]);
+  }, [getCoinType, formattedBalance]);
 
   const addSentTransaction = useCallback((amount: number, recipient: string, fee: number = 0, transactionId?: string, blockchainStatus?: string) => {
     const transaction: SentTransaction = {
@@ -745,7 +432,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       transactionId,
       blockchainStatus
     };
-    
+
     setSentTransactions(prev => [...prev, transaction]);
     setCurrentView('transactions');
   }, []);
@@ -758,76 +445,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       transactionData.transactionId,
       transactionData.blockchainStatus
     );
-    
+
     // Refresh balance after sending transaction
     setTimeout(() => {
-      loadWalletBalance();
+      refreshBalance();
     }, 1000);
-  }, [addSentTransaction, loadWalletBalance]);
-
-  const disconnectWallet = useCallback(() => {
-    debugLog('disconnectWallet called');
-
-    if (backgroundUpdateInterval.current) {
-      clearInterval(backgroundUpdateInterval.current);
-      backgroundUpdateInterval.current = null;
-    }
-    
-    setIsConnected(false);
-    setPublicKey(null);
-    setSyntheticPublicKey(null);
-    setPublicKeyData(null);
-    setBalance(0);
-    setCoinCount(0);
-    setUnspentCoins([]);
-    setHydratedCoins([]);
-    setError(null);
-    setLastSuccessfulRefresh(0);
-    setCurrentSessionToken(null);
-    setBalanceLoading(false);
-    setBalanceError(null);
-    setCachedData(null);
-    setSyncRetryCount(0);
-    setSentTransactions([]);
-    setNftMetadata(new Map());
-    setLoadingMetadata(new Set());
-    setSelectedNft(null);
-    setShowNftDetails(false);
-    
-    onWalletUpdate?.({
-      connected: false,
-      publicKey: null,
-      balance: 0,
-      coinCount: 0
-    });
-    
-    debugLog('Wallet disconnected');
-  }, [onWalletUpdate, debugLog]);
-
-  const getConnectionStatus = useCallback((): string => {
-    if (lastSuccessfulRefresh === 0) return 'Not connected';
-    
-    const now = Date.now();
-    const timeSinceRefresh = now - lastSuccessfulRefresh;
-    
-    if (timeSinceRefresh < 60000) {
-      return 'Connected';
-    } else if (timeSinceRefresh < 300000) {
-      return 'Connected (data may be stale)';
-    } else {
-      return 'Connected (offline)';
-    }
-  }, [lastSuccessfulRefresh]);
-
-  const getDataFreshness = useCallback((): string => {
-    if (!cachedData) return '';
-    
-    const age = Date.now() - cachedData.timestamp;
-    if (age < 10000) return 'Just now';
-    if (age < 60000) return `${Math.floor(age / 1000)}s ago`;
-    if (age < 3600000) return `${Math.floor(age / 60000)}m ago`;
-    return `${Math.floor(age / 3600000)}h ago`;
-  }, [cachedData]);
+  }, [addSentTransaction, refreshBalance]);
 
   const copyToClipboard = useCallback(async (text: string) => {
     try {
@@ -837,21 +460,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       console.error('Failed to copy:', err);
     }
   }, []);
-
-  // Initialize wallet connection when JWT token is available
-  useEffect(() => {
-    debugLog('useEffect triggered', { 
-      jwtToken: !!jwtToken, 
-      client: !!client, 
-      isConnected,
-      currentSessionToken: !!currentSessionToken
-    });
-
-    if (jwtToken && client && !isConnected && jwtToken !== currentSessionToken) {
-      debugLog('Initiating wallet connection');
-      connectWallet();
-    }
-  }, [jwtToken, client, isConnected, currentSessionToken, connectWallet, debugLog]);
 
   // Event handlers
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -869,67 +477,59 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const closeModal = () => {
     onClose();
     setCurrentView('main');
-    setShowSendModal(false);
-    setShowReceiveModal(false);
-    setShowOfferModal(false);
-    setShowActiveOffersModal(false);
+    // Close all dialogs using hooks
+    sendFundsDialog.close();
+    receiveFundsDialog.close();
+    makeOfferDialog.close();
+    activeOffersDialog.close();
+    nftDetailsDialog.close();
   };
 
   const openNftDetails = (nftCoin: HydratedCoin) => {
-    setSelectedNft(nftCoin);
-    setShowNftDetails(true);
+    nftDetailsDialog.open(nftCoin);
   };
 
-  const closeNftDetails = () => {
-    setSelectedNft(null);
-    setShowNftDetails(false);
+  const getConnectionStatus = (): string => {
+    if (!isConnected) return 'Not connected';
+    if (isConnecting) return 'Connecting...';
+    if (error) return 'Connection error';
+    return 'Connected';
   };
 
-  if (!isOpen) return null;
+  // Show loading states
+  const isLoading = isConnecting || balanceLoading || coinsLoading;
+  const hasError = error || coinsError;
 
   return (
     <>
       {/* Send Modal */}
       <SendFundsModal
-        isOpen={showSendModal}
-        onClose={() => setShowSendModal(false)}
-        client={client}
-        publicKey={publicKey}
-        unspentCoins={unspentCoins}
+        isOpen={sendFundsDialog.isOpen}
+        onClose={sendFundsDialog.close}
         onTransactionSent={handleTransactionSent}
       />
-      
+
       {/* Receive Modal */}
       <ReceiveFundsModal
-        isOpen={showReceiveModal}
-        onClose={() => setShowReceiveModal(false)}
-        publicKey={publicKey}
+        isOpen={receiveFundsDialog.isOpen}
+        onClose={receiveFundsDialog.close}
       />
 
       {/* Make Offer Modal */}
       <MakeOfferModal
-        isOpen={showOfferModal}
-        onClose={() => setShowOfferModal(false)}
-        client={client}
-        publicKey={publicKey}
-        syntheticPublicKey={syntheticPublicKey}
-        hydratedCoins={hydratedCoins}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
-        onOfferCreated={(offerData) => {
-          console.log('Offer created:', offerData);
-          saveOffer(offerData);
-        }}
-        onRefreshWallet={loadWalletBalance}
+        isOpen={makeOfferDialog.isOpen}
+        onClose={makeOfferDialog.close}
+        // onOfferCreated={(offerData) => {
+        //   console.log('Offer created:', offerData);
+        //   saveOffer(offerData);
+        // }}
+        onRefreshWallet={refreshBalance}
       />
 
       {/* Active Offers Modal */}
       <ActiveOffersModal
-        isOpen={showActiveOffersModal}
-        onClose={() => setShowActiveOffersModal(false)}
-        publicKey={publicKey}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
+        isOpen={activeOffersDialog.isOpen}
+        onClose={activeOffersDialog.close}
         onOfferUpdate={() => {
           // Refresh offers when status changes
           console.log('Offers updated');
@@ -938,409 +538,388 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
       {/* NFT Details Modal */}
       <NFTDetailsModal
-        isOpen={showNftDetails}
-        onClose={closeNftDetails}
-        selectedNft={selectedNft}
-        nftMetadata={nftMetadata}
-        loadingMetadata={loadingMetadata}
+        isOpen={nftDetailsDialog.isOpen}
+        onClose={nftDetailsDialog.close}
+        nft={nftDetailsDialog.selectedNft}
       />
 
       {/* Main Modal */}
-      <div 
-        className="modal-overlay" 
-        onClick={handleOverlayClick}
-        onKeyDown={handleKeyDown}
-        role="dialog" 
-        aria-modal="true" 
-        tabIndex={0}
-      >
-        <div className="modal-content" role="document" tabIndex={0}>
-          <div className="modal-header">
-            <div className="wallet-info">
-              <div className="wallet-icon">
-                <div className="chia-logo">🌱</div>
+      {isOpen && (
+        <div
+          className="modal-overlay"
+          onClick={handleOverlayClick}
+          onKeyDown={handleKeyDown}
+          role="dialog"
+          aria-modal="true"
+          tabIndex={0}
+        >
+          <div className="modal-content" role="document" tabIndex={0}>
+            <div className="modal-header">
+              <div className="wallet-info">
+                <div className="wallet-icon">
+                  <div className="chia-logo">🌱</div>
+                </div>
+                <div className="wallet-details">
+                  <h3>
+                    {address ? formatAddress(address) : 'Chia Wallet'}
+                  </h3>
+                  <p className="connection-status">
+                    {getConnectionStatus()}
+                  </p>
+                </div>
               </div>
-              <div className="wallet-details">
-                <h3>
-                  {publicKey ? formatAddress(publicKey) : 'Chia Wallet'}
-                </h3>
-                <p className="connection-status">
-                  {getConnectionStatus()}
-                  {cachedData && getDataFreshness() && (
-                    <span className="data-freshness">• {getDataFreshness()}</span>
-                  )}
-                </p>
-              </div>
+              <button className="close-btn" onClick={closeModal} aria-label="Close modal">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
             </div>
-            <button className="close-btn" onClick={closeModal} aria-label="Close modal">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
 
-          <div className="modal-body">
-            {loading ? (
-              <div className="loading-state">
-                <div className="spinner"></div>
-                <p>Connecting to wallet...</p>
-              </div>
-            ) : error && !isConnected ? (
-              <div className="error-state">
-                <p className="error-message">{error}</p>
-                <button className="retry-btn" onClick={connectWallet}>
-                  Retry
-                </button>
-              </div>
-            ) : isConnected ? (
-              <>
-                {/* Warning banner for stale data */}
-                {!balanceError && lastSuccessfulRefresh > 0 && Date.now() - lastSuccessfulRefresh > 60000 && (
-                  <div className="warning-banner">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                      <line x1="12" y1="9" x2="12" y2="13"></line>
-                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                    </svg>
-                    <span>Data may be outdated due to network issues</span>
-                    <button className="refresh-btn" onClick={() => loadWalletBalance()}>
-                      Refresh
-                    </button>
-                  </div>
-                )}
+            <div className="modal-body">
+              {isLoading && !isConnected ? (
+                <div className="loading-state">
+                  <div className="spinner"></div>
+                  <p>Connecting to wallet...</p>
+                </div>
+              ) : hasError && !isConnected ? (
+                <div className="error-state">
+                  <p className="error-message">{error || coinsError}</p>
+                  <button className="retry-btn" onClick={connect}>
+                    Retry
+                  </button>
+                </div>
+              ) : isConnected ? (
+                <>
+                  {currentView === 'main' ? (
+                    <>
+                      {/* Action Buttons */}
+                      <div className="action-buttons">
+                        <button className="action-btn primary" onClick={() => sendFundsDialog.open()}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="7" y1="17" x2="17" y2="7"></line>
+                            <polyline points="7,7 17,7 17,17"></polyline>
+                          </svg>
+                          Send
+                        </button>
+                        <button className="action-btn secondary" onClick={() => receiveFundsDialog.open()}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="17" y1="7" x2="7" y2="17"></line>
+                            <polyline points="17,17 7,17 7,7"></polyline>
+                          </svg>
+                          Receive
+                        </button>
+                      </div>
 
-                {currentView === 'main' ? (
-                  <>
-                    {/* Action Buttons */}
-                    <div className="action-buttons">
-                      <button className="action-btn primary" onClick={() => setShowSendModal(true)}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="7" y1="17" x2="17" y2="7"></line>
-                          <polyline points="7,7 17,7 17,17"></polyline>
-                        </svg>
-                        Send
-                      </button>
-                      <button className="action-btn secondary" onClick={() => setShowReceiveModal(true)}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="17" y1="7" x2="7" y2="17"></line>
-                          <polyline points="17,17 7,17 7,7"></polyline>
-                        </svg>
-                        Receive
-                      </button>
-                    </div>
-
-                    {/* Balance Section */}
-                    <div className="balance-section">
-                      <div className="balance-item">
-                        <div className="balance-icon">🌱</div>
-                        <div className="balance-details">
-                          <h4>Chia (XCH)</h4>
-                          {balanceLoading ? (
-                            <div className="balance-loading">
-                              <div className="balance-spinner"></div>
-                              <p className="balance-amount syncing">Syncing...</p>
-                            </div>
-                          ) : balanceError ? (
-                            <div className="balance-error">
-                              <p className="balance-amount error">Failed to load</p>
-                              <button className="balance-retry" onClick={() => loadWalletBalance()}>
-                                Retry
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="balance-amount">
-                                {formatBalance(balance)} XCH
-                              </p>
-                              <p className="balance-subtitle">{coinCount} coins</p>
-                            </>
-                          )}
+                      {/* Balance Section */}
+                      <div className="balance-section">
+                        <div className="balance-item">
+                          <div className="balance-icon">🌱</div>
+                          <div className="balance-details">
+                            <h4>Chia (XCH)</h4>
+                            {balanceLoading ? (
+                              <div className="balance-loading">
+                                <div className="balance-spinner"></div>
+                                <p className="balance-amount syncing">Syncing...</p>
+                              </div>
+                            ) : error ? (
+                              <div className="balance-error">
+                                <p className="balance-amount error">Failed to load</p>
+                                <button className="balance-retry" onClick={() => refreshBalance()}>
+                                  Retry
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="balance-amount">
+                                  {formattedBalance}
+                                </p>
+                                <p className="balance-subtitle">{coinCount} coins</p>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Menu Options */}
-                    <div className="menu-options">
-                      <button className="menu-item" onClick={() => setCurrentView('transactions')}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 3h18v18H3zM9 9h6v6H9z"></path>
-                        </svg>
-                        <span>Transactions</span>
-                        <div className="badge">{coinCount + sentTransactions.length}</div>
-                      </button>
-                      
-                      <button className="menu-item" onClick={() => setCurrentView('assets')}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="3" y="3" width="7" height="7"></rect>
-                          <rect x="14" y="3" width="7" height="7"></rect>
-                          <rect x="14" y="14" width="7" height="7"></rect>
-                          <rect x="3" y="14" width="7" height="7"></rect>
-                        </svg>
-                        <span>View Assets</span>
-                        {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length > 0 && (
-                          <div className="badge">{hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length}</div>
-                        )}
-                      </button>
-                      
-                      <button 
-                        className={`menu-item ${!isConnected || !client ? 'disabled' : ''}`}
-                        onClick={() => {
-                          console.log('Make Offer button clicked!', { 
-                            isConnected, 
-                            hasClient: !!client, 
-                            showOfferModal, 
-                            nftCount: hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length 
-                          });
-                          setShowOfferModal(true);
-                        }}
-                        disabled={!isConnected || !client}
-                        title={!isConnected || !client ? 'Please wait for wallet connection to complete' : ''}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M9 11H1l2-2m0 0l2-2m-2 2l2 2m2-2h8l2-2m0 0l2-2m-2 2l2 2"></path>
-                        </svg>
-                        <span>Make Offer</span>
-                        {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length > 0 && (
-                          <div className="badge">{hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length}</div>
-                        )}
-                        {!syntheticPublicKey && (
-                          <div className="status-indicator" title="Wallet connection not complete">⚠️</div>
-                        )}
-                      </button>
+                      {/* Menu Options */}
+                      <div className="menu-options">
+                        <button className="menu-item" onClick={() => setCurrentView('transactions')}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 3h18v18H3zM9 9h6v6H9z"></path>
+                          </svg>
+                          <span>Transactions</span>
+                          <div className="badge">{coinCount + sentTransactions.length}</div>
+                        </button>
 
-                      <button 
-                        className="menu-item" 
-                        onClick={() => setShowActiveOffersModal(true)}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                          <polyline points="14,2 14,8 20,8"></polyline>
-                          <line x1="16" y1="13" x2="8" y2="13"></line>
-                          <line x1="16" y1="17" x2="8" y2="17"></line>
-                          <polyline points="10,9 9,9 8,9"></polyline>
-                        </svg>
-                        <span>Active Offers</span>
-                      </button>
-                    </div>
+                        <button className="menu-item" onClick={() => setCurrentView('assets')}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                          </svg>
+                          <span>View Assets</span>
+                          {nftCoins.length > 0 && (
+                            <div className="badge">{nftCoins.length}</div>
+                          )}
+                        </button>
 
-                    {/* Disconnect Button */}
-                    <button className="disconnect-btn" onClick={disconnectWallet}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                        <polyline points="16,17 21,12 16,7"></polyline>
-                        <line x1="21" y1="12" x2="9" y2="12"></line>
-                      </svg>
-                      <span>Disconnect Wallet</span>
-                    </button>
-                  </>
-                ) : currentView === 'transactions' ? (
-                  <div className="transactions-view">
-                    <div className="transactions-header">
-                      <button className="back-btn" onClick={() => setCurrentView('main')}>
+                        <button
+                          className={`menu-item ${!isConnected ? 'disabled' : ''}`}
+                          onClick={() => {
+                            console.log('Make Offer button clicked!', {
+                              isConnected,
+                              showOfferModal: makeOfferDialog.isOpen,
+                              nftCount: nftCoins.length
+                            });
+                            makeOfferDialog.open();
+                          }}
+                          disabled={!isConnected}
+                          title={!isConnected ? 'Please wait for wallet connection to complete' : ''}
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M9 11H1l2-2m0 0l2-2m-2 2l2 2m2-2h8l2-2m0 0l2-2m-2 2l2 2"></path>
+                          </svg>
+                          <span>Make Offer</span>
+                          {nftCoins.length > 0 && (
+                            <div className="badge">{nftCoins.length}</div>
+                          )}
+                        </button>
+
+                        <button
+                          className="menu-item"
+                          onClick={() => activeOffersDialog.open()}
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14,2 14,8 20,8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10,9 9,9 8,9"></polyline>
+                          </svg>
+                          <span>Active Offers</span>
+                        </button>
+                      </div>
+
+                      {/* Disconnect Button */}
+                      <button className="disconnect-btn" onClick={disconnect}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M19 12H5"></path>
-                          <path d="M12 19l-7-7 7-7"></path>
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                          <polyline points="16,17 21,12 16,7"></polyline>
+                          <line x1="21" y1="12" x2="9" y2="12"></line>
                         </svg>
+                        <span>Disconnect Wallet</span>
                       </button>
-                      <h4>Transactions ({coinCount + sentTransactions.length})</h4>
-                      <button className="refresh-btn" onClick={() => loadWalletBalance()}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M1 4v6h6"></path>
-                          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    <div className="transactions-list">
-                      {/* Outgoing Transactions */}
-                      {sentTransactions.map(transaction => (
-                        <div key={transaction.id} className="transaction-item outgoing">
-                          <div className="transaction-icon">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <line x1="7" y1="17" x2="17" y2="7"></line>
-                              <polyline points="7,7 17,7 17,17"></polyline>
-                            </svg>
-                          </div>
-                          <div className="transaction-info">
-                            <div className="transaction-amount">-{formatBalance(transaction.amount)} XCH</div>
-                            <div className="transaction-details">
-                              <div className="transaction-address">To: {formatAddress(transaction.recipient)}</div>
-                              <div className="transaction-fee">Fee: {formatBalance(transaction.fee)} XCH</div>
-                              {transaction.transactionId && (
-                                <div 
-                                  className="transaction-id" 
-                                  onClick={() => copyToClipboard(transaction.transactionId!)} 
-                                  title="Click to copy transaction ID"
-                                >
-                                  ID: {transaction.transactionId.substring(0, 8)}...{transaction.transactionId.substring(transaction.transactionId.length - 8)}
-                                </div>
-                              )}
-                              <div className="transaction-time">{formatTime(transaction.timestamp)}</div>
-                            </div>
-                          </div>
-                          <div className={`transaction-status ${transaction.status}`}>
-                            {transaction.status === 'pending' ? 'Pending' : 'Confirmed'}
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* Incoming Transactions (Hydrated Coins) */}
-                      {hydratedCoins.map((hydratedCoin, index) => {
-                        const coinType = getCoinType(hydratedCoin);
-                        const coinTypeIcon = getCoinTypeIcon(coinType);
-                        const assetInfo = getAssetInfo(hydratedCoin);
-                        
-                        return (
-                          <div key={index} className={`transaction-item incoming ${coinType.toLowerCase()}`}>
+                    </>
+                  ) : currentView === 'transactions' ? (
+                    <div className="transactions-view">
+                      <div className="transactions-header">
+                        <button className="back-btn" onClick={() => setCurrentView('main')}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M19 12H5"></path>
+                            <path d="M12 19l-7-7 7-7"></path>
+                          </svg>
+                        </button>
+                        <h4>Transactions ({coinCount + sentTransactions.length})</h4>
+                        <button className="refresh-btn" onClick={() => refreshBalance()}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 4v6h6"></path>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="transactions-list">
+                        {/* Outgoing Transactions */}
+                        {sentTransactions.map(transaction => (
+                          <div key={transaction.id} className="transaction-item outgoing">
                             <div className="transaction-icon">
-                              <span className="coin-type-icon">{coinTypeIcon}</span>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="7" y1="17" x2="17" y2="7"></line>
+                                <polyline points="7,7 17,7 17,17"></polyline>
+                              </svg>
                             </div>
                             <div className="transaction-info">
-                              <div className="transaction-amount">+{formatCoinAmount(hydratedCoin)}</div>
+                              <div className="transaction-amount">-{(transaction.amount / 1000000000000).toFixed(6)} XCH</div>
                               <div className="transaction-details">
-                                <div className="transaction-address">
-                                  {coinType === 'XCH' ? (
-                                    `Coin #${index + 1}`
-                                  ) : (
-                                    <div className="asset-info">
-                                      <span className="asset-type">{coinType}</span>
-                                      <span className="asset-details">{assetInfo}</span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="transaction-time">
-                                  {coinType === 'NFT' ? `NFT • Height: ${hydratedCoin.createdHeight}` : `Available • Height: ${hydratedCoin.createdHeight}`}
-                                </div>
+                                <div className="transaction-address">To: {formatAddress(transaction.recipient)}</div>
+                                <div className="transaction-fee">Fee: {(transaction.fee / 1000000000000).toFixed(6)} XCH</div>
+                                {transaction.transactionId && (
+                                  <div
+                                    className="transaction-id"
+                                    onClick={() => copyToClipboard(transaction.transactionId!)}
+                                    title="Click to copy transaction ID"
+                                  >
+                                    ID: {transaction.transactionId.substring(0, 8)}...{transaction.transactionId.substring(transaction.transactionId.length - 8)}
+                                  </div>
+                                )}
+                                <div className="transaction-time">{formatTime(transaction.timestamp)}</div>
                               </div>
                             </div>
-                            <div className={`transaction-status confirmed ${coinType.toLowerCase()}`}>
-                              {coinType === 'NFT' ? 'Owned' : 'Confirmed'}
+                            <div className={`transaction-status ${transaction.status}`}>
+                              {transaction.status === 'pending' ? 'Pending' : 'Confirmed'}
                             </div>
                           </div>
-                        );
-                      })}
-                      
-                      {hydratedCoins.length === 0 && sentTransactions.length === 0 && (
-                        <div className="no-transactions">
-                          <p>No transactions yet</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : currentView === 'assets' ? (
-                  <div className="assets-view">
-                    <div className="assets-header">
-                      <button className="back-btn" onClick={() => setCurrentView('main')}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M19 12H5"></path>
-                          <path d="M12 19l-7-7 7-7"></path>
-                        </svg>
-                      </button>
-                      <h4>Assets ({hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length} NFTs)</h4>
-                      <button className="refresh-btn" onClick={() => loadWalletBalance()}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M1 4v6h6"></path>
-                          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    <div className="assets-grid">
-                      {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').map((nftCoin, index) => {
-                        // Get NFT metadata for this coin
-                        const getNftMetadata = (nftCoin: HydratedCoin): any => {
-                          const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-                          if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
-                            return null;
-                          }
+                        ))}
 
-                          const metadataUri = driverInfo.info.metadata.metadataUris[0]; // Use first URI
-                          const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
-                          return nftMetadata.get(cacheKey);
-                        };
+                        {/* Incoming Transactions (Hydrated Coins) */}
+                        {hydratedCoins.map((hydratedCoin, index) => {
+                          const coinType = getCoinType(hydratedCoin);
+                          const coinTypeIcon = getCoinTypeIcon(coinType);
+                          const assetInfo = getAssetInfo(hydratedCoin);
 
-                        const isNftMetadataLoading = (nftCoin: HydratedCoin): boolean => {
-                          const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-                          if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
-                            return false;
-                          }
-
-                          const metadataUri = driverInfo.info.metadata.metadataUris[0]; // Use first URI
-                          const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
-                          return loadingMetadata.has(cacheKey);
-                        };
-
-                        // Utility function to convert IPFS URLs to HTTP gateway URLs
-                        const convertIpfsUrl = (url: string): string => {
-                          if (!url) return url;
-                          
-                          // Convert IPFS URLs to HTTP gateway URLs
-                          if (url.startsWith('ipfs://')) {
-                            // Remove ipfs:// and use a public gateway
-                            const hash = url.replace('ipfs://', '');
-                            return `https://ipfs.io/ipfs/${hash}`;
-                          }
-                          
-                          // If it's just a hash without protocol
-                          if (!url.startsWith('http') && url.length > 40) {
-                            return `https://ipfs.io/ipfs/${url}`;
-                          }
-                          
-                          return url;
-                        };
-
-                        const metadata = getNftMetadata(nftCoin);
-                        const isLoading = isNftMetadataLoading(nftCoin);
-                        
-                        return (
-                          <div key={index} className="asset-card" onClick={() => openNftDetails(nftCoin)}>
-                            <div className="asset-image">
-                              {isLoading ? (
-                                <div className="asset-loading">
-                                  <div className="asset-spinner"></div>
+                          return (
+                            <div key={index} className={`transaction-item incoming ${coinType.toLowerCase()}`}>
+                              <div className="transaction-icon">
+                                <span className="coin-type-icon">{coinTypeIcon}</span>
+                              </div>
+                              <div className="transaction-info">
+                                <div className="transaction-amount">+{formatCoinAmount(hydratedCoin)}</div>
+                                <div className="transaction-details">
+                                  <div className="transaction-address">
+                                    {coinType === 'XCH' ? (
+                                      `Coin #${index + 1}`
+                                    ) : (
+                                      <div className="asset-info">
+                                        <span className="asset-type">{coinType}</span>
+                                        <span className="asset-details">{assetInfo}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="transaction-time">
+                                    {coinType === 'NFT' ? `NFT • Height: ${hydratedCoin.createdHeight}` : `Available • Height: ${hydratedCoin.createdHeight}`}
+                                  </div>
                                 </div>
-                              ) : metadata ? (
-                                metadata.data_uris && metadata.data_uris.length > 0 ? (
-                                  <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
-                                ) : metadata.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
-                                  <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
+                              </div>
+                              <div className={`transaction-status confirmed ${coinType.toLowerCase()}`}>
+                                {coinType === 'NFT' ? 'Owned' : 'Confirmed'}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {hydratedCoins.length === 0 && sentTransactions.length === 0 && (
+                          <div className="no-transactions">
+                            <p>No transactions yet</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : currentView === 'assets' ? (
+                    <div className="assets-view">
+                      <div className="assets-header">
+                        <button className="back-btn" onClick={() => setCurrentView('main')}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M19 12H5"></path>
+                            <path d="M12 19l-7-7 7-7"></path>
+                          </svg>
+                        </button>
+                        <h4>Assets ({nftCoins.length} NFTs)</h4>
+                        <button className="refresh-btn" onClick={() => refreshBalance()}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 4v6h6"></path>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="assets-grid">
+                        {nftCoins.map((nftCoin, index) => {
+                          // Get NFT metadata for this coin
+                          const getNftMetadata = (nftCoin: HydratedCoin): any => {
+                            const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+                            if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
+                              return null;
+                            }
+
+                            const metadataUri = driverInfo.info.metadata.metadataUris[0]; // Use first URI
+                            const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
+                            return nftMetadata.get(cacheKey);
+                          };
+
+                          const isNftMetadataLoading = (nftCoin: HydratedCoin): boolean => {
+                            const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+                            if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
+                              return false;
+                            }
+
+                            const metadataUri = driverInfo.info.metadata.metadataUris[0]; // Use first URI
+                            const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
+                            return loadingMetadata.has(cacheKey);
+                          };
+
+                          // Utility function to convert IPFS URLs to HTTP gateway URLs
+                          const convertIpfsUrl = (url: string): string => {
+                            if (!url) return url;
+
+                            // Convert IPFS URLs to HTTP gateway URLs
+                            if (url.startsWith('ipfs://')) {
+                              // Remove ipfs:// and use a public gateway
+                              const hash = url.replace('ipfs://', '');
+                              return `https://ipfs.io/ipfs/${hash}`;
+                            }
+
+                            // If it's just a hash without protocol
+                            if (!url.startsWith('http') && url.length > 40) {
+                              return `https://ipfs.io/ipfs/${url}`;
+                            }
+
+                            return url;
+                          };
+
+                          const metadata = getNftMetadata(nftCoin);
+                          const isLoading = isNftMetadataLoading(nftCoin);
+
+                          return (
+                            <div key={index} className="asset-card" onClick={() => openNftDetails(nftCoin)}>
+                              <div className="asset-image">
+                                {isLoading ? (
+                                  <div className="asset-loading">
+                                    <div className="asset-spinner"></div>
+                                  </div>
+                                ) : metadata ? (
+                                  metadata.data_uris && metadata.data_uris.length > 0 ? (
+                                    <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
+                                  ) : metadata.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
+                                    <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
+                                  ) : (
+                                    <div className="asset-placeholder">🖼️</div>
+                                  )
                                 ) : (
                                   <div className="asset-placeholder">🖼️</div>
-                                )
-                              ) : (
-                                <div className="asset-placeholder">🖼️</div>
-                              )}
+                                )}
+                              </div>
+                              <div className="asset-info">
+                                <h5>{metadata?.name || `NFT #${index + 1}`}</h5>
+                                <p className="asset-collection">{metadata?.collection?.name || 'Unknown Collection'}</p>
+                              </div>
                             </div>
-                            <div className="asset-info">
-                              <h5>{metadata?.name || `NFT #${index + 1}`}</h5>
-                              <p className="asset-collection">{metadata?.collection?.name || 'Unknown Collection'}</p>
-                            </div>
+                          );
+                        })}
+
+                        {nftCoins.length === 0 && (
+                          <div className="no-assets">
+                            <p>No NFTs found in your wallet</p>
                           </div>
-                        );
-                      })}
-                      
-                      {hydratedCoins.filter(coin => getCoinType(coin) === 'NFT').length === 0 && (
-                        <div className="no-assets">
-                          <p>No NFTs found in your wallet</p>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="connect-state">
-                <p>Connect your Chia wallet to get started</p>
-                <button className="connect-btn" onClick={connectWallet}>
-                  Connect Wallet
-                </button>
-              </div>
-            )}
+                  ) : null}
+                </>
+              ) : (
+                <div className="connect-state">
+                  <p>Connect your Chia wallet to get started</p>
+                  <button className="connect-btn" onClick={connect}>
+                    Connect Wallet
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
+      {/* Keep existing styles */}
       <style>{`
         .modal-overlay {
           position: fixed;

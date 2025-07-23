@@ -519,15 +519,12 @@ export class ChiaCloudWalletClient {
   }
 
   /**
-   * Get unspent hydrated coins for a given public key (includes additional metadata)
+   * Get unspent hydrated coins for a specific address
+   * @param address - The wallet address (not public key)
    */
-  async getUnspentHydratedCoins(publicKey: string): Promise<Result<UnspentHydratedCoinsResponse>> {
+  async getUnspentHydratedCoins(address: string): Promise<Result<UnspentHydratedCoinsResponse>> {
     try {
-      if (!publicKey || publicKey.trim() === '') {
-        throw new ChiaCloudWalletApiError('Public key is required');
-      }
-
-      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/wallet/unspent-hydrated-coins/${publicKey}`, {
+      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/wallet/unspent-hydrated-coins/${address}`, {
         method: 'GET',
       }, false);
       return { success: true, data: result };
@@ -982,8 +979,9 @@ export class ChiaCloudWalletClient {
 
   /**
    * Get wallet balance using hydrated coins (enhanced version)
+   * @param address - The wallet address
    */
-  async getWalletBalanceEnhanced(publicKey: string): Promise<Result<{
+  async getWalletBalanceEnhanced(address: string): Promise<Result<{
     totalBalance: number;
     coinCount: number;
     xchCoins: HydratedCoin[];
@@ -991,7 +989,7 @@ export class ChiaCloudWalletClient {
     nftCoins: HydratedCoin[];
   }>> {
     try {
-      const hydratedResult = await this.getUnspentHydratedCoins(publicKey);
+      const hydratedResult = await this.getUnspentHydratedCoins(address);
       if (!hydratedResult.success) {
         return {
           success: false,
