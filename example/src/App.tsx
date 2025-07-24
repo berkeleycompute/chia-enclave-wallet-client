@@ -143,6 +143,76 @@ const JWTTokenInput: React.FC<{
   );
 };
 
+// URL Configuration Component - Demonstrates the new setBaseUrl functionality
+const URLConfigInput: React.FC<{ 
+  walletClient: UnifiedWalletClient 
+}> = ({ walletClient }) => {
+  const [urlInput, setUrlInput] = useState('');
+  
+  // Load current URL on component mount
+  React.useEffect(() => {
+    const currentUrl = walletClient.getBaseUrl();
+    setUrlInput(currentUrl);
+  }, [walletClient]);
+
+  const handleUrlUpdate = () => {
+    if (urlInput.trim()) {
+      walletClient.setBaseUrl(urlInput.trim());
+      // Show a temporary success message
+      const successMsg = document.getElementById('url-success');
+      if (successMsg) {
+        successMsg.style.display = 'block';
+        setTimeout(() => {
+          successMsg.style.display = 'none';
+        }, 2000);
+      }
+    }
+  };
+
+  const resetToDefault = () => {
+    const defaultUrl = 'https://chia-enclave.silicon-dev.net';
+    setUrlInput(defaultUrl);
+    walletClient.setBaseUrl(defaultUrl);
+  };
+
+  return (
+    <div className="url-section">
+      <h2>🌐 API Base URL Configuration</h2>
+      <div className="url-input-group">
+        <input
+          type="text"
+          value={urlInput}
+          onChange={(e) => setUrlInput(e.target.value)}
+          placeholder="Enter API base URL..."
+          className="url-input"
+        />
+        <button
+          onClick={handleUrlUpdate}
+          disabled={!urlInput.trim()}
+          className="update-btn"
+        >
+          Update URL
+        </button>
+        <button
+          onClick={resetToDefault}
+          className="reset-btn"
+        >
+          Reset to Default
+        </button>
+      </div>
+      
+      <div id="url-success" className="success-message" style={{ display: 'none' }}>
+        ✅ URL updated successfully!
+      </div>
+      
+      <div className="url-status">
+        <strong>Current URL:</strong>
+        <code>{walletClient.getBaseUrl()}</code>
+      </div>
+    </div>
+  );
+};
+
 // Wallet Information Display - Updated to use client
 const WalletInfo: React.FC<{ 
   walletClient: UnifiedWalletClient 
@@ -197,6 +267,7 @@ const MainView: React.FC<{
   return (
     <div className="view main-view">
       <JWTTokenInput walletClient={walletClient} />
+      <URLConfigInput walletClient={walletClient} />
       <WalletInfo walletClient={walletClient} />
     </div>
   );

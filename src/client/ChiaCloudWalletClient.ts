@@ -331,6 +331,22 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Set the base URL for API requests
+   */
+  setBaseUrl(url: string): void {
+    // Remove trailing slash if present for consistency
+    this.baseUrl = url.replace(/\/$/, '');
+    this.logInfo(`Base URL updated to: ${this.baseUrl}`);
+  }
+
+  /**
+   * Get the current base URL
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /**
    * Make an authenticated API request with enhanced error handling
    */
   private async makeRequest<T>(

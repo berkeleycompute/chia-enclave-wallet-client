@@ -92,6 +92,20 @@ export class UnifiedWalletClient {
   }
 
   /**
+   * Set the base URL for API requests
+   */
+  setBaseUrl(url: string): void {
+    this.sdk.setBaseUrl(url);
+  }
+
+  /**
+   * Get the current base URL
+   */
+  getBaseUrl(): string {
+    return this.sdk.getBaseUrl();
+  }
+
+  /**
    * Get a summary object for easy serialization or debugging
    */
   getSummary() {

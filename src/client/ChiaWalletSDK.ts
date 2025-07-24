@@ -101,6 +101,7 @@ export class ChiaWalletSDK {
       baseUrl: this.config.baseUrl,
       jwtToken: this.config.jwtToken,
       enableLogging: this.config.enableLogging
+      
     });
 
     // Initialize state
@@ -260,6 +261,21 @@ export class ChiaWalletSDK {
     }
     
     return true;
+  }
+
+  /**
+   * Set the base URL for API requests
+   */
+  setBaseUrl(url: string): void {
+    this.client.setBaseUrl(url);
+    this.config.baseUrl = url;
+  }
+
+  /**
+   * Get the current base URL
+   */
+  getBaseUrl(): string {
+    return this.client.getBaseUrl();
   }
 
   /**
