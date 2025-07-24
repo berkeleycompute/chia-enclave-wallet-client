@@ -165,6 +165,10 @@ export interface DriverInfo {
       licenseUris?: string[];
       metadataHash?: string;
       metadataUris?: string[];
+      name?: string;
+      description?: string;
+      image?: string;
+      [key: string]: any;
     };
     metadataUpdaterPuzzleHash?: string;
     p2PuzzleHash?: string;
@@ -183,15 +187,73 @@ export interface ParentSpendInfo {
   spentBlockIndex: number;
 }
 
+// Updated HydratedCoin interface to support both formats
 export interface HydratedCoin {
   coin: Coin;
   createdHeight: string;
-  parentSpendInfo: ParentSpendInfo;
+  parentSpendInfo?: ParentSpendInfo; // Made optional for Insight API compatibility
+  // Insight API specific fields
+  catInfo?: {
+    type: 'CAT';
+    assetId: string;
+    symbol: string | null;
+    name: string | null;
+    cats: Array<{
+      coin: Coin;
+      info: {
+        assetId: string;
+        innerPuzzleHash: string;
+        p2PuzzleHash: string;
+      };
+      lineageProof: {
+        parent_amount: number;
+        parent_inner_puzzle_hash: string;
+        parent_parent_coin_info: string;
+      };
+    }>;
+  };
+  nftInfo?: {
+    type: 'NFT';
+    launcherId?: string;
+    metadata?: {
+      name?: string;
+      description?: string;
+      image?: string;
+      [key: string]: any;
+    };
+  };
 }
 
 export interface UnspentHydratedCoinsResponse {
   success: boolean;
   data: HydratedCoin[];
+  // Insight API specific fields
+  message?: string;
+  filters_applied?: {
+    puzzle_hash?: string;
+    sources_queried: string[];
+  };
+  total_coin_ids_found?: number;
+  pagination?: {
+    page: number;
+    page_size: number;
+  };
+}
+
+// Insight API specific types for type safety
+export interface InsightHydratedCoinsResponse {
+  message: string;
+  filters_applied: {
+    puzzle_hash?: string;
+    sources_queried: string[];
+  };
+  total_coin_ids_found: number;
+  pagination: {
+    page: number;
+    page_size: number;
+  };
+  data: HydratedCoin[];
+  success: boolean;
 }
 
 export interface BroadcastResponse {
@@ -994,6 +1056,145 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Convert Insight API hydrated coin format to standard format
+   * This ensures compatibility between different API sources
+   */
+  static convertInsightToStandardFormat(insightCoin: HydratedCoin): HydratedCoin {
+    // If it already has parentSpendInfo, return as-is (already in standard format)
+    if (insightCoin.parentSpendInfo) {
+      return insightCoin;
+    }
+
+    // Create compatible parentSpendInfo from insight data
+    const parentSpendInfo: ParentSpendInfo = {
+      coin: insightCoin.coin,
+      driverInfo: null,
+      parentCoinId: insightCoin.coin.parentCoinInfo,
+      spentBlockIndex: parseInt(insightCoin.createdHeight)
+    };
+
+    // Add driver info based on coin type
+    if (insightCoin.catInfo) {
+      parentSpendInfo.driverInfo = {
+        type: 'CAT' as const,
+        assetId: insightCoin.catInfo.assetId,
+        coin: insightCoin.coin,
+        info: {
+          currentOwner: null,
+        }
+      };
+    } else if (insightCoin.nftInfo) {
+      parentSpendInfo.driverInfo = {
+        type: 'NFT' as const,
+        coin: insightCoin.coin,
+        info: {
+          currentOwner: null,
+          launcherId: insightCoin.nftInfo.launcherId,
+          metadata: insightCoin.nftInfo.metadata
+        }
+      };
+    }
+
+    return {
+      coin: insightCoin.coin,
+      createdHeight: insightCoin.createdHeight,
+      parentSpendInfo,
+      // Preserve insight-specific fields for backward compatibility
+      catInfo: insightCoin.catInfo,
+      nftInfo: insightCoin.nftInfo
+    };
+  }
+
+  /**
+   * Convert standard format to Insight API format
+   * This helps when working with Insight API specific features
+   */
+  static convertStandardToInsightFormat(standardCoin: HydratedCoin): HydratedCoin {
+    // If it already has insight fields, return as-is
+    if (standardCoin.catInfo || standardCoin.nftInfo) {
+      return standardCoin;
+    }
+
+    const result: HydratedCoin = {
+      coin: standardCoin.coin,
+      createdHeight: standardCoin.createdHeight,
+      parentSpendInfo: standardCoin.parentSpendInfo
+    };
+
+    // Convert parentSpendInfo to insight format
+    if (standardCoin.parentSpendInfo?.driverInfo) {
+      const driverInfo = standardCoin.parentSpendInfo.driverInfo;
+      
+      if (driverInfo.type === 'CAT') {
+        result.catInfo = {
+          type: 'CAT' as const,
+          assetId: driverInfo.assetId || '',
+          symbol: null,
+          name: null,
+          cats: []
+        };
+      } else if (driverInfo.type === 'NFT') {
+        result.nftInfo = {
+          type: 'NFT' as const,
+          launcherId: driverInfo.info?.launcherId,
+          metadata: driverInfo.info?.metadata
+        };
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Normalize a mixed array of hydrated coins to standard format
+   * Handles both insight and standard formats
+   */
+  static normalizeHydratedCoins(coins: HydratedCoin[]): HydratedCoin[] {
+    return coins.map(coin => ChiaCloudWalletClient.convertInsightToStandardFormat(coin));
+  }
+
+  /**
+   * Filter hydrated coins by type, supporting both formats
+   */
+  static filterHydratedCoinsByType(coins: HydratedCoin[], type: 'XCH' | 'CAT' | 'NFT'): HydratedCoin[] {
+    return coins.filter(coin => {
+      // Check insight format first
+      if (coin.catInfo && type === 'CAT') return true;
+      if (coin.nftInfo && type === 'NFT') return true;
+      
+      // Check standard format
+      const driverType = coin.parentSpendInfo?.driverInfo?.type;
+      
+      switch (type) {
+        case 'XCH':
+          return !coin.catInfo && !coin.nftInfo && (!driverType || driverType === undefined);
+        case 'CAT':
+          return coin.catInfo || driverType === 'CAT';
+        case 'NFT':
+          return coin.nftInfo || driverType === 'NFT';
+        default:
+          return false;
+      }
+    });
+  }
+
+  /**
+   * Get the coin type from a hydrated coin, supporting both formats
+   */
+  static getHydratedCoinType(coin: HydratedCoin): 'XCH' | 'CAT' | 'NFT' {
+    // Check insight format first
+    if (coin.catInfo) return 'CAT';
+    if (coin.nftInfo) return 'NFT';
+    
+    // Check standard format
+    const driverType = coin.parentSpendInfo?.driverInfo?.type;
+    if (driverType === 'CAT') return 'CAT';
+    if (driverType === 'NFT') return 'NFT';
+    
+    return 'XCH';
+  }
+
+  /**
    * Get wallet balance using hydrated coins (enhanced version)
    * @param address - The wallet address
    */
@@ -1013,26 +1214,21 @@ export class ChiaCloudWalletClient {
         };
       }
 
+      // Normalize all coins to ensure consistent format handling
+      const normalizedCoins = ChiaCloudWalletClient.normalizeHydratedCoins(hydratedResult.data.data);
+
+      // Use the new filtering utilities
+      const xchCoins = ChiaCloudWalletClient.filterHydratedCoinsByType(normalizedCoins, 'XCH');
+      const catCoins = ChiaCloudWalletClient.filterHydratedCoinsByType(normalizedCoins, 'CAT');
+      const nftCoins = ChiaCloudWalletClient.filterHydratedCoinsByType(normalizedCoins, 'NFT');
+
+      // Calculate total balance from XCH coins
       let totalBalance = 0;
-      const xchCoins: HydratedCoin[] = [];
-      const catCoins: HydratedCoin[] = [];
-      const nftCoins: HydratedCoin[] = [];
-
-      for (const hydratedCoin of hydratedResult.data.data) {
+      for (const xchCoin of xchCoins) {
         try {
-          totalBalance += parseInt(hydratedCoin.coin.amount);
-
-          // Categorize coins by type
-          const driverInfo = hydratedCoin.parentSpendInfo.driverInfo;
-          if (driverInfo?.type === 'CAT') {
-            catCoins.push(hydratedCoin);
-          } else if (driverInfo?.type === 'NFT') {
-            nftCoins.push(hydratedCoin);
-          } else {
-            xchCoins.push(hydratedCoin);
-          }
+          totalBalance += parseInt(xchCoin.coin.amount);
         } catch (error) {
-          this.logError(`Invalid coin amount in enhanced balance calculation: ${hydratedCoin.coin.amount}`, error);
+          this.logError(`Invalid coin amount in enhanced balance calculation: ${xchCoin.coin.amount}`, error);
           // Continue with other coins instead of failing entirely
         }
       }
@@ -1041,7 +1237,7 @@ export class ChiaCloudWalletClient {
         success: true,
         data: {
           totalBalance,
-          coinCount: hydratedResult.data.data.length,
+          coinCount: normalizedCoins.length,
           xchCoins,
           catCoins,
           nftCoins

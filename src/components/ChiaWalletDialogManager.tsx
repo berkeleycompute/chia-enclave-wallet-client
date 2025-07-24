@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 import { DialogProvider } from '../hooks/useDialogs';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
@@ -15,6 +16,10 @@ export interface ChiaWalletDialogConfig {
   jwtToken?: string;
   autoConnect?: boolean;
   baseUrl?: string;
+  // ChiaInsight configuration
+  insightUrl?: string;
+  insightJwtToken?: string;
+  useInsightClient?: boolean;
 }
 
 // Simple dialog manager class
@@ -90,6 +95,7 @@ interface ChiaWalletDialogsWrapperProps {
 
 export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsWrapperProps> {
   private client: ChiaCloudWalletClient | null = null;
+  private insightClient: ChiaInsightClient | null = null;
   
   state = {
     // Dialog states
@@ -148,6 +154,15 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
       this.client.setJwtToken(config.jwtToken);
     }
 
+    // Initialize ChiaInsight client if configured
+    if (config.useInsightClient) {
+      this.insightClient = new ChiaInsightClient({
+        apiUrl: config.insightUrl || 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1/api',
+        apiToken: config.insightJwtToken,
+        enableLogging: true
+      });
+    }
+
     // Auto-connect if requested
     if (config.autoConnect !== false) {
       await this.loadWalletData();
@@ -174,12 +189,26 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
       }
 
       if (address) {
-        // Load hydrated coins
-        const hydratedResult = await this.client.getUnspentHydratedCoins(address);
-        if (hydratedResult.success) {
-          const hydratedCoins = hydratedResult.data.data;
-          const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-          this.setState({ hydratedCoins, unspentCoins });
+        // Load hydrated coins using ChiaInsight client if available, otherwise use legacy client
+        if (this.insightClient && this.state.config.useInsightClient) {
+          // Convert address to puzzle hash for ChiaInsight client
+          const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+          if (puzzleHashResult.success) {
+            const hydratedResult = await this.insightClient.getStandardFormatHydratedCoins(puzzleHashResult.data);
+            if (hydratedResult.success) {
+              const hydratedCoins = hydratedResult.data;
+              const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+              this.setState({ hydratedCoins, unspentCoins });
+            }
+          }
+        } else {
+          // Use legacy client
+          const hydratedResult = await this.client.getUnspentHydratedCoins(address);
+          if (hydratedResult.success) {
+            const hydratedCoins = hydratedResult.data.data;
+            const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+            this.setState({ hydratedCoins, unspentCoins });
+          }
         }
       }
     } catch (error) {

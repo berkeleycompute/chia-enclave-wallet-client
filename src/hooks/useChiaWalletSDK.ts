@@ -12,6 +12,7 @@ import {
 } from '../client/ChiaCloudWalletClient';
 import { UnifiedWalletState } from '../components/types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 
 /**
  * Hook that provides reactive access to the complete wallet state
@@ -77,20 +78,24 @@ export function useWalletConnection() {
     jwtToken: sdk.walletState.jwtToken,
     error: sdk.walletState.errors.connection,
     address: sdk.walletState.address,
-    email: sdk.walletState.email
+    email: sdk.walletState.email,
+    insightJwtToken: null as string | null,
+    insightUrl: 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1/api'
   });
 
   useEffect(() => {
     const updateConnectionState = () => {
       const state = sdk.walletState;
-      setConnectionState({
+      setConnectionState(prev => ({
         isConnected: state.isConnected,
         isConnecting: state.isConnecting,
         jwtToken: state.jwtToken,
         error: state.errors.connection,
         address: state.address,
-        email: state.email
-      });
+        email: state.email,
+        insightJwtToken: prev.insightJwtToken,
+        insightUrl: prev.insightUrl
+      }));
     };
 
     const unsubscribers = [
@@ -103,11 +108,36 @@ export function useWalletConnection() {
     };
   }, [sdk]);
 
+  const setInsightJwtToken = useCallback((token: string | null) => {
+    setConnectionState(prev => ({
+      ...prev,
+      insightJwtToken: token
+    }));
+  }, []);
+
+  const setInsightUrl = useCallback((url: string) => {
+    setConnectionState(prev => ({
+      ...prev,
+      insightUrl: url
+    }));
+  }, []);
+
+  const getInsightClient = useCallback(() => {
+    return new ChiaInsightClient({
+      apiUrl: connectionState.insightUrl,
+      apiToken: connectionState.insightJwtToken || undefined,
+      enableLogging: true
+    });
+  }, [connectionState.insightUrl, connectionState.insightJwtToken]);
+
   return {
     ...connectionState,
     connect: sdk.connect.bind(sdk),
     disconnect: sdk.disconnect.bind(sdk),
-    setJwtToken: sdk.setJwtToken.bind(sdk)
+    setJwtToken: sdk.setJwtToken.bind(sdk),
+    setInsightJwtToken,
+    setInsightUrl,
+    getInsightClient
   };
 }
 

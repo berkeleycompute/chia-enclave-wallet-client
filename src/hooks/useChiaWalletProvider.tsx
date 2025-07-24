@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type Coin } from '../client/ChiaCloudWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 
 // Central wallet state interface
 export interface ChiaWalletState {
@@ -38,6 +39,10 @@ export interface ChiaWalletProviderConfig {
   autoConnect?: boolean;
   autoRefresh?: boolean;
   refreshInterval?: number;
+  // ChiaInsight configuration
+  insightUrl?: string;
+  insightJwtToken?: string;
+  useInsightClient?: boolean;
 }
 
 // Context actions interface
@@ -82,11 +87,22 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
 }) => {
   const refreshIntervalRef = useRef<number | null>(null);
   
-  // Initialize client
+  // Initialize clients
   const client = useRef(new ChiaCloudWalletClient({
     baseUrl: config.baseUrl,
     enableLogging: config.enableLogging
   })).current;
+
+  const insightClient = useRef<ChiaInsightClient | null>(null);
+
+  // Initialize ChiaInsight client if configured
+  if (config.useInsightClient && !insightClient.current) {
+    insightClient.current = new ChiaInsightClient({
+      apiUrl: config.insightUrl || 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1/api',
+      apiToken: config.insightJwtToken,
+      enableLogging: config.enableLogging
+    });
+  }
 
   // Central state
   const [state, setState] = useState<ChiaWalletState>({
@@ -112,6 +128,32 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // Helper function to fetch hydrated coins using the appropriate client
+  const fetchHydratedCoins = useCallback(async (address: string): Promise<HydratedCoin[]> => {
+    if (insightClient.current && config.useInsightClient) {
+      // Convert address to puzzle hash for ChiaInsight client
+      const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+      if (!puzzleHashResult.success) {
+        throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+      }
+
+      const hydratedResult = await insightClient.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
+      if (!hydratedResult.success) {
+        throw new Error(hydratedResult.error);
+      }
+
+      return hydratedResult.data;
+    } else {
+      // Use legacy client
+      const coinsResult = await client.getUnspentHydratedCoins(address);
+      if (!coinsResult.success) {
+        throw new Error(coinsResult.error);
+      }
+
+      return coinsResult.data.data;
+    }
+  }, [config.useInsightClient]);
+
   // Refresh all data
   const refresh = useCallback(async (): Promise<boolean> => {
     if (!state.isConnected || !state.address) return false;
@@ -119,12 +161,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     updateState({ loading: true, error: null, balanceError: null });
 
     try {
-      const coinsResult = await client.getUnspentHydratedCoins(state.address);
-      if (!coinsResult.success) {
-        throw new Error(coinsResult.error);
-      }
-
-      const hydratedCoins = coinsResult.data.data;
+      const hydratedCoins = await fetchHydratedCoins(state.address);
       const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
       const balance = unspentCoins.reduce((sum, coin) => sum + parseInt(coin.amount), 0);
 
@@ -155,12 +192,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     updateState({ balanceLoading: true, balanceError: null });
 
     try {
-      const coinsResult = await client.getUnspentHydratedCoins(state.address);
-      if (!coinsResult.success) {
-        throw new Error(coinsResult.error);
-      }
-
-      const hydratedCoins = coinsResult.data.data;
+      const hydratedCoins = await fetchHydratedCoins(state.address);
       const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
       const balance = unspentCoins.reduce((sum, coin) => sum + parseInt(coin.amount), 0);
 
@@ -229,15 +261,16 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
       const syntheticPublicKey = pkResult.data.synthetic_public_key;
 
       // Get initial coin data
-      const coinsResult = await client.getUnspentHydratedCoins(address);
       let hydratedCoins: HydratedCoin[] = [];
       let unspentCoins: Coin[] = [];
       let balance = 0;
       
-      if (coinsResult.success) {
-        hydratedCoins = coinsResult.data.data;
+      try {
+        hydratedCoins = await fetchHydratedCoins(address);
         unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
         balance = unspentCoins.reduce((sum, coin) => sum + parseInt(coin.amount), 0);
+      } catch (error) {
+        console.warn('Failed to fetch initial coin data:', error);
       }
 
       updateState({

@@ -61,7 +61,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
   if (!isOpen || !nft) return null;
 
-  const nftInfo = nft.parentSpendInfo.driverInfo?.info;
+  const nftInfo = nft.parentSpendInfo?.driverInfo?.info;
   const metadata = nftInfo?.metadata;
 
   return (

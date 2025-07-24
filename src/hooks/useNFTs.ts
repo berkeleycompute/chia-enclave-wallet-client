@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 
 // NFT metadata interface
 export interface NFTMetadata {
@@ -35,6 +36,10 @@ export interface UseNFTsConfig {
   refreshInterval?: number;
   baseUrl?: string;
   enableLogging?: boolean;
+  // ChiaInsight configuration
+  insightUrl?: string;
+  insightJwtToken?: string;
+  useInsightClient?: boolean;
 }
 
 // Hook result interface
@@ -72,11 +77,16 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     autoLoadMetadata = true,
     refreshInterval = 120000, // 2 minutes for NFTs
     baseUrl,
-    enableLogging = true
+    enableLogging = true,
+    // ChiaInsight configuration
+    insightUrl,
+    insightJwtToken,
+    useInsightClient = false
   } = config;
 
-  // Internal client if none provided
+  // Internal clients if none provided
   const internalClient = useRef<ChiaCloudWalletClient | null>(null);
+  const insightClient = useRef<ChiaInsightClient | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
   const metadataLoadingRef = useRef<Set<string>>(new Set());
   
@@ -103,6 +113,21 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     
     return internalClient.current;
   }, [externalClient, jwtToken, baseUrl, enableLogging]);
+
+  // Get or create ChiaInsight client
+  const getInsightClient = useCallback((): ChiaInsightClient | null => {
+    if (!useInsightClient) return null;
+    
+    if (!insightClient.current && (insightJwtToken || insightUrl)) {
+      insightClient.current = new ChiaInsightClient({
+        apiUrl: insightUrl || 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1/api',
+        apiToken: insightJwtToken,
+        enableLogging
+      });
+    }
+    
+    return insightClient.current;
+  }, [useInsightClient, insightJwtToken, insightUrl, enableLogging]);
 
   // Get wallet address if not provided
   const getAddress = useCallback(async (): Promise<string | null> => {
@@ -237,20 +262,43 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     setError(null);
 
     try {
-          const currentAddress = await getAddress();
-    if (!currentAddress) {
-      throw new Error('Wallet address not available');
-    }
-
-    const result = await client.getUnspentHydratedCoins(currentAddress);
-      if (!result.success) {
-        throw new Error(result.error);
+      const currentAddress = await getAddress();
+      if (!currentAddress) {
+        throw new Error('Wallet address not available');
       }
 
-      // Filter only NFTs
-      const nftCoins = result.data.data.filter(coin => 
-        coin.parentSpendInfo?.driverInfo?.type === 'NFT'
-      );
+      let nftCoins: HydratedCoin[];
+
+      // Use ChiaInsight client if available, otherwise use legacy client
+      const insightClientInstance = getInsightClient();
+      if (insightClientInstance && useInsightClient) {
+        // Convert address to puzzle hash for ChiaInsight client
+        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(currentAddress);
+        if (!puzzleHashResult.success) {
+          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+        }
+
+        const result = await insightClientInstance.getStandardFormatHydratedCoins(puzzleHashResult.data);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+
+        // Filter only NFTs
+        nftCoins = result.data.filter(coin => 
+          coin.parentSpendInfo?.driverInfo?.type === 'NFT'
+        );
+      } else {
+        // Use legacy client
+        const result = await client.getUnspentHydratedCoins(currentAddress);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+
+        // Filter only NFTs
+        nftCoins = result.data.data.filter(coin => 
+          coin.parentSpendInfo?.driverInfo?.type === 'NFT'
+        );
+      }
 
       // Transform to NFTWithMetadata format
       const nftsWithMetadata: NFTWithMetadata[] = nftCoins.map(coin => {

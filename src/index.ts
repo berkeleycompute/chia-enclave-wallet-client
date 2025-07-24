@@ -2,6 +2,7 @@
 export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
 export { ChiaWalletSDK } from './client/ChiaWalletSDK';
 export { UnifiedWalletClient } from './client/UnifiedWalletClient';
+export { ChiaInsightClient } from './client/ChiaInsightClient';
 
 // Export providers
 export { ChiaWalletSDKProvider } from './providers/ChiaWalletSDKProvider';
@@ -14,6 +15,7 @@ export { useNFTs } from './hooks/useNFTs';
 export { useChiaUtils } from './hooks/useChiaUtils';
 export { useChiaTransactions } from './hooks/useChiaTransactions';
 export { useHydratedCoins } from './hooks/useHydratedCoins';
+export { useChiaInsight } from './hooks/useChiaInsight';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export {
   useWalletConnection,
@@ -55,4 +57,10 @@ export { sharedModalStyles, injectModalStyles } from './components/modal-styles'
 
 // Export types
 export type { HydratedCoin } from './client/ChiaCloudWalletClient';
-export type { SentTransaction, SavedOffer } from './components/types'; 
+export type { SentTransaction, SavedOffer } from './components/types';
+export type { 
+  ChiaInsightConfig, 
+  GetHydratedCoinsOptions,
+  InsightHydratedCoinsResponse 
+} from './client/ChiaInsightClient';
+export type { UseChiaInsightConfig, ChiaInsightState } from './hooks/useChiaInsight'; 

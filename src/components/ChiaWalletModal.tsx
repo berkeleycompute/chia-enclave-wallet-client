@@ -185,7 +185,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, [address, getNftMetadataStorageKey]);
 
   const loadNftMetadata = useCallback(async (nftCoin: HydratedCoin): Promise<void> => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return;
     }
@@ -228,7 +228,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // Load metadata for all NFT coins when they change
   useEffect(() => {
     const nftCoins = hydratedCoins.filter(coin => {
-      const driverInfo = coin.parentSpendInfo.driverInfo;
+      const driverInfo = coin.parentSpendInfo?.driverInfo;
       return driverInfo?.type === 'NFT';
     });
 
@@ -254,7 +254,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     try {
       // Helper functions for NFT data
       const getNftMetadata = (nftCoin: HydratedCoin): any => {
-        const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+        const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
         if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
           return null;
         }
@@ -270,7 +270,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           return metadata.name;
         }
 
-        const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+        const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
         if (driverInfo?.type === 'NFT') {
           const onChainMetadata = driverInfo.info?.metadata;
           if (onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) {
@@ -288,7 +288,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           return metadata.collection.name;
         }
 
-        const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+        const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
         if (driverInfo?.type === 'NFT') {
           const launcherId = driverInfo.info?.launcherId || 'Unknown';
           return `Collection ${launcherId.substring(0, 8)}...${launcherId.substring(launcherId.length - 8)}`;
@@ -378,7 +378,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   // NFT utility functions
   const getCoinType = useCallback((hydratedCoin: HydratedCoin): string => {
-    const driverInfo = hydratedCoin.parentSpendInfo.driverInfo;
+    const driverInfo = hydratedCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type === 'CAT') return 'CAT';
     if (driverInfo?.type === 'NFT') return 'NFT';
     return 'XCH';
@@ -393,7 +393,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, []);
 
   const getAssetInfo = useCallback((hydratedCoin: HydratedCoin): string => {
-    const driverInfo = hydratedCoin.parentSpendInfo.driverInfo;
+    const driverInfo = hydratedCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type === 'CAT') {
       const assetId = driverInfo.assetId || 'Unknown';
       return `Asset ID: ${assetId.substring(0, 8)}...${assetId.substring(assetId.length - 8)}`;
@@ -424,7 +424,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   // NFT metadata utility functions
   const getNftMetadata = useCallback((nftCoin: HydratedCoin): any => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return null;
     }
@@ -435,7 +435,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, [nftMetadata]);
 
   const isNftMetadataLoading = useCallback((nftCoin: HydratedCoin): boolean => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return false;
     }
@@ -870,7 +870,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           {nftCoins.map((nftCoin, index) => {
                             const metadata = getNftMetadata(nftCoin);
                             const isLoading = isNftMetadataLoading(nftCoin);
-                            const nftInfo = nftCoin.parentSpendInfo.driverInfo?.info;
+                            const nftInfo = nftCoin.parentSpendInfo?.driverInfo?.info;
                             const onChainMetadata = nftInfo?.metadata;
 
                             return (
@@ -957,7 +957,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                          {(() => {
                            const metadata = getNftMetadata(selectedNft);
                            const isLoading = isNftMetadataLoading(selectedNft);
-                           const nftInfo = selectedNft.parentSpendInfo.driverInfo?.info;
+                           const nftInfo = selectedNft.parentSpendInfo?.driverInfo?.info;
                            const onChainMetadata = nftInfo?.metadata;
 
                            return (

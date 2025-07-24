@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
@@ -13,6 +14,10 @@ export interface GlobalDialogConfig {
   baseUrl?: string;
   address?: string;
   autoConnect?: boolean;
+  // ChiaInsight configuration
+  insightUrl?: string;
+  insightJwtToken?: string;
+  useInsightClient?: boolean;
 }
 
 // Arguments for different dialog types
@@ -102,6 +107,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
   // Configuration state
   const [config, setConfig] = useState<GlobalDialogConfig>(initialConfig);
   const clientRef = useRef<ChiaCloudWalletClient | null>(null);
+  const insightClientRef = useRef<ChiaInsightClient | null>(null);
   const configRef = useRef(config);
   const walletStateRef = useRef<any>(null);
 
@@ -178,24 +184,49 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       }
 
       if (address) {
-        // Load hydrated coins
+        // Load hydrated coins using ChiaInsight client if available, otherwise use legacy client
         console.log('GlobalDialogProvider: Fetching hydrated coins...');
-        const hydratedResult = await clientRef.current.getUnspentHydratedCoins(address);
-        if (hydratedResult.success) {
-          const hydratedCoins = hydratedResult.data.data;
-          const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+        if (insightClientRef.current && configRef.current.useInsightClient) {
+          // Convert address to puzzle hash for ChiaInsight client
+          const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+          if (puzzleHashResult.success) {
+            const hydratedResult = await insightClientRef.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
+            if (hydratedResult.success) {
+              const hydratedCoins = hydratedResult.data;
+              const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
 
-          setWalletState(prev => ({
-            ...prev,
-            isConnected: true,
-            address,
-            syntheticPublicKey,
-            hydratedCoins,
-            unspentCoins,
-            loading: false,
-            error: null
-          }));
-          console.log('GlobalDialogProvider: Wallet data refreshed successfully');
+              setWalletState(prev => ({
+                ...prev,
+                isConnected: true,
+                address,
+                syntheticPublicKey,
+                hydratedCoins,
+                unspentCoins,
+                loading: false,
+                error: null
+              }));
+              console.log('GlobalDialogProvider: Wallet data refreshed successfully with ChiaInsight');
+            }
+          }
+        } else {
+          // Use legacy client
+          const hydratedResult = await clientRef.current.getUnspentHydratedCoins(address);
+          if (hydratedResult.success) {
+            const hydratedCoins = hydratedResult.data.data;
+            const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+
+            setWalletState(prev => ({
+              ...prev,
+              isConnected: true,
+              address,
+              syntheticPublicKey,
+              hydratedCoins,
+              unspentCoins,
+              loading: false,
+              error: null
+            }));
+            console.log('GlobalDialogProvider: Wallet data refreshed successfully with legacy client');
+          }
         }
       }
     } catch (error) {
@@ -233,6 +264,16 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
 
         if (config.jwtToken) {
           clientRef.current.setJwtToken(config.jwtToken);
+        }
+
+        // Initialize ChiaInsight client if configured
+        if (config.useInsightClient) {
+          console.log('GlobalDialogProvider: Initializing ChiaInsight client');
+          insightClientRef.current = new ChiaInsightClient({
+            apiUrl: config.insightUrl || 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1/api',
+            apiToken: config.insightJwtToken,
+            enableLogging: true
+          });
         }
 
         // Auto-connect if enabled and we have a token - only call once after delay

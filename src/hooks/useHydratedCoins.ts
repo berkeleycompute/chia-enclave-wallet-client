@@ -1,11 +1,16 @@
 import { useState, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type Coin } from '../client/ChiaCloudWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 
 export interface UseHydratedCoinsConfig {
   jwtToken?: string | null;
   baseUrl?: string;
   enableLogging?: boolean;
   autoFetch?: boolean;
+  // ChiaInsight configuration
+  insightUrl?: string;
+  insightJwtToken?: string;
+  useInsightClient?: boolean;
 }
 
 export interface HydratedCoinsState {
@@ -38,11 +43,21 @@ export interface HydratedCoinsState {
 
 export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedCoinsState {
   const clientRef = useRef<ChiaCloudWalletClient | null>(null);
+  const insightClientRef = useRef<ChiaInsightClient | null>(null);
   
-  // Initialize client
+  // Initialize clients
   if (!clientRef.current || config.baseUrl) {
     clientRef.current = new ChiaCloudWalletClient({
       baseUrl: config.baseUrl,
+      enableLogging: config.enableLogging
+    });
+  }
+
+  // Initialize ChiaInsight client if configured
+  if (config.useInsightClient && (!insightClientRef.current || config.insightUrl)) {
+    insightClientRef.current = new ChiaInsightClient({
+      apiUrl: config.insightUrl || 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1/api',
+      apiToken: config.insightJwtToken,
       enableLogging: config.enableLogging
     });
   }
@@ -101,14 +116,34 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
         syntheticKey: syntheticPublicKey ? syntheticPublicKey.substring(0, 16) + '...' : null
       });
 
-      // Get hydrated coins
+      // Get hydrated coins using ChiaInsight client if available, otherwise use legacy client
       console.log('💰 useHydratedCoins: Fetching hydrated coins...');
-      const hydratedResult = await client.getUnspentHydratedCoins(address);
-      if (!hydratedResult.success) {
-        throw new Error(hydratedResult.error);
-      }
+      let hydratedCoins: HydratedCoin[];
 
-      const hydratedCoins = hydratedResult.data.data;
+      if (insightClientRef.current && config.useInsightClient) {
+        // Convert address to puzzle hash for ChiaInsight client
+        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+        if (!puzzleHashResult.success) {
+          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+        }
+
+        const hydratedResult = await insightClientRef.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
+        if (!hydratedResult.success) {
+          throw new Error(hydratedResult.error);
+        }
+
+        hydratedCoins = hydratedResult.data;
+        console.log('✅ useHydratedCoins: Hydrated coins fetched via ChiaInsight');
+      } else {
+        // Use legacy client
+        const hydratedResult = await client.getUnspentHydratedCoins(address);
+        if (!hydratedResult.success) {
+          throw new Error(hydratedResult.error);
+        }
+
+        hydratedCoins = hydratedResult.data.data;
+        console.log('✅ useHydratedCoins: Hydrated coins fetched via legacy client');
+      }
       const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
       
       // Calculate balance
