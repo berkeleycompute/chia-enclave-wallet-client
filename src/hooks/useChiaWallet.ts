@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type PublicKeyResponse, type HydratedCoin, type Coin } from '../client/ChiaCloudWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 
 // Event system for wallet state changes
 export interface WalletEvent {
@@ -14,6 +15,8 @@ export interface UseChiaWalletConfig {
   baseUrl?: string;
   enableLogging?: boolean;
   autoConnect?: boolean;
+  useInsightClient?: boolean; // New option to use ChiaInsight client
+  insightClient?: ChiaInsightClient; // ChiaInsight client instance
 }
 
 export interface WalletState {
@@ -251,9 +254,19 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       let balanceError: string | null = null;
       
       try {
-        const hydratedResult = await client.getUnspentHydratedCoins(address);
+        if (!config.insightClient) {
+          throw new Error('ChiaInsight client not available');
+        }
+
+        // Convert address to puzzle hash for ChiaInsight client
+        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+        if (!puzzleHashResult.success) {
+          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+        }
+
+        const hydratedResult = await config.insightClient.getStandardFormatHydratedCoins(puzzleHashResult.data);
         if (hydratedResult.success) {
-          hydratedCoins = hydratedResult.data.data;
+          hydratedCoins = hydratedResult.data;
           unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
           coinCount = unspentCoins.length;
           
@@ -364,29 +377,53 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     }));
   }, []);
 
-  // Refresh hydrated coins
+  // Refresh hydrated coins with enhanced error handling
   const refreshHydratedCoins = useCallback(async (): Promise<boolean> => {
     const client = clientRef.current;
     if (!client || !state.address) {
-      console.warn('Cannot refresh coins: client or address not available');
+      console.warn('⚠️ useChiaWallet: Cannot refresh hydrated coins - missing client or address');
       return false;
     }
 
+    console.log('🔄 useChiaWallet: Refreshing hydrated coins for address:', state.address.substring(0, 16) + '...');
+
     try {
-      console.log('🔄 useChiaWallet: Refreshing hydrated coins');
-      const hydratedResult = await client.getUnspentHydratedCoins(state.address);
+      const address = state.address;
+      let hydratedCoins: HydratedCoin[] = [];
+      let unspentCoins: Coin[] = [];
+      let coinCount = 0;
+      let balanceError: string | null = null;
       
-      if (hydratedResult.success) {
-        const hydratedCoins = hydratedResult.data.data;
-        const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-        let balance = 0;
+      try {
+        // Use insight client
+        if (!config.insightClient) {
+          throw new Error('ChiaInsight client not available');
+        }
+
+        // Convert address to puzzle hash for ChiaInsight client
+        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+        if (!puzzleHashResult.success) {
+          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+        }
+
+        const hydratedResult = await config.insightClient.getStandardFormatHydratedCoins(puzzleHashResult.data);
+        if (!hydratedResult.success) {
+          throw new Error(hydratedResult.error);
+        }
+
+        hydratedCoins = hydratedResult.data;
+        console.log('✅ useChiaWallet: Hydrated coins refreshed via insight client');
+
+        unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+        coinCount = unspentCoins.length;
         
-        // Calculate balance
+        // Calculate balance from coins
+        let totalBalance = 0;
         for (const coin of unspentCoins) {
           try {
-            balance += parseInt(coin.amount);
+            totalBalance += parseInt(coin.amount);
           } catch (error) {
-            console.warn('Invalid coin amount during refresh:', coin.amount, error);
+            console.error('❌ useChiaWallet: Invalid coin amount:', coin.amount);
           }
         }
 
@@ -394,23 +431,36 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
           ...prev,
           hydratedCoins,
           unspentCoins,
-          balance,
-          coinCount: unspentCoins.length,
+          balance: totalBalance,
+          coinCount,
           balanceError: null,
           lastBalanceUpdate: Date.now()
         }));
 
-        console.log('✅ useChiaWallet: Hydrated coins refreshed', {
-          coinsCount: hydratedCoins.length,
-          balance
+        // Emit balance update event
+        emitEvent({
+          type: 'balanceChanged',
+          data: { 
+            balance: totalBalance, 
+            coinCount, 
+            hydratedCoins,
+            unspentCoins
+          },
+          timestamp: Date.now()
+        });
+
+        console.log('✅ useChiaWallet: Hydrated coins refreshed successfully', {
+          coinCount,
+          totalBalance
         });
         return true;
-      } else {
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         setState(prev => ({
           ...prev,
-          balanceError: hydratedResult.error
+          balanceError: errorMessage
         }));
-        console.error('❌ useChiaWallet: Failed to refresh hydrated coins:', hydratedResult.error);
+        console.error('❌ useChiaWallet: Failed to refresh hydrated coins:', errorMessage);
         return false;
       }
     } catch (error) {
@@ -422,7 +472,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       console.error('❌ useChiaWallet: Error refreshing hydrated coins:', errorMessage);
       return false;
     }
-     }, [state.address]);
+  }, [state.address, clientRef.current, config.useInsightClient, config.insightClient]);
 
   // Refresh balance (alias for refreshHydratedCoins for backward compatibility)
   const refreshBalance = useCallback(async (): Promise<boolean> => {

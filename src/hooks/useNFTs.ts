@@ -269,36 +269,27 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
 
       let nftCoins: HydratedCoin[];
 
-      // Use ChiaInsight client if available, otherwise use legacy client
+      // Use ChiaInsight client
       const insightClientInstance = getInsightClient();
-      if (insightClientInstance && useInsightClient) {
-        // Convert address to puzzle hash for ChiaInsight client
-        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(currentAddress);
-        if (!puzzleHashResult.success) {
-          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
-        }
-
-        const result = await insightClientInstance.getStandardFormatHydratedCoins(puzzleHashResult.data);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-
-        // Filter only NFTs
-        nftCoins = result.data.filter(coin => 
-          coin.parentSpendInfo?.driverInfo?.type === 'NFT'
-        );
-      } else {
-        // Use legacy client
-        const result = await client.getUnspentHydratedCoins(currentAddress);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-
-        // Filter only NFTs
-        nftCoins = result.data.data.filter(coin => 
-          coin.parentSpendInfo?.driverInfo?.type === 'NFT'
-        );
+      if (!insightClientInstance) {
+        throw new Error('ChiaInsight client not available');
       }
+
+      // Convert address to puzzle hash for ChiaInsight client
+      const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(currentAddress);
+      if (!puzzleHashResult.success) {
+        throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+      }
+
+      const result = await insightClientInstance.getStandardFormatHydratedCoins(puzzleHashResult.data);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // Filter only NFTs
+      nftCoins = result.data.filter(coin => 
+        coin.parentSpendInfo?.driverInfo?.type === 'NFT'
+      );
 
       // Transform to NFTWithMetadata format
       const nftsWithMetadata: NFTWithMetadata[] = nftCoins.map(coin => {

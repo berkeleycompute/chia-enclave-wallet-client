@@ -395,7 +395,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const getAssetInfo = useCallback((hydratedCoin: HydratedCoin): string => {
     const driverInfo = hydratedCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type === 'CAT') {
-      const assetId = driverInfo.assetId || 'Unknown';
+      const assetId = driverInfo.info?.assetId || 'Unknown';
       return `Asset ID: ${assetId.substring(0, 8)}...${assetId.substring(assetId.length - 8)}`;
     } else if (driverInfo?.type === 'NFT') {
       const launcherId = driverInfo.info?.launcherId || 'Unknown';
@@ -916,9 +916,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
                                   {/* Rarity/Special indicators */}
                                   <div className="asset-badges">
-                                    {nftInfo?.royaltyTenThousandths && nftInfo.royaltyTenThousandths > 0 && (
+                                    {nftInfo?.royaltyBasisPoints && parseInt(nftInfo.royaltyBasisPoints) > 0 && (
                                       <span className="badge royalty">
-                                        {(nftInfo.royaltyTenThousandths / 100).toFixed(1)}% Royalty
+                                        {(parseInt(nftInfo.royaltyBasisPoints) / 100).toFixed(1)}% Royalty
                                       </span>
                                     )}
                                     {metadata?.properties?.category && (
@@ -1019,8 +1019,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                    <div className="info-item">
                                      <label>Royalty</label>
                                      <span className="info-value">
-                                       {nftInfo?.royaltyTenThousandths 
-                                         ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
+                                       {nftInfo?.royaltyBasisPoints 
+                                         ? `${(parseInt(nftInfo.royaltyBasisPoints) / 100).toFixed(2)}%`
                                          : '0%'
                                        }
                                      </span>

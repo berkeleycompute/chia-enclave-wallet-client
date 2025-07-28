@@ -184,50 +184,37 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       }
 
       if (address) {
-        // Load hydrated coins using ChiaInsight client if available, otherwise use legacy client
+        // Load hydrated coins using ChiaInsight client
         console.log('GlobalDialogProvider: Fetching hydrated coins...');
-        if (insightClientRef.current && configRef.current.useInsightClient) {
-          // Convert address to puzzle hash for ChiaInsight client
-          const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
-          if (puzzleHashResult.success) {
-            const hydratedResult = await insightClientRef.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
-            if (hydratedResult.success) {
-              const hydratedCoins = hydratedResult.data;
-              const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-
-              setWalletState(prev => ({
-                ...prev,
-                isConnected: true,
-                address,
-                syntheticPublicKey,
-                hydratedCoins,
-                unspentCoins,
-                loading: false,
-                error: null
-              }));
-              console.log('GlobalDialogProvider: Wallet data refreshed successfully with ChiaInsight');
-            }
-          }
-        } else {
-          // Use legacy client
-          const hydratedResult = await clientRef.current.getUnspentHydratedCoins(address);
-          if (hydratedResult.success) {
-            const hydratedCoins = hydratedResult.data.data;
-            const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-
-            setWalletState(prev => ({
-              ...prev,
-              isConnected: true,
-              address,
-              syntheticPublicKey,
-              hydratedCoins,
-              unspentCoins,
-              loading: false,
-              error: null
-            }));
-            console.log('GlobalDialogProvider: Wallet data refreshed successfully with legacy client');
-          }
+        if (!insightClientRef.current) {
+          throw new Error('ChiaInsight client not available');
         }
+
+        // Convert address to puzzle hash for ChiaInsight client
+        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+        if (!puzzleHashResult.success) {
+          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+        }
+
+        const hydratedResult = await insightClientRef.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
+        if (!hydratedResult.success) {
+          throw new Error(hydratedResult.error);
+        }
+
+        const hydratedCoins = hydratedResult.data;
+        const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+
+        setWalletState(prev => ({
+          ...prev,
+          isConnected: true,
+          address,
+          syntheticPublicKey,
+          hydratedCoins,
+          unspentCoins,
+          loading: false,
+          error: null
+        }));
+        console.log('GlobalDialogProvider: Wallet data refreshed successfully with ChiaInsight');
       }
     } catch (error) {
       console.error('GlobalDialogProvider: Error refreshing wallet data:', error);

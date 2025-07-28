@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type Coin } from '../client/ChiaCloudWalletClient';
+import { ChiaInsightClient } from '../client/ChiaInsightClient';
 
 // Balance breakdown interface
 export interface BalanceBreakdown {
@@ -25,6 +26,8 @@ export interface UseBalanceConfig {
   refreshInterval?: number;
   baseUrl?: string;
   enableLogging?: boolean;
+  useInsightClient?: boolean; // New option to use ChiaInsight client
+  insightClient?: ChiaInsightClient; // ChiaInsight client instance
 }
 
 // Hook result interface
@@ -161,7 +164,8 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
   const refresh = useCallback(async (): Promise<boolean> => {
     const client = getClient();
     if (!client) {
-      setError('No client available');
+      setError('Client not available');
+      setLoading(false);
       return false;
     }
 
@@ -169,21 +173,36 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
     setError(null);
 
     try {
-          const currentAddress = await getAddress();
-    if (!currentAddress) {
-      throw new Error('Wallet address not available');
-    }
+      const currentAddress = await getAddress();
+      if (!currentAddress) {
+        throw new Error('Wallet address not available');
+      }
 
-    const result = await client.getUnspentHydratedCoins(currentAddress);
+      let hydratedCoins: HydratedCoin[];
+
+      // Use insight client
+      if (!config.insightClient) {
+        throw new Error('ChiaInsight client not available');
+      }
+
+      // Convert address to puzzle hash for ChiaInsight client
+      const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(currentAddress);
+      if (!puzzleHashResult.success) {
+        throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+      }
+
+      const result = await config.insightClient.getStandardFormatHydratedCoins(puzzleHashResult.data);
       if (!result.success) {
         throw new Error(result.error);
       }
 
-      const balanceBreakdown = calculateBalanceBreakdown(result.data.data);
+      hydratedCoins = result.data;
+
+      const balanceBreakdown = calculateBalanceBreakdown(hydratedCoins);
       setBalance(balanceBreakdown);
       setLastUpdate(Date.now());
       setLoading(false);
-      
+
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to refresh balance';
@@ -191,7 +210,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
       setLoading(false);
       return false;
     }
-  }, [getClient, getAddress, calculateBalanceBreakdown]);
+  }, [getClient, getAddress, calculateBalanceBreakdown, config.useInsightClient, config.insightClient]);
 
   // Reset hook state
   const reset = useCallback(() => {

@@ -78,7 +78,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   // Filter NFTs only
   const nftCoinsToDisplay = hydratedCoins.filter((coin: HydratedCoin) => {
-    const driverInfo = coin.parentSpendInfo.driverInfo;
+    const driverInfo = coin.parentSpendInfo?.driverInfo;
     return driverInfo?.type === 'NFT';
   });
 
@@ -142,7 +142,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   }, [address]);
 
   const loadNftMetadata = useCallback(async (nftCoin: HydratedCoin): Promise<void> => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return;
     }
@@ -213,7 +213,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   };
 
   const getNftMetadata = (nftCoin: HydratedCoin): any => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return null;
     }
@@ -224,7 +224,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   };
 
   const isNftMetadataLoading = (nftCoin: HydratedCoin): boolean => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return false;
     }
@@ -240,7 +240,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       return metadata.name;
     }
     
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const onChainMetadata = driverInfo.info?.metadata;
       if (onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) {
@@ -258,7 +258,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       return metadata.collection.name;
     }
     
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
+    const driverInfo = nftCoin.parentSpendInfo?.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const launcherId = driverInfo.info?.launcherId || 'Unknown';
       return `Collection ${launcherId.substring(0, 8)}...${launcherId.substring(launcherId.length - 8)}`;

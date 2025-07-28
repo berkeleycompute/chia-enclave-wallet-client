@@ -5,6 +5,7 @@ import './App.css';
 import { ChiaWalletSDKProvider } from '../../src/providers/ChiaWalletSDKProvider';
 import { GlobalDialogProvider } from '../../src/components/GlobalDialogProvider';
 import { ChiaWalletButton } from '../../src/components/ChiaWalletButton';
+import { chiaInsightClient } from '../../src/client/ChiaInsightClient';
 
 // Import the new unified client hook
 import {
@@ -842,7 +843,8 @@ const ExampleApp: React.FC = () => {
 function App() {
   return (
     <ChiaWalletSDKProvider config={{
-      autoConnect: false
+      autoConnect: false,
+      insightClient: chiaInsightClient
     }}>
       <GlobalDialogProvider>
         <ExampleApp />

@@ -11,6 +11,7 @@ import {
   type SignOfferResponse,
   type SimpleMakeUnsignedNFTOfferRequest
 } from './ChiaCloudWalletClient';
+import { ChiaInsightClient } from './ChiaInsightClient';
 
 // Event types for reactivity
 export type WalletEventType = 
@@ -76,6 +77,7 @@ export interface ChiaWalletSDKConfig extends ChiaCloudWalletConfig {
   autoConnect?: boolean;
   autoRefresh?: boolean;
   refreshInterval?: number;
+  insightClient?: ChiaInsightClient;
 }
 
 /**
@@ -84,6 +86,7 @@ export interface ChiaWalletSDKConfig extends ChiaCloudWalletConfig {
  */
 export class ChiaWalletSDK {
   public client: ChiaCloudWalletClient;
+  public insightClient: ChiaInsightClient;
   private config: ChiaWalletSDKConfig;
   private eventListeners: Map<WalletEventType, Set<EventListener>> = new Map();
   private refreshInterval: number | null = null;
@@ -103,6 +106,11 @@ export class ChiaWalletSDK {
       enableLogging: this.config.enableLogging
       
     });
+
+    if (!this.config.insightClient) {
+      throw new Error('ChiaInsightClient is required for ChiaWalletSDK');
+    }
+    this.insightClient = this.config.insightClient;
 
     // Initialize state
     this.state = this.createInitialState();
@@ -375,7 +383,7 @@ export class ChiaWalletSDK {
     });
 
     try {
-      const result = await this.client.getWalletBalanceEnhanced(this.state.address);
+      const result = await this.client.getWalletBalanceEnhanced(this.state.address, this.insightClient);
       
       if (!result.success) {
         throw new Error(result.error);

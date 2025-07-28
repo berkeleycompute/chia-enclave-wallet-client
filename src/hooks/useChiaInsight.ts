@@ -210,18 +210,8 @@ export function useChiaInsight(config: UseChiaInsightConfig = {}): ChiaInsightSt
         coins: result.data.allCoins.map(coin => ({
           coin: coin.coin,
           createdHeight: coin.createdHeight,
-          catInfo: coin.parentSpendInfo?.driverInfo?.type === 'CAT' ? {
-            type: 'CAT' as const,
-            assetId: coin.parentSpendInfo.driverInfo.assetId || '',
-            symbol: null,
-            name: null,
-            cats: []
-          } : undefined,
-          nftInfo: coin.parentSpendInfo?.driverInfo?.type === 'NFT' ? {
-            type: 'NFT' as const,
-            launcherId: coin.parentSpendInfo.driverInfo.info?.launcherId,
-            metadata: coin.parentSpendInfo.driverInfo.info?.metadata
-          } : undefined
+          driverInfo: coin.parentSpendInfo?.driverInfo,
+          parentSpendInfo: coin.parentSpendInfo
         } as HydratedCoin)),
         totalCoins: result.data.coinCount,
         isLoading: false,

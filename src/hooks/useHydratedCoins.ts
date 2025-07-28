@@ -120,30 +120,23 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
       console.log('💰 useHydratedCoins: Fetching hydrated coins...');
       let hydratedCoins: HydratedCoin[];
 
-      if (insightClientRef.current && config.useInsightClient) {
-        // Convert address to puzzle hash for ChiaInsight client
-        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
-        if (!puzzleHashResult.success) {
-          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
-        }
-
-        const hydratedResult = await insightClientRef.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
-        if (!hydratedResult.success) {
-          throw new Error(hydratedResult.error);
-        }
-
-        hydratedCoins = hydratedResult.data;
-        console.log('✅ useHydratedCoins: Hydrated coins fetched via ChiaInsight');
-      } else {
-        // Use legacy client
-        const hydratedResult = await client.getUnspentHydratedCoins(address);
-        if (!hydratedResult.success) {
-          throw new Error(hydratedResult.error);
-        }
-
-        hydratedCoins = hydratedResult.data.data;
-        console.log('✅ useHydratedCoins: Hydrated coins fetched via legacy client');
+      if (!insightClientRef.current) {
+        throw new Error('ChiaInsight client not available');
       }
+
+      // Convert address to puzzle hash for ChiaInsight client
+      const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+      if (!puzzleHashResult.success) {
+        throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+      }
+
+      const hydratedResult = await insightClientRef.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
+      if (!hydratedResult.success) {
+        throw new Error(hydratedResult.error);
+      }
+
+      hydratedCoins = hydratedResult.data;
+      console.log('✅ useHydratedCoins: Hydrated coins fetched via ChiaInsight');
       const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
       
       // Calculate balance

@@ -128,31 +128,25 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // Helper function to fetch hydrated coins using the appropriate client
+  // Helper function to fetch hydrated coins using insight client
   const fetchHydratedCoins = useCallback(async (address: string): Promise<HydratedCoin[]> => {
-    if (insightClient.current && config.useInsightClient) {
-      // Convert address to puzzle hash for ChiaInsight client
-      const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
-      if (!puzzleHashResult.success) {
-        throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
-      }
-
-      const hydratedResult = await insightClient.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
-      if (!hydratedResult.success) {
-        throw new Error(hydratedResult.error);
-      }
-
-      return hydratedResult.data;
-    } else {
-      // Use legacy client
-      const coinsResult = await client.getUnspentHydratedCoins(address);
-      if (!coinsResult.success) {
-        throw new Error(coinsResult.error);
-      }
-
-      return coinsResult.data.data;
+    if (!insightClient.current) {
+      throw new Error('ChiaInsight client not available');
     }
-  }, [config.useInsightClient]);
+
+    // Convert address to puzzle hash for ChiaInsight client
+    const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+    if (!puzzleHashResult.success) {
+      throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+    }
+
+    const hydratedResult = await insightClient.current.getStandardFormatHydratedCoins(puzzleHashResult.data);
+    if (!hydratedResult.success) {
+      throw new Error(hydratedResult.error);
+    }
+
+    return hydratedResult.data;
+  }, []);
 
   // Refresh all data
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -284,7 +278,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
         coinCount: unspentCoins.length,
         lastRefresh: Date.now(),
         error: null,
-        balanceError: coinsResult.success ? null : coinsResult.error
+        balanceError: null
       });
 
       // Setup auto refresh

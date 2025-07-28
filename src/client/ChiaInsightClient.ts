@@ -202,17 +202,18 @@ export class ChiaInsightClient {
         pageSize = 50
       } = options;
 
-      // Build query parameters
-      const queryParams = new URLSearchParams({
+      // Build request body
+      const requestBody = {
         puzzle_hash: puzzleHash,
-        page: page.toString(),
-        page_size: pageSize.toString()
-      });
+        page: page,
+        page_size: pageSize
+      };
 
-      const endpoint = `/wallet/hydrated-coins?${queryParams.toString()}`;
+      const endpoint = `/wallet/hydrated-coins`;
       
       const result = await this.makeRequest<InsightHydratedCoinsResponse>(endpoint, {
-        method: 'GET',
+        method: 'POST',
+        body: JSON.stringify(requestBody),
       });
 
       return { success: true, data: result };

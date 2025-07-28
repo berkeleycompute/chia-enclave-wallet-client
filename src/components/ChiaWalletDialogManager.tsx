@@ -189,27 +189,25 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
       }
 
       if (address) {
-        // Load hydrated coins using ChiaInsight client if available, otherwise use legacy client
-        if (this.insightClient && this.state.config.useInsightClient) {
-          // Convert address to puzzle hash for ChiaInsight client
-          const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
-          if (puzzleHashResult.success) {
-            const hydratedResult = await this.insightClient.getStandardFormatHydratedCoins(puzzleHashResult.data);
-            if (hydratedResult.success) {
-              const hydratedCoins = hydratedResult.data;
-              const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-              this.setState({ hydratedCoins, unspentCoins });
-            }
-          }
-        } else {
-          // Use legacy client
-          const hydratedResult = await this.client.getUnspentHydratedCoins(address);
-          if (hydratedResult.success) {
-            const hydratedCoins = hydratedResult.data.data;
-            const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-            this.setState({ hydratedCoins, unspentCoins });
-          }
+        // Load hydrated coins using ChiaInsight client
+        if (!this.insightClient) {
+          throw new Error('ChiaInsight client not available');
         }
+
+        // Convert address to puzzle hash for ChiaInsight client
+        const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(address);
+        if (!puzzleHashResult.success) {
+          throw new Error(`Failed to convert address to puzzle hash: ${puzzleHashResult.error}`);
+        }
+
+        const hydratedResult = await this.insightClient.getStandardFormatHydratedCoins(puzzleHashResult.data);
+        if (!hydratedResult.success) {
+          throw new Error(hydratedResult.error);
+        }
+
+        const hydratedCoins = hydratedResult.data;
+        const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+        this.setState({ hydratedCoins, unspentCoins });
       }
     } catch (error) {
       this.setState({ error: error instanceof Error ? error.message : 'Failed to load wallet data' });

@@ -129,8 +129,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                   <div className="info-item">
                     <label>Royalty</label>
                     <span className="info-value">
-                      {nftInfo?.royaltyTenThousandths 
-                        ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
+                      {nftInfo?.royaltyBasisPoints 
+                        ? `${(parseInt(nftInfo.royaltyBasisPoints) / 100).toFixed(2)}%`
                         : '0%'
                       }
                     </span>

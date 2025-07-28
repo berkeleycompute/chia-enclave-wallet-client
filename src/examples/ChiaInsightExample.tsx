@@ -282,9 +282,9 @@ export const ChiaInsightExample: React.FC<ChiaInsightExampleProps> = ({
                   <div>
                     <strong>Created Height:</strong> {coin.createdHeight}
                   </div>
-                  {(coin.catInfo || ChiaCloudWalletClient.getHydratedCoinType(coin) === 'CAT') && (
+                  {ChiaCloudWalletClient.getHydratedCoinType(coin) === 'CAT' && (
                     <div>
-                      <strong>Asset ID:</strong> {(coin.catInfo?.assetId || coin.parentSpendInfo?.driverInfo?.assetId || 'N/A').substring(0, 16)}...
+                      <strong>Asset ID:</strong> {(coin.driverInfo?.info?.assetId || coin.parentSpendInfo?.driverInfo?.info?.assetId || 'N/A').substring(0, 16)}...
                     </div>
                   )}
                 </div>
