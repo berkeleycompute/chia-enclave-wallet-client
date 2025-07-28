@@ -279,10 +279,10 @@ const ComponentsView: React.FC<{
 }> = ({ walletClient }) => {
   const [walletState, setWalletState] = useState<any>(null);
 
-  const handleWalletUpdate = (state: any) => {
+  const handleWalletUpdate = React.useCallback((state: any) => {
     console.log('Wallet state updated from ChiaWalletButton:', state);
     setWalletState(state);
-  };
+  }, []);
 
   return (
     <div className="view components-view">

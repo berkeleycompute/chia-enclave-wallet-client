@@ -72,11 +72,11 @@ const ChiaWalletDashboardContent: React.FC<ChiaWalletDashboardProps> = ({
     wallet.address,
     wallet.balance,
     wallet.coinCount,
-    wallet.connectionError, // Updated from wallet.error
+    wallet.connectionError,
     wallet.balanceError,
     wallet.hydratedCoins,
     wallet.unspentCoins,
-    onWalletUpdate,
+    // Don't include onWalletUpdate in deps to prevent infinite loops
   ]);
 
   const formatAddress = (address: string): string => {

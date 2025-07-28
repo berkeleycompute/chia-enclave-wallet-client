@@ -70,7 +70,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
     totalBalance,
     coinCount,
     error,
-    onWalletUpdate,
+    // Don't include onWalletUpdate in deps to prevent infinite loops
   ]);
   
   const openModal = () => {

@@ -120,7 +120,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         formattedBalance: formattedBalance
       });
     }
-  }, [isConnected, address, totalBalance, coinCount, formattedBalance, onWalletUpdate]);
+  }, [isConnected, address, totalBalance, coinCount, formattedBalance]);
 
   // Storage key generators for NFT metadata
   const getNftMetadataStorageKey = useCallback((pubKey: string | null): string => {
