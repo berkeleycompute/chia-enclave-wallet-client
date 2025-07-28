@@ -20,7 +20,6 @@ import {
   useMakeOfferDialog,
   useOffersDialog,
   useNFTDetailsDialog,
-  useGlobalDialogs,
 } from '../../src/components/GlobalDialogProvider';
 
 // Import types
@@ -341,8 +340,6 @@ const DialogsView: React.FC<{
   const offersDialog = useOffersDialog();
   const nftDetailsDialog = useNFTDetailsDialog();
   
-  // Get access to dialog states from the main context
-  const globalDialogs = useGlobalDialogs();
 
   const [lastAction, setLastAction] = useState<string>('');
 
@@ -641,11 +638,6 @@ const CoinsView: React.FC<{
     }
   };
 
-  const formatCoinId = (coin: any): string => {
-    if (!coin.coin) return 'N/A';
-    const { parentCoinInfo, puzzleHash, amount } = coin.coin;
-    return `${parentCoinInfo?.substring(0, 8)}...${puzzleHash?.substring(0, 8)}...${amount}`;
-  };
 
   const getCoinType = (coin: any): string => {
     const driverInfo = coin.parentSpendInfo?.driverInfo;
