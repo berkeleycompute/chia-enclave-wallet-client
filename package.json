@@ -21,8 +21,7 @@
     "react-dom": ">=16.8.0"
   },
   "dependencies": {
-    "bech32": "^2.0.0",
-    "buffer": "^6.0.3"
+    "bech32": "^2.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
@@ -36,4 +35,4 @@
     "typescript": "^5.3.3"
   },
   "license": "ISC"
-} 
+}

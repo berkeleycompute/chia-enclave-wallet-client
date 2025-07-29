@@ -1,5 +1,5 @@
-import { 
-  ChiaCloudWalletClient, 
+import {
+  ChiaCloudWalletClient,
   type ChiaCloudWalletConfig,
   type HydratedCoin,
   type Coin,
@@ -13,9 +13,9 @@ import {
 } from './ChiaCloudWalletClient';
 
 // Event types for reactivity
-export type WalletEventType = 
+export type WalletEventType =
   | 'connectionChanged'
-  | 'balanceChanged' 
+  | 'balanceChanged'
   | 'coinsChanged'
   | 'walletInfoChanged'
   | 'transactionCompleted'
@@ -28,17 +28,17 @@ export interface WalletState {
   // Connection
   isConnected: boolean;
   isConnecting: boolean;
-  
+
   // Authentication
   jwtToken: string | null;
-  
+
   // Wallet info
   publicKey: string | null;
   syntheticPublicKey: string | null;
   address: string | null;
   email: string | null;
   userId: string | null;
-  
+
   // Balance & coins
   totalBalance: number;
   coinCount: number;
@@ -46,7 +46,7 @@ export interface WalletState {
   xchCoins: HydratedCoin[];
   catCoins: HydratedCoin[];
   nftCoins: HydratedCoin[];
-  
+
   // Loading states
   loading: {
     connection: boolean;
@@ -54,7 +54,7 @@ export interface WalletState {
     coins: boolean;
     walletInfo: boolean;
   };
-  
+
   // Errors
   errors: {
     connection: string | null;
@@ -62,7 +62,7 @@ export interface WalletState {
     coins: string | null;
     walletInfo: string | null;
   };
-  
+
   // Timestamps
   lastUpdate: {
     balance: number;
@@ -89,11 +89,16 @@ export class ChiaWalletSDK {
   private refreshInterval: number | null = null;
   private state: WalletState;
 
+  // Request deduplication for getPublicKey
+  private publicKeyPromise: Promise<any> | null = null;
+  private publicKeyCache: { data: any; timestamp: number } | null = null;
+  private readonly PUBLIC_KEY_CACHE_DURATION = 10000; // Reduced to 10 seconds for better responsiveness
+
   constructor(config: ChiaWalletSDKConfig = {}) {
     this.config = {
       autoConnect: true,
       autoRefresh: true,
-      refreshInterval: 30000, // 30 seconds
+      refreshInterval: 60000, // 60 seconds (increased from 30 to reduce API calls)
       ...config
     };
 
@@ -101,7 +106,7 @@ export class ChiaWalletSDK {
       baseUrl: this.config.baseUrl,
       jwtToken: this.config.jwtToken,
       enableLogging: this.config.enableLogging
-      
+
     });
 
     // Initialize state
@@ -173,10 +178,10 @@ export class ChiaWalletSDK {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
-    
+
     const listeners = this.eventListeners.get(event)!;
     listeners.add(listener);
-    
+
     // Return unsubscribe function
     return () => {
       listeners.delete(listener);
@@ -212,19 +217,19 @@ export class ChiaWalletSDK {
     // Emit specific events based on what changed
     if (changedFields) {
       if (changedFields.includes('isConnected')) {
-        this.emit('connectionChanged', { 
+        this.emit('connectionChanged', {
           isConnected: this.state.isConnected,
-          address: this.state.address 
+          address: this.state.address
         });
       }
-      
+
       if (changedFields.includes('totalBalance') || changedFields.includes('hydratedCoins')) {
         this.emit('balanceChanged', {
           totalBalance: this.state.totalBalance,
           coinCount: this.state.coinCount
         });
       }
-      
+
       if (changedFields.includes('hydratedCoins')) {
         this.emit('coinsChanged', {
           hydratedCoins: this.state.hydratedCoins,
@@ -233,7 +238,7 @@ export class ChiaWalletSDK {
           nftCoins: this.state.nftCoins
         });
       }
-      
+
       if (changedFields.includes('address')) {
         this.emit('walletInfoChanged', {
           address: this.state.address,
@@ -247,19 +252,22 @@ export class ChiaWalletSDK {
    * Set JWT token and update client
    */
   async setJwtToken(token: string | null): Promise<boolean> {
+    // Clear cached public key when token changes
+    this.clearPublicKeyCache();
+
     if (token) {
       this.client.setJwtToken(token);
     }
     this.updateState({ jwtToken: token }, ['jwtToken']);
-    
+
     if (token && this.config.autoConnect) {
       return await this.connect();
     }
-    
+
     if (!token) {
       this.disconnect();
     }
-    
+
     return true;
   }
 
@@ -276,6 +284,120 @@ export class ChiaWalletSDK {
    */
   getBaseUrl(): string {
     return this.client.getBaseUrl();
+  }
+
+  /**
+   * Get public key with caching and request deduplication
+   * Prevents multiple simultaneous calls to the API
+   */
+  async getCachedPublicKey(): Promise<any> {
+    // Return cached data if still valid
+    if (this.publicKeyCache) {
+      const age = Date.now() - this.publicKeyCache.timestamp;
+      if (age < this.PUBLIC_KEY_CACHE_DURATION) {
+        return { success: true, data: this.publicKeyCache.data };
+      }
+    }
+
+    // Return existing promise if one is in flight
+    if (this.publicKeyPromise) {
+      return this.publicKeyPromise;
+    }
+
+    // Create new request
+    this.publicKeyPromise = this.client.getPublicKey()
+      .then(result => {
+        if (result.success) {
+          // Cache successful result
+          this.publicKeyCache = {
+            data: result.data,
+            timestamp: Date.now()
+          };
+        }
+        this.publicKeyPromise = null;
+        return result;
+      })
+      .catch(error => {
+        this.publicKeyPromise = null;
+        throw error;
+      });
+
+    return this.publicKeyPromise;
+  }
+
+  /**
+   * Clear the public key cache (useful when JWT token changes)
+   */
+  clearPublicKeyCache(): void {
+    this.publicKeyCache = null;
+    this.publicKeyPromise = null;
+  }
+
+  /**
+   * Force refresh the public key cache and update wallet info
+   * Useful when you need the latest wallet information immediately
+   */
+  async forceRefreshWalletInfo(): Promise<any> {
+    this.clearPublicKeyCache();
+    const result = await this.getCachedPublicKey();
+
+    if (result.success) {
+      // Update state and emit events
+      this.updateState({
+        publicKey: result.data.master_public_key,
+        syntheticPublicKey: result.data.synthetic_public_key,
+        address: result.data.address,
+        email: result.data.email,
+        userId: result.data.user_id,
+        lastUpdate: { ...this.state.lastUpdate, walletInfo: Date.now() }
+      }, ['address']);
+    }
+
+    return result;
+  }
+
+  /**
+   * Force refresh the public key
+   */
+  async forceRefreshPublicKey(): Promise<any> {
+    this.clearPublicKeyCache();
+    return this.getCachedPublicKey();
+  }
+
+  /**
+   * Get wallet information (address, public keys, etc.) with caching
+   * This is the recommended way for components to get wallet info
+   */
+  async getWalletInfo(): Promise<any> {
+    return this.getCachedPublicKey();
+  }
+
+  /**
+   * Get SDK-aware hook configurations
+   * These methods return config objects that automatically use this SDK instance
+   */
+  getBalanceHookConfig(): { sdk: ChiaWalletSDK; autoRefresh: false } {
+    return { sdk: this, autoRefresh: false }; // Disable individual auto-refresh since SDK handles it
+  }
+
+  getNFTsHookConfig(): { sdk: ChiaWalletSDK; autoRefresh: false } {
+    return { sdk: this, autoRefresh: false };
+  }
+
+  getHydratedCoinsHookConfig(): { sdk: ChiaWalletSDK } {
+    return { sdk: this };
+  }
+
+  getWalletInfoHookConfig(): { sdk: ChiaWalletSDK; autoFetch: false } {
+    return { sdk: this, autoFetch: false }; // SDK already has the data
+  }
+
+  /**
+   * Manual refresh methods for components that need fresh data immediately
+   */
+  async refreshAllData(): Promise<void> {
+    await this.forceRefreshWalletInfo();
+    await this.refreshBalance();
   }
 
   /**
@@ -297,8 +419,8 @@ export class ChiaWalletSDK {
     });
 
     try {
-      // Get wallet info
-      const walletInfoResult = await this.client.getPublicKey();
+      // Get wallet info using cached method
+      const walletInfoResult = await this.getCachedPublicKey();
       if (!walletInfoResult.success) {
         throw new Error(walletInfoResult.error);
       }
@@ -318,7 +440,7 @@ export class ChiaWalletSDK {
 
       // Load initial balance and coins
       await this.refreshBalance();
-      
+
       return true;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
@@ -328,7 +450,7 @@ export class ChiaWalletSDK {
         loading: { ...this.state.loading, connection: false },
         errors: { ...this.state.errors, connection: errorMessage }
       });
-      
+
       this.emit('error', { type: 'connection', message: errorMessage });
       return false;
     }
@@ -376,7 +498,7 @@ export class ChiaWalletSDK {
 
     try {
       const result = await this.client.getWalletBalanceEnhanced(this.state.address);
-      
+
       if (!result.success) {
         throw new Error(result.error);
       }
@@ -389,10 +511,10 @@ export class ChiaWalletSDK {
         catCoins: result.data.catCoins,
         nftCoins: result.data.nftCoins,
         loading: { ...this.state.loading, balance: false, coins: false },
-        lastUpdate: { 
-          ...this.state.lastUpdate, 
-          balance: Date.now(), 
-          coins: Date.now() 
+        lastUpdate: {
+          ...this.state.lastUpdate,
+          balance: Date.now(),
+          coins: Date.now()
         }
       }, ['totalBalance', 'hydratedCoins']);
 
@@ -403,7 +525,7 @@ export class ChiaWalletSDK {
         loading: { ...this.state.loading, balance: false, coins: false },
         errors: { ...this.state.errors, balance: errorMessage, coins: errorMessage }
       });
-      
+
       this.emit('error', { type: 'balance', message: errorMessage });
       return false;
     }
@@ -422,7 +544,7 @@ export class ChiaWalletSDK {
 
       // Then broadcast it
       const broadcastResult = await this.client.broadcastSignedSpendBundle(signResult.data);
-      
+
       if (broadcastResult.success) {
         // Emit transaction completed event
         this.emit('transactionCompleted', {
@@ -430,11 +552,11 @@ export class ChiaWalletSDK {
           transactionId: broadcastResult.data.transaction_id,
           request
         });
-        
+
         // Refresh balance after successful transaction
         setTimeout(() => this.refreshBalance(), 2000);
       }
-      
+
       return broadcastResult;
     } catch (error) {
       return {

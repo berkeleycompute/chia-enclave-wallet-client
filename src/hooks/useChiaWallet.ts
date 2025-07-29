@@ -20,28 +20,28 @@ export interface WalletState {
   // Connection state
   isConnected: boolean;
   isConnecting: boolean;
-  
+
   // Authentication
   jwtToken: string | null;
-  
+
   // Wallet data
   address: string | null; // The wallet address
   publicKeyData: PublicKeyResponse | null; // Full public key response
   syntheticPublicKey: string | null; // Only used for offers
-  
+
   // Balance and coins
   balance: number;
   coinCount: number;
   unspentCoins: Coin[];
   hydratedCoins: HydratedCoin[];
-  
+
   // Loading states
   balanceLoading: boolean;
-  
+
   // Error states
   connectionError: string | null;
   balanceError: string | null;
-  
+
   // Timestamps
   lastBalanceUpdate: number;
   lastConnectionUpdate: number;
@@ -50,18 +50,18 @@ export interface WalletState {
 export interface UseChiaWalletResult extends WalletState {
   // Client instance (for backward compatibility)
   client: ChiaCloudWalletClient;
-  
+
   // Connection actions
   connect: (jwtToken: string) => Promise<boolean>;
   disconnect: () => void;
-  
+
   // Data refresh actions
   refreshBalance: () => Promise<boolean>;
   refreshHydratedCoins: () => Promise<boolean>;
-  
+
   // Utilities
   formatBalance: (balance: number) => string;
-  
+
   // Event system
   addEventListener: (listener: WalletEventListener) => void;
   removeEventListener: (listener: WalletEventListener) => void;
@@ -74,6 +74,7 @@ const eventListeners = new Set<WalletEventListener>();
 export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletResult {
   const clientRef = useRef<ChiaCloudWalletClient | null>(null);
   const eventsRef = useRef<WalletEventListener[]>([]);
+  const autoRefreshIntervalRef = useRef<number | null>(null);
 
   // Initialize client
   if (!clientRef.current) {
@@ -95,17 +96,17 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
             isConnected: false, // Always start disconnected, let connect() handle it
             isConnecting: false,
             jwtToken: parsedState.jwtToken,
-            
+
             // Restore data if present
             address: parsedState.address || null,
             publicKeyData: parsedState.publicKeyData || null,
             syntheticPublicKey: parsedState.syntheticPublicKey || null,
-            
+
             balance: parsedState.balance || 0,
             coinCount: parsedState.coinCount || 0,
             unspentCoins: parsedState.unspentCoins || [],
             hydratedCoins: parsedState.hydratedCoins || [],
-            
+
             balanceLoading: false,
             connectionError: null,
             balanceError: null,
@@ -169,25 +170,46 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     }
   }, [config.autoConnect, state.jwtToken, state.isConnected, state.isConnecting]);
 
-  // Auto-refresh balance periodically if connected
+  // Setup auto-refresh interval when connected
   useEffect(() => {
-    if (state.isConnected && state.address && !state.balanceLoading) {
-      const shouldRefresh = Date.now() - state.lastBalanceUpdate > 30000; // 30 seconds
-      if (shouldRefresh) {
-        console.log('🔄 useChiaWallet: Auto-refreshing balance');
-        refreshBalance();
+    if (state.isConnected && state.address) {
+      // Clear any existing interval
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+      
+      // Setup new interval for auto-refresh
+      autoRefreshIntervalRef.current = window.setInterval(() => {
+        if (!state.balanceLoading) {
+          console.log('🔄 useChiaWallet: Auto-refreshing balance');
+          refreshBalance();
+        }
+      }, 30000); // 30 seconds
+    } else {
+      // Clear interval when disconnected
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
       }
     }
-  }, [state.isConnected, state.address, state.balanceLoading]);
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    };
+  }, [state.isConnected, state.address]); // Removed state.balanceLoading from dependencies
 
   // Emit events when relevant state changes
   useEffect(() => {
     const event: WalletEvent = {
       type: 'connectionChanged',
-      data: { 
-        isConnected: state.isConnected, 
+      data: {
+        isConnected: state.isConnected,
         address: state.address,
-        error: state.connectionError 
+        error: state.connectionError
       },
       timestamp: Date.now()
     };
@@ -197,10 +219,10 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
   useEffect(() => {
     const event: WalletEvent = {
       type: 'balanceChanged',
-      data: { 
-        balance: state.balance, 
+      data: {
+        balance: state.balance,
         coinCount: state.coinCount,
-        error: state.balanceError 
+        error: state.balanceError
       },
       timestamp: Date.now()
     };
@@ -224,39 +246,39 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       return false;
     }
 
-    setState(prev => ({ 
-      ...prev, 
-      isConnecting: true, 
+    setState(prev => ({
+      ...prev,
+      isConnecting: true,
       connectionError: null,
-      jwtToken 
+      jwtToken
     }));
-    
+
     try {
       // Set JWT token
       client.setJwtToken(jwtToken);
-      
+
       // Get public key first
       const pkResponse = await client.getPublicKey();
       if (!pkResponse.success) {
         throw new Error(pkResponse.error);
       }
-      
+
       const address = pkResponse.data.address;
-      
+
       // Immediately load hydrated coins on first connection
       let hydratedCoins: HydratedCoin[] = [];
       let unspentCoins: Coin[] = [];
       let balance = 0;
       let coinCount = 0;
       let balanceError: string | null = null;
-      
+
       try {
         const hydratedResult = await client.getUnspentHydratedCoins(address);
         if (hydratedResult.success) {
           hydratedCoins = hydratedResult.data.data;
           unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
           coinCount = unspentCoins.length;
-          
+
           // Calculate balance from coins
           for (const coin of unspentCoins) {
             try {
@@ -332,12 +354,12 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       balanceError: null,
       lastConnectionUpdate: Date.now()
     }));
-    
+
     // Clear client token
     if (clientRef.current) {
       clientRef.current.setJwtToken('');
     }
-    
+
     // Clear localStorage
     try {
       localStorage.removeItem('chiaWallet');
@@ -375,12 +397,12 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     try {
       console.log('🔄 useChiaWallet: Refreshing hydrated coins');
       const hydratedResult = await client.getUnspentHydratedCoins(state.address);
-      
+
       if (hydratedResult.success) {
         const hydratedCoins = hydratedResult.data.data;
         const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
         let balance = 0;
-        
+
         // Calculate balance
         for (const coin of unspentCoins) {
           try {
@@ -422,7 +444,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       console.error('❌ useChiaWallet: Error refreshing hydrated coins:', errorMessage);
       return false;
     }
-     }, [state.address]);
+  }, [state.address]);
 
   // Refresh balance (alias for refreshHydratedCoins for backward compatibility)
   const refreshBalance = useCallback(async (): Promise<boolean> => {
@@ -433,11 +455,11 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
   const formatBalance = useCallback((balance: number): string => {
     const result = ChiaCloudWalletClient.mojosToXCH(balance);
     if (!result.success) return '0';
-    
+
     let formatted = result.data.toFixed(13);
     // Remove trailing zeros
     formatted = formatted.replace(/\.?0+$/, '');
-    
+
     return formatted || '0';
   }, []);
 
@@ -470,19 +492,19 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
   return {
     // State
     ...state,
-    
+
     // Client instance
     client: clientRef.current!,
-    
+
     // Actions
     connect: connectWallet,
     disconnect,
     refreshBalance,
     refreshHydratedCoins,
-    
+
     // Utilities
     formatBalance,
-    
+
     // Event system
     addEventListener,
     removeEventListener,
