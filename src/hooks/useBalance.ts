@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type Coin } from '../client/ChiaCloudWalletClient';
 import { ChiaInsightClient } from '../client/ChiaInsightClient';
+import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
 
 // Balance breakdown interface
 export interface BalanceBreakdown {

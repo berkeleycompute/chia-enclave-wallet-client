@@ -22,6 +22,8 @@ import {
 
 // Import types
 import { UnifiedWalletClient } from '../../src/client/UnifiedWalletClient';
+import { useState } from 'react';
+import React from 'react';
 
 // Navigation component
 const Navigation: React.FC<{
