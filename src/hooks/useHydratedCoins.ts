@@ -1,9 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type Coin } from '../client/ChiaCloudWalletClient';
 import { ChiaInsightClient } from '../client/ChiaInsightClient';
+import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
 
 export interface UseHydratedCoinsConfig {
   jwtToken?: string | null;
+  sdk?: ChiaWalletSDK; // Add SDK option
   baseUrl?: string;
   enableLogging?: boolean;
   autoFetch?: boolean;
@@ -19,21 +21,21 @@ export interface HydratedCoinsState {
   unspentCoins: Coin[];
   balance: number;
   coinCount: number;
-  
+
   // Metadata
   address: string | null;
   syntheticPublicKey: string | null; // Only used for offers
-  
+
   // Status
   isLoading: boolean;
   isConnected: boolean;
   error: string | null;
   lastFetch: number;
-  
+
   // Actions
   fetchCoins: () => Promise<boolean>;
   reset: () => void;
-  
+
   // Utilities
   formatBalance: (balance: number) => string;
   getNFTCoins: () => HydratedCoin[];
@@ -76,6 +78,91 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
   });
 
   const fetchCoins = useCallback(async (): Promise<boolean> => {
+    // Prefer SDK if available
+    if (config.sdk) {
+      console.log('🚀 useHydratedCoins: Using SDK for fetchCoins');
+
+      setState(prev => ({
+        ...prev,
+        isLoading: true,
+        error: null
+      }));
+
+      try {
+        // Get wallet info from SDK (cached)
+        const walletInfoResult = await config.sdk.getWalletInfo();
+        if (!walletInfoResult.success) {
+          throw new Error(walletInfoResult.error);
+        }
+
+        const address = walletInfoResult.data.address;
+        const syntheticPublicKey = walletInfoResult.data.synthetic_public_key;
+
+        console.log('✅ useHydratedCoins: Wallet info from SDK', {
+          address: address.substring(0, 16) + '...',
+          syntheticKey: syntheticPublicKey ? syntheticPublicKey.substring(0, 16) + '...' : null
+        });
+
+        // Get hydrated coins using SDK client
+        console.log('💰 useHydratedCoins: Fetching hydrated coins from SDK...');
+        const hydratedResult = await config.sdk.client.getWalletBalanceEnhanced(address, config.sdk.insightClient);
+        if (!hydratedResult.success) {
+          throw new Error(hydratedResult.error);
+        }
+ 
+        const hydratedCoins = hydratedResult.data.xchCoins;
+        hydratedCoins.push(...hydratedResult.data.catCoins);
+        hydratedCoins.push(...hydratedResult.data.nftCoins);
+
+        const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
+
+        // Calculate balance
+        let totalBalance = 0;
+        for (const coin of unspentCoins) {
+          try {
+            totalBalance += parseInt(coin.amount);
+          } catch (error) {
+            console.warn('Failed to parse coin amount:', coin.amount, error);
+          }
+        }
+
+        setState(prev => ({
+          ...prev,
+          hydratedCoins,
+          unspentCoins,
+          balance: totalBalance,
+          coinCount: unspentCoins.length,
+          address,
+          syntheticPublicKey,
+          isLoading: false,
+          isConnected: true,
+          error: null,
+          lastFetch: Date.now()
+        }));
+
+        console.log('✅ useHydratedCoins: SDK fetch completed', {
+          coinsCount: hydratedCoins.length,
+          unspentCount: unspentCoins.length,
+          balance: totalBalance
+        });
+
+        return true;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch coins';
+        console.error('❌ useHydratedCoins: SDK fetch failed:', errorMessage);
+
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          isConnected: false,
+          error: errorMessage
+        }));
+
+        return false;
+      }
+    }
+
+    // Fallback to direct client usage
     const client = clientRef.current;
     if (!client || !config.jwtToken) {
       setState(prev => ({
@@ -86,7 +173,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
       return false;
     }
 
-    console.log('🚀 useHydratedCoins: Starting fetchCoins', {
+    console.log('🚀 useHydratedCoins: Starting fetchCoins with direct client', {
       hasToken: !!config.jwtToken,
       hasClient: !!client
     });
@@ -110,7 +197,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
 
       const address = pkResponse.data.address;
       const syntheticPublicKey = pkResponse.data.synthetic_public_key;
-      
+
       console.log('✅ useHydratedCoins: Wallet address fetched', {
         address: address.substring(0, 16) + '...',
         syntheticKey: syntheticPublicKey ? syntheticPublicKey.substring(0, 16) + '...' : null
@@ -138,7 +225,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
       hydratedCoins = hydratedResult.data;
       console.log('✅ useHydratedCoins: Hydrated coins fetched via ChiaInsight');
       const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
-      
+
       // Calculate balance
       let totalBalance = 0;
       for (const coin of unspentCoins) {
@@ -174,7 +261,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch hydrated coins';
       console.error('❌ useHydratedCoins: Fetch failed', errorMessage);
-      
+
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -204,28 +291,28 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
   const formatBalance = useCallback((balance: number): string => {
     const result = ChiaCloudWalletClient.mojosToXCH(balance);
     if (!result.success) return '0';
-    
+
     let formatted = result.data.toFixed(13);
     formatted = formatted.replace(/\.?0+$/, '');
-    
+
     return formatted;
   }, []);
 
   const getNFTCoins = useCallback((): HydratedCoin[] => {
-    return state.hydratedCoins.filter(coin => 
+    return state.hydratedCoins.filter(coin =>
       coin.parentSpendInfo?.driverInfo?.type === 'NFT'
     );
   }, [state.hydratedCoins]);
 
   const getXCHCoins = useCallback((): HydratedCoin[] => {
-    return state.hydratedCoins.filter(coin => 
-      !coin.parentSpendInfo?.driverInfo?.type || 
+    return state.hydratedCoins.filter(coin =>
+      !coin.parentSpendInfo?.driverInfo?.type ||
       coin.parentSpendInfo?.driverInfo?.type === undefined
     );
   }, [state.hydratedCoins]);
 
   const getCATCoins = useCallback((): HydratedCoin[] => {
-    return state.hydratedCoins.filter(coin => 
+    return state.hydratedCoins.filter(coin =>
       coin.parentSpendInfo?.driverInfo?.type === 'CAT'
     );
   }, [state.hydratedCoins]);

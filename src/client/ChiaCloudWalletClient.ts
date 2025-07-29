@@ -498,13 +498,20 @@ export class ChiaCloudWalletClient {
    * Get public key from JWT token with error handling
    */
   async getPublicKey(): Promise<Result<PublicKeyResponse>> {
+    // Debug logging to track calls
+    const timestamp = new Date().toISOString();
+    const stack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
+    console.log(`🔑 [${timestamp}] getPublicKey() called from: ${stack}`);
+
     try {
       const result = await this.makeRequest<PublicKeyResponse>('/public-key', {
         method: 'POST',
         body: JSON.stringify({}),
       });
+      console.log(`✅ [${timestamp}] getPublicKey() successful`);
       return { success: true, data: result };
     } catch (error) {
+      console.log(`❌ [${timestamp}] getPublicKey() failed:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get public key',

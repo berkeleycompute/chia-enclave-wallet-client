@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { ChiaInsightClient } from '../client/ChiaInsightClient';
+import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
 
 // NFT metadata interface
 export interface NFTMetadata {
@@ -30,6 +31,7 @@ export interface NFTWithMetadata extends HydratedCoin {
 export interface UseNFTsConfig {
   jwtToken?: string | null;
   client?: ChiaCloudWalletClient;
+  sdk?: ChiaWalletSDK; // Add SDK option
   address?: string | null;
   autoRefresh?: boolean;
   autoLoadMetadata?: boolean;
@@ -50,13 +52,13 @@ export interface UseNFTsResult {
   metadataLoading: boolean;
   error: string | null;
   lastUpdate: number;
-  
+
   // Actions
   refresh: () => Promise<boolean>;
   loadMetadata: (nft: HydratedCoin) => Promise<NFTMetadata | null>;
   loadAllMetadata: () => Promise<void>;
   reset: () => void;
-  
+
   // Utilities
   getNFTById: (coinId: string) => NFTWithMetadata | null;
   getNFTsByCollection: (collectionName: string) => NFTWithMetadata[];
@@ -72,6 +74,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
   const {
     jwtToken,
     client: externalClient,
+    sdk: externalSDK, // Extract SDK
     address: externalAddress,
     autoRefresh = false,
     autoLoadMetadata = true,
@@ -89,7 +92,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
   const insightClient = useRef<ChiaInsightClient | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
   const metadataLoadingRef = useRef<Set<string>>(new Set());
-  
+
   const [nfts, setNfts] = useState<NFTWithMetadata[]>([]);
   const [loading, setLoading] = useState(false);
   const [metadataLoading, setMetadataLoading] = useState(false);
@@ -99,8 +102,10 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
 
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
+    // Prefer SDK client if available
+    if (externalSDK) return externalSDK.client;
     if (externalClient) return externalClient;
-    
+
     if (!internalClient.current && (jwtToken || baseUrl)) {
       internalClient.current = new ChiaCloudWalletClient({
         baseUrl,
@@ -110,9 +115,9 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
         internalClient.current.setJwtToken(jwtToken);
       }
     }
-    
+
     return internalClient.current;
-  }, [externalClient, jwtToken, baseUrl, enableLogging]);
+  }, [jwtToken, baseUrl, enableLogging, externalSDK, externalClient]);
 
   // Get or create ChiaInsight client
   const getInsightClient = useCallback((): ChiaInsightClient | null => {
@@ -134,6 +139,21 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     if (externalAddress) return externalAddress;
     if (address) return address;
 
+    // If SDK is available, use its cached method
+    if (externalSDK) {
+      try {
+        const result = await externalSDK.getWalletInfo();
+        if (result.success) {
+          setAddress(result.data.address);
+          return result.data.address;
+        }
+      } catch (error) {
+        console.warn('Failed to get wallet address from SDK for NFTs:', error);
+      }
+      return null;
+    }
+
+    // Fallback to direct client call
     const client = getClient();
     if (!client) return null;
 
@@ -146,9 +166,9 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     } catch (error) {
       console.warn('Failed to get wallet address for NFTs:', error);
     }
-    
+
     return null;
-  }, [externalAddress, address, getClient]);
+  }, [externalAddress, address, externalSDK, getClient]);
 
   // Extract metadata URI from NFT data
   const extractMetadataUri = useCallback((nft: HydratedCoin): string | null => {
@@ -196,7 +216,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       }
 
       const metadata: NFTMetadata = await response.json();
-      
+
       // Cache the metadata
       metadataCache.set(metadataUri, {
         data: metadata,
@@ -228,8 +248,8 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
 
     try {
       const results = await Promise.all(promises);
-      
-      setNfts(prevNfts => 
+
+      setNfts(prevNfts =>
         prevNfts.map(nft => {
           const result = results.find(r => r.nft === nft);
           if (result && result.metadata && !nft.metadata) {
@@ -294,7 +314,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       // Transform to NFTWithMetadata format
       const nftsWithMetadata: NFTWithMetadata[] = nftCoins.map(coin => {
         // Check if we already have this NFT with metadata
-        const existingNft = nfts.find(n => 
+        const existingNft = nfts.find(n =>
           n.coin.parentCoinInfo === coin.coin.parentCoinInfo &&
           n.coin.puzzleHash === coin.coin.puzzleHash
         );
@@ -333,12 +353,12 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     setLastUpdate(0);
     setLoading(false);
     setMetadataLoading(false);
-    
+
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
     }
-    
+
     // Clear any pending metadata requests
     metadataLoadingRef.current.clear();
   }, []);
@@ -361,7 +381,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
 
   // Get NFTs by collection
   const getNFTsByCollection = useCallback((collectionName: string): NFTWithMetadata[] => {
-    return nfts.filter(nft => 
+    return nfts.filter(nft =>
       nft.metadata?.collection?.name?.toLowerCase().includes(collectionName.toLowerCase()) ||
       nft.metadata?.collection?.family?.toLowerCase().includes(collectionName.toLowerCase())
     );
@@ -370,11 +390,11 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
   // Search NFTs
   const searchNFTs = useCallback((query: string): NFTWithMetadata[] => {
     const searchTerm = query.toLowerCase();
-    return nfts.filter(nft => 
+    return nfts.filter(nft =>
       nft.metadata?.name?.toLowerCase().includes(searchTerm) ||
       nft.metadata?.description?.toLowerCase().includes(searchTerm) ||
       nft.metadata?.collection?.name?.toLowerCase().includes(searchTerm) ||
-      nft.metadata?.attributes?.some(attr => 
+      nft.metadata?.attributes?.some(attr =>
         attr.trait_type.toLowerCase().includes(searchTerm) ||
         String(attr.value).toLowerCase().includes(searchTerm)
       )
@@ -453,7 +473,7 @@ export function useNFTMetadata(nftUri?: string) {
       }
 
       const metadataData: NFTMetadata = await response.json();
-      
+
       // Cache the metadata
       metadataCache.set(uri, {
         data: metadataData,
@@ -489,7 +509,7 @@ export function useNFTMetadata(nftUri?: string) {
 // Hook for NFT collections
 export function useNFTCollections(config: UseNFTsConfig = {}) {
   const nftsResult = useNFTs(config);
-  
+
   const collections = nftsResult.nfts.reduce((acc, nft) => {
     const collectionName = nft.metadata?.collection?.name || 'Unknown Collection';
     if (!acc[collectionName]) {

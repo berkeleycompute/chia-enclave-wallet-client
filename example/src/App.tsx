@@ -1,5 +1,3 @@
-import React, { useState } from 'react';
-import './App.css';
 
 // Import the providers and components from your library
 import { ChiaWalletSDKProvider } from '../../src/providers/ChiaWalletSDKProvider';

@@ -1,14 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
-import { 
-  type WalletState, 
+import {
+  type WalletState,
   type WalletEventType,
   type ChiaWalletSDK
 } from '../client/ChiaWalletSDK';
-import { 
-  type SendXCHRequest, 
+import {
+  type SendXCHRequest,
   type SimpleMakeUnsignedNFTOfferRequest,
-  type HydratedCoin 
+  type HydratedCoin
 } from '../client/ChiaCloudWalletClient';
 import { UnifiedWalletState } from '../components/types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
@@ -30,11 +30,11 @@ export function useWalletState(): WalletState & {
 } {
   const sdk = useChiaWalletSDK();
   const [state, setState] = useState<WalletState>(sdk.walletState);
-  
+
   // Set up reactive state updates
   useEffect(() => {
     const updateState = () => setState(sdk.walletState);
-    
+
     // Subscribe to all relevant events
     const unsubscribers = [
       sdk.on('connectionChanged', updateState),
@@ -43,7 +43,7 @@ export function useWalletState(): WalletState & {
       sdk.on('walletInfoChanged', updateState),
       sdk.on('error', updateState)
     ];
-    
+
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
@@ -250,7 +250,7 @@ export function useSendTransaction() {
 
     try {
       const result = await sdk.sendXCH(request);
-      
+
       if (result.success) {
         setTransactionState({
           isSending: false,
@@ -308,7 +308,7 @@ export function useNFTOffers() {
 
     try {
       const result = await sdk.createNFTOffer(request);
-      
+
       if (result.success) {
         setOfferState({
           isCreatingOffer: false,
@@ -390,7 +390,7 @@ export function useWalletEvents() {
  */
 export function useRawSDK(): ChiaWalletSDK {
   return useChiaWalletSDK();
-} 
+}
 
 /**
  * Unified wallet state hook - combines all wallet state into a single object
@@ -401,7 +401,7 @@ export const useUnifiedWalletState = (): UnifiedWalletState => {
   const connectionState = useWalletConnection();
   const balanceState = useWalletBalance();
 
-  return {
+  return useMemo(() => ({
     isConnected: connectionState.isConnected,
     publicKey: walletState.publicKey,
     syntheticPublicKey: walletState.syntheticPublicKey,
@@ -411,7 +411,22 @@ export const useUnifiedWalletState = (): UnifiedWalletState => {
     formattedBalance: balanceState.formattedBalance,
     error: connectionState.error || balanceState.error,
     isConnecting: connectionState.isConnecting,
-  };
+  }), [
+    connectionState.isConnected,
+    connectionState.isConnecting,
+    connectionState.address,
+    connectionState.error,
+    connectionState.email, // Add missing fields
+    connectionState.jwtToken,
+    walletState.publicKey,
+    walletState.syntheticPublicKey,
+    walletState.userId, // Add missing field
+    balanceState.totalBalance,
+    balanceState.coinCount,
+    balanceState.formattedBalance,
+    balanceState.error,
+    balanceState.lastUpdate // Add to detect data freshness changes
+  ]);
 };
 
 /**
@@ -421,6 +436,6 @@ export const useUnifiedWalletState = (): UnifiedWalletState => {
 export const useUnifiedWalletClient = (): UnifiedWalletClient => {
   const sdk = useRawSDK();
   const walletState = useUnifiedWalletState();
-  
+
   return UnifiedWalletClient.create(sdk, walletState);
 }; 

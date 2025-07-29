@@ -21,6 +21,7 @@ export interface BalanceBreakdown {
 export interface UseBalanceConfig {
   jwtToken?: string | null;
   client?: ChiaCloudWalletClient;
+  sdk?: ChiaWalletSDK; // Add SDK option
   address?: string | null;
   autoRefresh?: boolean;
   refreshInterval?: number;
@@ -36,11 +37,11 @@ export interface UseBalanceResult {
   loading: boolean;
   error: string | null;
   lastUpdate: number;
-  
+
   // Actions
   refresh: () => Promise<boolean>;
   reset: () => void;
-  
+
   // Utilities
   formatBalance: (amount: number) => string;
   isStale: () => boolean;
@@ -51,6 +52,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
   const {
     jwtToken,
     client: externalClient,
+    sdk: externalSDK, // Extract SDK
     address: externalAddress,
     autoRefresh = false,
     refreshInterval = 60000,
@@ -61,7 +63,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
   // Internal client if none provided
   const internalClient = useRef<ChiaCloudWalletClient | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
-  
+
   const [balance, setBalance] = useState<BalanceBreakdown | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,29 +72,32 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
 
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
+    // Prefer SDK client if available
+    if (externalSDK) return externalSDK.client;
     if (externalClient) return externalClient;
-    
+
     if (!internalClient.current && (jwtToken || baseUrl)) {
       internalClient.current = new ChiaCloudWalletClient({
         baseUrl,
         enableLogging
       });
+
       if (jwtToken) {
         internalClient.current.setJwtToken(jwtToken);
       }
     }
-    
+
     return internalClient.current;
-  }, [externalClient, jwtToken, baseUrl, enableLogging]);
+  }, [externalClient, externalSDK, jwtToken, baseUrl, enableLogging]);
 
   // Format balance utility
   const formatBalance = useCallback((amount: number): string => {
     const result = ChiaCloudWalletClient.mojosToXCH(amount);
     if (!result.success) return '0';
-    
+
     let formatted = result.data.toFixed(13);
     formatted = formatted.replace(/\.?0+$/, '');
-    
+
     return formatted;
   }, []);
 
@@ -111,7 +116,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
       totalBalance += amount;
 
       const driverType = hydratedCoin.parentSpendInfo?.driverInfo?.type;
-      
+
       if (driverType === 'CAT') {
         catBalance += amount;
         catCount++;
@@ -139,11 +144,26 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
     };
   }, [formatBalance]);
 
-  // Get wallet address if not provided
+  // Get wallet address (SDK-aware)
   const getAddress = useCallback(async (): Promise<string | null> => {
     if (externalAddress) return externalAddress;
     if (address) return address;
-    
+
+    // If SDK is available, use its cached method
+    if (externalSDK) {
+      try {
+        const result = await externalSDK.getWalletInfo();
+        if (result.success) {
+          setAddress(result.data.address);
+          return result.data.address;
+        }
+      } catch (error) {
+        console.warn('Failed to get wallet address from SDK:', error);
+      }
+      return null;
+    }
+
+    // Fallback to direct client call
     const client = getClient();
     if (!client) return null;
 
@@ -156,9 +176,9 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
     } catch (error) {
       console.warn('Failed to get wallet address for balance:', error);
     }
-    
+
     return null;
-  }, [externalAddress, address, getClient]);
+  }, [externalAddress, address, externalSDK, getClient]);
 
   // Refresh balance data
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -218,7 +238,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
     setError(null);
     setLastUpdate(0);
     setLoading(false);
-    
+
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
@@ -270,7 +290,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
 // Hook specifically for XCH balance
 export function useXCHBalance(config: UseBalanceConfig = {}) {
   const balanceResult = useBalance(config);
-  
+
   return {
     balance: balanceResult.balance?.xch || 0,
     formattedBalance: balanceResult.balance?.formattedXCH || '0',
@@ -287,7 +307,7 @@ export function useXCHBalance(config: UseBalanceConfig = {}) {
 // Hook specifically for CAT balance
 export function useCATBalance(config: UseBalanceConfig = {}) {
   const balanceResult = useBalance(config);
-  
+
   return {
     balance: balanceResult.balance?.cat || 0,
     formattedBalance: balanceResult.balance?.formattedCAT || '0',
@@ -304,7 +324,7 @@ export function useCATBalance(config: UseBalanceConfig = {}) {
 // Hook for total balance (all assets)
 export function useTotalBalance(config: UseBalanceConfig = {}) {
   const balanceResult = useBalance(config);
-  
+
   return {
     balance: balanceResult.balance?.total || 0,
     formattedBalance: balanceResult.balance?.formattedTotal || '0',
