@@ -433,13 +433,20 @@ export class ChiaCloudWalletClient {
    * Get public key from JWT token with error handling
    */
   async getPublicKey(): Promise<Result<PublicKeyResponse>> {
+    // Debug logging to track calls
+    const timestamp = new Date().toISOString();
+    const stack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
+    console.log(`🔑 [${timestamp}] getPublicKey() called from: ${stack}`);
+
     try {
       const result = await this.makeRequest<PublicKeyResponse>('/public-key', {
         method: 'POST',
         body: JSON.stringify({}),
       });
+      console.log(`✅ [${timestamp}] getPublicKey() successful`);
       return { success: true, data: result };
     } catch (error) {
+      console.log(`❌ [${timestamp}] getPublicKey() failed:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get public key',
@@ -775,7 +782,7 @@ export class ChiaCloudWalletClient {
       if (request.requested_payments.cats) {
         for (const catPayment of request.requested_payments.cats) {
           let puzzleHash: string;
-          
+
           // Check if it's already a puzzle hash (64 hex characters) or a Chia address
           const cleanAddress = catPayment.deposit_address.replace(/^0x/, '');
           if (/^[0-9a-fA-F]{64}$/.test(cleanAddress)) {
@@ -802,7 +809,7 @@ export class ChiaCloudWalletClient {
       if (request.requested_payments.xch) {
         for (const xchPayment of request.requested_payments.xch) {
           let puzzleHash: string;
-          
+
           // Check if it's already a puzzle hash (64 hex characters) or a Chia address
           const cleanAddress = xchPayment.deposit_address.replace(/^0x/, '');
           if (/^[0-9a-fA-F]{64}$/.test(cleanAddress)) {

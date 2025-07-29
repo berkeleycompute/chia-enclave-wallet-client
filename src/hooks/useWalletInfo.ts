@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type PublicKeyResponse } from '../client/ChiaCloudWalletClient';
+import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
 import { bech32m } from 'bech32';
 
 // Wallet information interface
@@ -24,6 +25,7 @@ export interface AddressValidation {
 export interface UseWalletInfoConfig {
   jwtToken?: string | null;
   client?: ChiaCloudWalletClient;
+  sdk?: ChiaWalletSDK; // Add SDK option
   baseUrl?: string;
   enableLogging?: boolean;
   autoFetch?: boolean;
@@ -39,11 +41,11 @@ export interface UseWalletInfoResult {
   walletInfo: WalletInfo | null;
   loading: boolean;
   error: string | null;
-  
+
   // Actions
   fetchWalletInfo: () => Promise<WalletInfo | null>;
   reset: () => void;
-  
+
   // Utilities
   formatAddress: (address?: string) => string;
   getAddressPrefix: () => string;
@@ -54,11 +56,11 @@ export interface UseAddressValidationResult {
   // Validation functions
   validateAddress: (address: string) => AddressValidation;
   validateMultipleAddresses: (addresses: string[]) => AddressValidation[];
-  
+
   // Conversion utilities
   addressToPuzzleHash: (address: string) => string | null;
   puzzleHashToAddress: (puzzleHash: string) => string | null;
-  
+
   // Address utilities
   formatAddress: (address: string, length?: number) => string;
   normalizeAddress: (address: string) => string;
@@ -70,21 +72,24 @@ export function useWalletInfo(config: UseWalletInfoConfig = {}): UseWalletInfoRe
   const {
     jwtToken,
     client: externalClient,
+    sdk: externalSDK, // Extract SDK
     baseUrl,
     enableLogging = true,
     autoFetch = true
   } = config;
 
   const internalClient = useRef<ChiaCloudWalletClient | null>(null);
-  
+
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
+    // Prefer SDK client if available
+    if (externalSDK) return externalSDK.client;
     if (externalClient) return externalClient;
-    
+
     if (!internalClient.current && (jwtToken || baseUrl)) {
       internalClient.current = new ChiaCloudWalletClient({
         baseUrl,
@@ -94,23 +99,31 @@ export function useWalletInfo(config: UseWalletInfoConfig = {}): UseWalletInfoRe
         internalClient.current.setJwtToken(jwtToken);
       }
     }
-    
+
     return internalClient.current;
-  }, [externalClient, jwtToken, baseUrl, enableLogging]);
+  }, [externalClient, externalSDK, jwtToken, baseUrl, enableLogging]);
 
-  // Fetch wallet information
+  // Fetch wallet information (SDK-aware)
   const fetchWalletInfo = useCallback(async (): Promise<WalletInfo | null> => {
-    const client = getClient();
-    if (!client) {
-      setError('No client available');
-      return null;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      const result = await client.getPublicKey();
+      let result;
+
+      // If SDK is available, use its cached method
+      if (externalSDK) {
+        result = await externalSDK.getWalletInfo();
+      } else {
+        // Fallback to direct client call
+        const client = getClient();
+        if (!client) {
+          setError('No client available');
+          return null;
+        }
+        result = await client.getPublicKey();
+      }
+
       if (!result.success) {
         throw new Error(result.error);
       }
@@ -133,7 +146,7 @@ export function useWalletInfo(config: UseWalletInfoConfig = {}): UseWalletInfoRe
       setLoading(false);
       return null;
     }
-  }, [getClient]);
+  }, [externalSDK, getClient]);
 
   // Reset hook state
   const reset = useCallback(() => {
@@ -146,7 +159,7 @@ export function useWalletInfo(config: UseWalletInfoConfig = {}): UseWalletInfoRe
   const formatAddress = useCallback((address?: string): string => {
     const addr = address || walletInfo?.address || '';
     if (!addr) return '';
-    
+
     if (addr.length <= 20) return addr;
     return `${addr.slice(0, 10)}...${addr.slice(-10)}`;
   }, [walletInfo?.address]);
@@ -154,7 +167,7 @@ export function useWalletInfo(config: UseWalletInfoConfig = {}): UseWalletInfoRe
   // Get address prefix
   const getAddressPrefix = useCallback((): string => {
     if (!walletInfo?.address) return '';
-    
+
     try {
       const decoded = bech32m.decode(walletInfo.address);
       return decoded.prefix;
@@ -211,7 +224,7 @@ export function useAddressValidation(config: UseAddressValidationConfig = {}): U
 
       // Trim whitespace
       const cleanAddress = address.trim();
-      
+
       if (!cleanAddress) {
         return {
           isValid: false,
@@ -220,7 +233,7 @@ export function useAddressValidation(config: UseAddressValidationConfig = {}): U
       }
 
       const decoded = bech32m.decode(cleanAddress);
-      
+
       // Check prefix
       let type: 'xch' | 'testnet' | 'unknown' = 'unknown';
       if (decoded.prefix === 'xch') {
@@ -305,10 +318,10 @@ export function useAddressValidation(config: UseAddressValidationConfig = {}): U
 
       // Convert to 5-bit words
       const words = bech32m.toWords(bytes);
-      
+
       // Encode as bech32m address
       const address = bech32m.encode('xch', words);
-      
+
       return address;
     } catch (error) {
       console.warn('Failed to convert puzzle hash to address:', error);
@@ -321,7 +334,7 @@ export function useAddressValidation(config: UseAddressValidationConfig = {}): U
     if (!address || address.length <= length * 2) {
       return address;
     }
-    
+
     return `${address.slice(0, length)}...${address.slice(-length)}`;
   }, []);
 
@@ -330,13 +343,13 @@ export function useAddressValidation(config: UseAddressValidationConfig = {}): U
     try {
       const trimmed = address.trim();
       const validation = validateAddress(trimmed);
-      
+
       if (validation.isValid) {
         // Re-encode to ensure consistent formatting
         const decoded = bech32m.decode(trimmed);
         return bech32m.encode(decoded.prefix, decoded.words);
       }
-      
+
       return trimmed; // Return as-is if invalid
     } catch {
       return address.trim();
@@ -370,7 +383,7 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
   } = config;
 
   const internalClient = useRef<ChiaCloudWalletClient | null>(null);
-  
+
   const [mnemonic, setMnemonic] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -378,7 +391,7 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
     if (externalClient) return externalClient;
-    
+
     if (!internalClient.current && (jwtToken || baseUrl)) {
       internalClient.current = new ChiaCloudWalletClient({
         baseUrl,
@@ -388,7 +401,7 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
         internalClient.current.setJwtToken(jwtToken);
       }
     }
-    
+
     return internalClient.current;
   }, [externalClient, jwtToken, baseUrl, enableLogging]);
 
@@ -440,20 +453,20 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
     }
 
     const words = phrase.trim().split(/\s+/);
-    
+
     if (words.length !== 12 && words.length !== 24) {
-      return { 
-        isValid: false, 
-        error: `Invalid mnemonic length: expected 12 or 24 words, got ${words.length}` 
+      return {
+        isValid: false,
+        error: `Invalid mnemonic length: expected 12 or 24 words, got ${words.length}`
       };
     }
 
     // Basic word validation (should contain only alphabetic characters)
     const invalidWords = words.filter(word => !/^[a-z]+$/i.test(word));
     if (invalidWords.length > 0) {
-      return { 
-        isValid: false, 
-        error: `Invalid words in mnemonic: ${invalidWords.join(', ')}` 
+      return {
+        isValid: false,
+        error: `Invalid words in mnemonic: ${invalidWords.join(', ')}`
       };
     }
 
