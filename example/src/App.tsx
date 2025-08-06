@@ -1,4 +1,6 @@
 
+import './App.css';
+
 // Import the providers and components from your library
 import { ChiaWalletSDKProvider } from '../../src/providers/ChiaWalletSDKProvider';
 import { GlobalDialogProvider } from '../../src/components/GlobalDialogProvider';
