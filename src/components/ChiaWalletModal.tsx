@@ -136,13 +136,49 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
     try {
-      const response = await fetch(metadataUri);
+      // Configure fetch to properly handle redirects and timeouts
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(metadataUri, {
+        method: 'GET',
+        redirect: 'follow', // Explicitly follow redirects (default but being explicit)
+        mode: 'cors', // Handle CORS properly
+        cache: 'default', // Use browser caching
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json, */*',
+          'User-Agent': 'Chia-Wallet-Client/1.0'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
-        throw new Error(`Failed to fetch metadata: ${response.status}`);
+        // More detailed error information
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
       }
-      return await response.json();
+      
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      } else {
+        // Try to parse as JSON anyway, some servers don't set proper content-type
+        const text = await response.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          console.warn('Metadata response is not valid JSON:', text.substring(0, 200));
+          return null;
+        }
+      }
     } catch (error) {
-      console.error('Error fetching NFT metadata:', error);
+      if (error.name === 'AbortError') {
+        console.error('Metadata fetch timed out:', metadataUri);
+      } else {
+        console.error('Error fetching NFT metadata:', error, 'URI:', metadataUri);
+      }
       return null;
     }
   }, []);

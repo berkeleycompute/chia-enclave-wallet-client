@@ -179,18 +179,45 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     metadataLoadingRef.current.add(metadataUri);
 
     try {
+      // Configure fetch to properly handle redirects and timeouts
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(metadataUri, {
+        method: 'GET',
+        redirect: 'follow', // Explicitly follow redirects
+        mode: 'cors', // Handle CORS properly
+        cache: 'default', // Use browser caching
+        signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'max-age=300' // 5 minutes
+          'Accept': 'application/json, */*',
+          'Cache-Control': 'max-age=300', // 5 minutes
+          'User-Agent': 'Chia-Wallet-Client/1.0'
         }
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
       }
 
-      const metadata: NFTMetadata = await response.json();
+      const contentType = response.headers.get('content-type');
+      let metadata: NFTMetadata;
+      
+      if (contentType && contentType.includes('application/json')) {
+        metadata = await response.json();
+      } else {
+        // Try to parse as JSON anyway, some servers don't set proper content-type
+        const text = await response.text();
+        try {
+          metadata = JSON.parse(text);
+        } catch {
+          console.warn('Metadata response is not valid JSON:', text.substring(0, 200));
+          throw new Error('Invalid JSON response');
+        }
+      }
 
       // Cache the metadata
       metadataCache.set(metadataUri, {
@@ -422,18 +449,45 @@ export function useNFTMetadata(nftUri?: string) {
     setError(null);
 
     try {
+      // Configure fetch to properly handle redirects and timeouts
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(uri, {
+        method: 'GET',
+        redirect: 'follow', // Explicitly follow redirects
+        mode: 'cors', // Handle CORS properly
+        cache: 'default', // Use browser caching
+        signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'max-age=300'
+          'Accept': 'application/json, */*',
+          'Cache-Control': 'max-age=300',
+          'User-Agent': 'Chia-Wallet-Client/1.0'
         }
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
       }
 
-      const metadataData: NFTMetadata = await response.json();
+      const contentType = response.headers.get('content-type');
+      let metadataData: NFTMetadata;
+      
+      if (contentType && contentType.includes('application/json')) {
+        metadataData = await response.json();
+      } else {
+        // Try to parse as JSON anyway, some servers don't set proper content-type
+        const text = await response.text();
+        try {
+          metadataData = JSON.parse(text);
+        } catch {
+          console.warn('Metadata response is not valid JSON:', text.substring(0, 200));
+          throw new Error('Invalid JSON response');
+        }
+      }
 
       // Cache the metadata
       metadataCache.set(uri, {

@@ -371,10 +371,18 @@ export class ChiaCloudWalletClient {
 
       this.logInfo(`Making request to ${endpoint}`, { method: options.method || 'GET' });
 
+      // Add timeout and explicit redirect handling for robustness
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for API calls
+      
       const response = await fetch(url, {
         ...options,
         headers,
+        redirect: 'follow', // Explicitly follow redirects
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -401,6 +409,18 @@ export class ChiaCloudWalletClient {
       if (error instanceof ChiaCloudWalletApiError) {
         throw error;
       }
+      
+      // Handle timeout errors specifically
+      if (error instanceof Error && error.name === 'AbortError') {
+        const timeoutError = new ChiaCloudWalletApiError(
+          `Request timed out for ${endpoint}`,
+          408, // Request Timeout
+          error
+        );
+        this.logError(`Request timed out for ${endpoint}`, timeoutError);
+        throw timeoutError;
+      }
+      
       const networkError = new ChiaCloudWalletApiError(
         `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         undefined,
