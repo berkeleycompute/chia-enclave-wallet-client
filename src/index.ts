@@ -1,6 +1,5 @@
 // Export client classes
 export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
-export { ChiaWalletSDK } from './client/ChiaWalletSDK';
 export { UnifiedWalletClient } from './client/UnifiedWalletClient';
 
 // Export providers
@@ -16,12 +15,22 @@ export { useChiaTransactions } from './hooks/useChiaTransactions';
 export { useHydratedCoins } from './hooks/useHydratedCoins';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export {
+  // Core wallet hooks
+  useWalletState,
   useWalletConnection,
   useWalletBalance,
   useWalletCoins,
+  useWalletEvents,
+  useRawSDK,
+  
+  // Transaction hooks
   useSendTransaction,
+  useTakeOffer,
+  useNFTOffers,
+  
+  // Unified client hooks
   useUnifiedWalletClient,
-  useTakeOffer
+  useUnifiedWalletState
 } from './hooks/useChiaWalletSDK';
 export { useAllDialogs } from './hooks/useDialogs';
 
@@ -57,12 +66,25 @@ export { sharedModalStyles, injectModalStyles } from './components/modal-styles'
 
 // Export types
 export type { 
+  // Core wallet types
   HydratedCoin, 
+  SendXCHRequest,
+  SimpleMakeUnsignedNFTOfferRequest,
+  
+  // Offer types
   TakeOfferResponse, 
   ParsedOfferData,
   BroadcastOfferRequest,
   BroadcastOfferResponse
 } from './client/ChiaCloudWalletClient';
+// Export SDK types
+export type {
+  WalletState,
+  WalletEventType,
+  ChiaWalletSDK
+} from './client/ChiaWalletSDK';
+
+// Export component types
 export type {
   SentTransaction,
   SavedOffer,
