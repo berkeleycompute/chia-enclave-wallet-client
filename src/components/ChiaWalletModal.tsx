@@ -717,7 +717,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         <div className="balance-item">
                           <div className="balance-left">
                             <div className="token-icon-small">
-                              <img src="http://localhost:3845/assets/f66aba90046598dca436f1e8f89f7a34deb00085.svg" alt="Chia" />
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path fillRule="evenodd" clipRule="evenodd" d="M13.2019 6.10456C12.8363 6.12729 12.0596 6.21872 11.7577 6.27461C10.8985 6.43363 10.1713 6.68895 9.59736 7.03318C8.89069 7.45698 8.47902 7.78375 7.93465 8.353L7.58269 8.72104L7.32782 9.07199C7.01028 9.50926 6.89933 9.6915 6.68376 10.1297C6.44521 10.6147 6.24284 11.1842 6.1606 11.6021C6.14587 11.6769 6.11801 11.8104 6.09866 11.8988L6.06349 12.0596L6.03837 13.2961L6.15313 13.9884L6.19481 13.9966C6.21772 14.0011 6.28814 13.9611 6.35129 13.9078C6.90817 13.4378 8.17309 12.7935 9.47599 12.3162C9.62284 12.2624 9.81399 12.1913 9.90077 12.1582C10.1277 12.0717 10.9892 11.7816 11.2601 11.7006C11.3869 11.6626 11.6818 11.5743 11.9154 11.5043C12.1491 11.4342 12.5368 11.3226 12.7771 11.2561C13.0174 11.1896 13.3536 11.0956 13.5242 11.0471C13.971 10.9203 14.0169 10.9287 13.6366 11.0677C13.2292 11.2165 12.2937 11.6074 11.8548 11.8122C11.788 11.8434 11.6296 11.9156 11.5028 11.9728C10.8382 12.2724 9.46424 12.9692 8.86916 13.3084C7.38025 14.1572 6.08485 14.9936 4.90052 15.8708C4.50089 16.1668 4.14444 16.4339 4.05096 16.5074C3.99088 16.5546 3.76696 16.7297 3.55336 16.8966C3.33976 17.0634 3.03244 17.3065 2.87041 17.4367C2.70839 17.5669 2.53637 17.7045 2.48811 17.7425C2.43986 17.7805 2.40039 17.8222 2.40039 17.8352C2.40039 17.8746 2.49792 17.8619 2.56656 17.8136C2.6657 17.7439 2.99387 17.5673 3.55336 17.2827C5.19942 16.4454 6.32192 15.997 6.91186 15.9413L7.09058 15.9243L7.37305 16.2184C7.92215 16.79 8.54068 17.2028 9.28996 17.4978C10.5043 17.9759 11.9229 18.0379 13.2869 17.6726C14.0207 17.4761 14.7341 17.1723 15.2992 16.8157C16.7651 15.8907 18.4099 13.7797 20.2126 10.5096C20.3751 10.2148 20.5081 9.969 20.5081 9.96336C20.5081 9.9577 20.6073 9.76487 20.7286 9.53485C21.0386 8.94693 21.6004 7.77861 21.6004 7.7219V7.67454L20.9754 7.46505C20.4264 7.28105 20.148 7.19088 19.7314 7.06209C18.9531 6.82151 17.4213 6.44182 16.6001 6.28594C16.2209 6.21395 15.6567 6.14915 15.0831 6.11169C14.7481 6.0898 13.5148 6.08513 13.2019 6.10456Z" fill="#0E9F6E"/>
+                              </svg>
                             </div>
                             <div className="balance-details">
                               <h4 className="token-name">Chia</h4>
@@ -729,9 +731,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                 <p className="token-balance">{formattedBalance || '0 XCH'}</p>
                               )}
                             </div>
-                          </div>
-                          <div className="chevron-right">
-                            <PiCaretRight size={16} />
                           </div>
                         </div>
                       </div>
@@ -759,36 +758,40 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           <span>View Assets</span>
                         </button>
 
-                        <button
-                          className={`menu-item ${!isConnected ? 'disabled' : ''}`}
-                          onClick={() => {
-                            console.log('Make Offer button clicked!', {
-                              isConnected,
-                              showOfferModal: makeOfferDialog.isOpen,
-                              nftCount: nftCoins.length
-                            });
-                            makeOfferDialog.open();
-                          }}
-                          disabled={!isConnected}
-                          title={!isConnected ? 'Please wait for wallet connection to complete' : ''}
-                        >
-                          <div className="menu-icon-large">
-                            <PiHandCoins size={24} />
-                          </div>
-                          <span>Make offer</span>
-                        </button>
+                        <div className="offers-row">
+                          <button
+                            className={`menu-item ${!isConnected ? 'disabled' : ''}`}
+                            onClick={() => {
+                              console.log('Make Offer button clicked!', {
+                                isConnected,
+                                showOfferModal: makeOfferDialog.isOpen,
+                                nftCount: nftCoins.length
+                              });
+                              makeOfferDialog.open();
+                            }}
+                            disabled={!isConnected}
+                            title={!isConnected ? 'Please wait for wallet connection to complete' : ''}
+                          >
+                            <div className="menu-icon-large">
+                              <PiHandCoins size={24} />
+                            </div>
+                            <span>Make Offer</span>
+                          </button>
 
-                        <button
-                          className="menu-item"
-                          onClick={() => activeOffersDialog.open()}
-                        >
-                          <div className="menu-icon-large">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M22.8103 12.75L13.5 3.43969C13.3612 3.2998 13.196 3.18889 13.014 3.11341C12.832 3.03792 12.6368 2.99938 12.4397 3.00001H3.75001C3.5511 3.00001 3.36033 3.07903 3.21968 3.21968C3.07903 3.36033 3.00001 3.5511 3.00001 3.75001V12.4397C2.99938 12.6368 3.03792 12.832 3.11341 13.014C3.18889 13.196 3.2998 13.3612 3.43969 13.5L12.75 22.8103C12.8893 22.9496 13.0547 23.0602 13.2367 23.1356C13.4187 23.211 13.6138 23.2498 13.8108 23.2498C14.0078 23.2498 14.2029 23.211 14.3849 23.1356C14.5669 23.0602 14.7323 22.9496 14.8716 22.8103L22.8103 14.8716C22.9496 14.7323 23.0602 14.5669 23.1356 14.3849C23.211 14.2029 23.2498 14.0078 23.2498 13.8108C23.2498 13.6138 23.211 13.4187 23.1356 13.2367C23.0602 13.0547 22.9496 12.8893 22.8103 12.75ZM13.8103 21.75L4.50001 12.4397V4.50001H12.4397L21.75 13.8103L13.8103 21.75ZM9.00001 7.87501C9.00001 8.09751 8.93403 8.31502 8.81041 8.50002C8.68679 8.68503 8.51109 8.82922 8.30553 8.91437C8.09996 8.99952 7.87376 9.0218 7.65553 8.97839C7.4373 8.93498 7.23685 8.82784 7.07951 8.6705C6.92218 8.51317 6.81503 8.31271 6.77162 8.09448C6.72822 7.87626 6.75049 7.65006 6.83564 7.44449C6.92079 7.23892 7.06499 7.06322 7.24999 6.9396C7.435 6.81599 7.6525 6.75001 7.87501 6.75001C8.17338 6.75001 8.45952 6.86853 8.6705 7.07951C8.88148 7.29049 9.00001 7.57664 9.00001 7.87501Z" fill="#7C7A85"/>
-                            </svg>
-                          </div>
-                          <span>Active offers</span>
-                        </button>
+                          <div className="offers-divider"></div>
+
+                          <button
+                            className="menu-item"
+                            onClick={() => activeOffersDialog.open()}
+                          >
+                            <div className="menu-icon-large">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.8103 12.75L13.5 3.43969C13.3612 3.2998 13.196 3.18889 13.014 3.11341C12.832 3.03792 12.6368 2.99938 12.4397 3.00001H3.75001C3.5511 3.00001 3.36033 3.07903 3.21968 3.21968C3.07903 3.36033 3.00001 3.5511 3.00001 3.75001V12.4397C2.99938 12.6368 3.03792 12.832 3.11341 13.014C3.18889 13.196 3.2998 13.3612 3.43969 13.5L12.75 22.8103C12.8893 22.9496 13.0547 23.0602 13.2367 23.1356C13.4187 23.211 13.6138 23.2498 13.8108 23.2498C14.0078 23.2498 14.2029 23.211 14.3849 23.1356C14.5669 23.0602 14.7323 22.9496 14.8716 22.8103L22.8103 14.8716C22.9496 14.7323 23.0602 14.5669 23.1356 14.3849C23.211 14.2029 23.2498 14.0078 23.2498 13.8108C23.2498 13.6138 23.211 13.4187 23.1356 13.2367C23.0602 13.0547 22.9496 12.8893 22.8103 12.75ZM13.8103 21.75L4.50001 12.4397V4.50001H12.4397L21.75 13.8103L13.8103 21.75ZM9.00001 7.87501C9.00001 8.09751 8.93403 8.31502 8.81041 8.50002C8.68679 8.68503 8.51109 8.82922 8.30553 8.91437C8.09996 8.99952 7.87376 9.0218 7.65553 8.97839C7.4373 8.93498 7.23685 8.82784 7.07951 8.6705C6.92218 8.51317 6.81503 8.31271 6.77162 8.09448C6.72822 7.87626 6.75049 7.65006 6.83564 7.44449C6.92079 7.23892 7.06499 7.06322 7.24999 6.9396C7.435 6.81599 7.6525 6.75001 7.87501 6.75001C8.17338 6.75001 8.45952 6.86853 8.6705 7.07951C8.88148 7.29049 9.00001 7.57664 9.00001 7.87501Z" fill="#7C7A85"/>
+                              </svg>
+                            </div>
+                            <span>Active Offers</span>
+                          </button>
+                        </div>
                       </div>
 
 
@@ -1517,14 +1520,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           padding: 10px 14px;
           background: transparent;
           border: none;
-          cursor: pointer;
-          transition: all 0.2s ease;
           border-radius: 8px;
         }
 
-        .balance-item:hover {
-          background: #1b1c22;
-        }
+
 
         .balance-left {
           display: flex;
@@ -1554,12 +1553,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           flex-shrink: 0;
         }
 
-        .token-icon-small img {
+        .token-icon-small svg {
           max-width: 24px;
           max-height: 24px;
           width: auto;
           height: auto;
-          object-fit: contain;
         }
 
         .balance-details {
@@ -1587,25 +1585,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           font-family: 'system-ui', sans-serif;
         }
 
-        .chevron-right {
-          color: #7c7a85;
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
 
-        .chevron-right img,
-        .chevron-right svg {
-          max-width: 16px;
-          max-height: 16px;
-          width: auto;
-          height: auto;
-          object-fit: contain;
-          color: inherit;
-        }
 
         .balance-amount {
           margin: 0;
@@ -1676,6 +1656,23 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           display: flex;
           flex-direction: column;
           gap: 0;
+        }
+
+        .offers-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .offers-row .menu-item {
+          flex: 1;
+        }
+
+        .offers-divider {
+          width: 1px;
+          height: 24px;
+          background-color: #272830;
+          flex-shrink: 0;
         }
 
         .menu-item {
