@@ -1,6 +1,6 @@
-import type { 
-  HydratedCoin, 
-  SimpleMakeUnsignedNFTOfferRequest 
+import type {
+  HydratedCoin,
+  SimpleMakeUnsignedNFTOfferRequest
 } from '../client/ChiaCloudWalletClient';
 
 export interface SentTransaction {
@@ -38,7 +38,7 @@ export interface SavedOffer {
     isSigned: boolean;
   };
   originalRequest: SimpleMakeUnsignedNFTOfferRequest;
-} 
+}
 
 // Shared wallet state type for passing between components
 export interface UnifiedWalletState {
@@ -51,7 +51,7 @@ export interface UnifiedWalletState {
   formattedBalance: string;
   error: string | null;
   isConnecting?: boolean;
-} 
+}
 
 // Utility function to create UnifiedWalletState from external data
 export const createUnifiedWalletState = (options: {
@@ -76,4 +76,62 @@ export const createUnifiedWalletState = (options: {
     error: options.error ?? null,
     isConnecting: options.isConnecting ?? false,
   };
-}; 
+};
+
+// Dexie API types
+export interface DexieCoin {
+  id: string;
+  amount: number;
+  puzzle_hash: string;
+  parent_coin_info: string;
+  inner_puzzle_hash?: string;
+}
+
+export interface DexieOfferAsset {
+  id: string;
+  code: string;
+  name: string;
+  amount: number;
+}
+
+export interface DexieOfferData {
+  success: boolean;
+  offer: {
+    id: string;
+    status: number;
+    offer: string; // The offer string
+    date_found: string;
+    date_completed?: string;
+    date_pending?: string;
+    price: number;
+    offered: DexieOfferAsset[];
+    requested: DexieOfferAsset[];
+    fees: number;
+    input_coins: {
+      [assetId: string]: DexieCoin[];
+    };
+    output_coins: {
+      [assetId: string]: DexieCoin[];
+    };
+  };
+}
+
+// TakeOfferWidget props
+export interface TakeOfferWidgetProps {
+  dexieOfferId: string;
+  onOfferTaken?: (result: {
+    transactionId: string;
+    status: string;
+    offerData: DexieOfferData;
+  }) => void;
+  onError?: (error: string) => void;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+// Selected coins for spending
+export interface SelectedCoinInfo {
+  coin: HydratedCoin;
+  amount: number;
+  displayName: string;
+} 
