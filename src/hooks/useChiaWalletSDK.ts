@@ -8,9 +8,7 @@ import {
 import {
   type SendXCHRequest,
   type SimpleMakeUnsignedNFTOfferRequest,
-  type HydratedCoin,
-  type TakeOfferResponse,
-  type ParsedOfferData
+  type HydratedCoin
 } from '../client/ChiaCloudWalletClient';
 import { UnifiedWalletState } from '../components/types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
@@ -319,113 +317,6 @@ export function useNFTOffers() {
   return {
     ...offerState,
     createNFTOffer
-  };
-}
-
-/**
- * Hook for taking offers
- * Provides easy offer taking with state management and balance checking
- */
-export function useTakeOffer() {
-  const sdk = useChiaWalletSDK();
-  const [takeOfferState, setTakeOfferState] = useState({
-    isTakingOffer: false,
-    isParsingOffer: false,
-    lastTakenOffer: null as any,
-    parsedOffer: null as any,
-    error: null as string | null
-  });
-
-  const parseOffer = useCallback(async (offerString: string) => {
-    setTakeOfferState(prev => ({ ...prev, isParsingOffer: true, error: null }));
-
-    try {
-      const result = await sdk.parseOffer(offerString);
-
-      if (result.success) {
-        setTakeOfferState(prev => ({
-          ...prev,
-          isParsingOffer: false,
-          parsedOffer: {
-            data: result.data,
-            offerString,
-            timestamp: Date.now()
-          },
-          error: null
-        }));
-        return result;
-      } else {
-        setTakeOfferState(prev => ({
-          ...prev,
-          isParsingOffer: false,
-          parsedOffer: null,
-          error: result.error
-        }));
-        return result;
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Offer parsing failed';
-      setTakeOfferState(prev => ({
-        ...prev,
-        isParsingOffer: false,
-        parsedOffer: null,
-        error: errorMessage
-      }));
-      return {
-        success: false as const,
-        error: errorMessage
-      };
-    }
-  }, [sdk]);
-
-  const takeOffer = useCallback(async (req: string | { offer_string: string; synthetic_public_key: string; xch_coins: string; cat_coins: string; fee: number }) => {
-    setTakeOfferState(prev => ({ ...prev, isTakingOffer: true, error: null }));
-
-    try {
-      const result = await sdk.takeOffer(req as any);
-
-      if (result.success) {
-        setTakeOfferState(prev => ({
-          ...prev,
-          isTakingOffer: false,
-          lastTakenOffer: {
-            transactionId: result.data.transaction_id,
-            status: result.data.status,
-            message: result.data.message,
-            offerString: typeof req === 'string' ? req : req.offer_string,
-            timestamp: Date.now()
-          },
-          error: null
-        }));
-        return result;
-      } else {
-        setTakeOfferState(prev => ({
-          ...prev,
-          isTakingOffer: false,
-          lastTakenOffer: null,
-          error: result.error
-        }));
-        return result;
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Offer taking failed';
-      setTakeOfferState(prev => ({
-        ...prev,
-        isTakingOffer: false,
-        lastTakenOffer: null,
-        error: errorMessage
-      }));
-      return {
-        success: false as const,
-        error: errorMessage
-      };
-    }
-  }, [sdk]);
-
-  return {
-    ...takeOfferState,
-    parseOffer,
-    takeOffer
   };
 }
 

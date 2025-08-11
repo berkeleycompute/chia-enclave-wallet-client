@@ -20,8 +20,7 @@ export {
   useWalletBalance,
   useWalletCoins,
   useSendTransaction,
-  useUnifiedWalletClient,
-  useTakeOffer
+  useUnifiedWalletClient
 } from './hooks/useChiaWalletSDK';
 export { useAllDialogs } from './hooks/useDialogs';
 
@@ -40,7 +39,6 @@ export { ReceiveFundsModal } from './components/ReceiveFundsModal';
 export { MakeOfferModal } from './components/MakeOfferModal';
 export { ActiveOffersModal } from './components/ActiveOffersModal';
 export { NFTDetailsModal } from './components/NFTDetailsModal';
-export { TakeOfferWidget } from './components/TakeOfferWidget';
 
 // Export dialog hooks from GlobalDialogProvider
 export {
@@ -56,11 +54,5 @@ export {
 export { sharedModalStyles, injectModalStyles } from './components/modal-styles';
 
 // Export types
-export type { HydratedCoin, TakeOfferResponse, ParsedOfferData } from './client/ChiaCloudWalletClient';
-export type {
-  SentTransaction,
-  SavedOffer,
-  DexieOfferData,
-  TakeOfferWidgetProps,
-  SelectedCoinInfo
-} from './components/types'; 
+export type { HydratedCoin } from './client/ChiaCloudWalletClient';
+export type { SentTransaction, SavedOffer } from './components/types'; 

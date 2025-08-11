@@ -27,7 +27,6 @@ export interface Coin {
   parentCoinInfo: string;
   puzzleHash: string;
   amount: string;
-  coinId?: string;
 }
 
 // Raw coin interface that matches API responses (snake_case)
@@ -277,41 +276,6 @@ export interface StoredOffer {
   status: 'pending' | 'accepted' | 'cancelled';
 }
 
-// Take offer interfaces
-export interface TakeOfferRequest {
-  offer_string: string;
-  synthetic_public_key: string;
-  xch_coins: string; // comma-separated coin ids or empty string
-  cat_coins: string; // comma-separated CAT coin ids
-  fee: number;
-}
-
-export interface TakeOfferResponse {
-  success: boolean;
-  transaction_id: string;
-  status: string;
-  message?: string;
-}
-
-// Interface for parsing offer data to extract CAT requirements
-export interface ParsedOfferData {
-  success: boolean;
-  data?: {
-    cat_coins?: {
-      asset_id: string;
-      amount: number;
-    }[];
-    xch_coins?: {
-      amount: number;
-    }[];
-    nft_coins?: {
-      launcher_id: string;
-      amount: number;
-    }[];
-  };
-  error?: string;
-}
-
 export class ChiaCloudWalletApiError extends Error {
   constructor(
     message: string,
@@ -410,14 +374,14 @@ export class ChiaCloudWalletClient {
       // Add timeout and explicit redirect handling for robustness
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for API calls
-
+      
       const response = await fetch(url, {
         ...options,
         headers,
         redirect: 'follow', // Explicitly follow redirects
         signal: controller.signal
       });
-
+      
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -445,7 +409,7 @@ export class ChiaCloudWalletClient {
       if (error instanceof ChiaCloudWalletApiError) {
         throw error;
       }
-
+      
       // Handle timeout errors specifically
       if (error instanceof Error && error.name === 'AbortError') {
         const timeoutError = new ChiaCloudWalletApiError(
@@ -456,7 +420,7 @@ export class ChiaCloudWalletClient {
         this.logError(`Request timed out for ${endpoint}`, timeoutError);
         throw timeoutError;
       }
-
+      
       const networkError = new ChiaCloudWalletApiError(
         `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         undefined,
@@ -893,68 +857,6 @@ export class ChiaCloudWalletClient {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to make signed NFT offer (simple)',
-        details: error
-      };
-    }
-  }
-
-  /**
-   * Take/accept an existing offer
-   * @param request - The take offer request containing the offer string
-   */
-  async takeOffer(request: TakeOfferRequest): Promise<Result<TakeOfferResponse>> {
-    try {
-      // Validate required fields
-      if (!request.offer_string || request.offer_string.trim() === '') {
-        throw new ChiaCloudWalletApiError('Offer string is required');
-      }
-
-      this.logInfo('Taking offer', {
-        offerLength: request.offer_string.length,
-        offerPrefix: request.offer_string.substring(0, 20) + '...'
-      });
-
-      const result = await this.makeRequest<TakeOfferResponse>('/wallet/offer/sage-offer-taker', {
-        method: 'POST',
-        body: JSON.stringify(request),
-      });
-
-      return { success: true, data: result };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to take offer',
-        details: error
-      };
-    }
-  }
-
-  /**
-   * Parse an offer string to extract required CAT coins and other payment requirements
-   * This is a utility method to help determine if a wallet has sufficient funds to take an offer
-   * @param offerString - The offer string to parse
-   */
-  async parseOffer(offerString: string): Promise<Result<ParsedOfferData>> {
-    try {
-      if (!offerString || offerString.trim() === '') {
-        throw new ChiaCloudWalletApiError('Offer string is required');
-      }
-
-      this.logInfo('Parsing offer', {
-        offerLength: offerString.length,
-        offerPrefix: offerString.substring(0, 20) + '...'
-      });
-
-      const result = await this.makeRequest<ParsedOfferData>('/wallet/offer/parse', {
-        method: 'POST',
-        body: JSON.stringify({ offer_string: offerString }),
-      });
-
-      return { success: true, data: result };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to parse offer',
         details: error
       };
     }
