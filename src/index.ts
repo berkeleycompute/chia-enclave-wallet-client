@@ -56,7 +56,13 @@ export {
 export { sharedModalStyles, injectModalStyles } from './components/modal-styles';
 
 // Export types
-export type { HydratedCoin, TakeOfferResponse, ParsedOfferData } from './client/ChiaCloudWalletClient';
+export type { 
+  HydratedCoin, 
+  TakeOfferResponse, 
+  ParsedOfferData,
+  BroadcastOfferRequest,
+  BroadcastOfferResponse
+} from './client/ChiaCloudWalletClient';
 export type {
   SentTransaction,
   SavedOffer,

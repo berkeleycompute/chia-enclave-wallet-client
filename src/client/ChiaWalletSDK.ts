@@ -608,6 +608,19 @@ export class ChiaWalletSDK {
       const result = await this.client.takeOffer(fullRequest);
 
       if (result.success) {
+        console.log('takeOffer result', result);
+
+        const signedOffer = await this.client.signOffer({ offer: result.data.data.unsigned_offer });
+        if (!signedOffer.success) {
+          throw new Error(signedOffer.error);
+        }
+
+        const broadcastResult = await this.client.broadcastOffer({ offer_string: signedOffer.data.signed_offer });
+        if (!broadcastResult.success) {
+          throw new Error(broadcastResult.error);
+        }
+      
+
         // Emit event for successful offer taking
         this.emit('transactionCompleted', {
           type: 'take_offer',

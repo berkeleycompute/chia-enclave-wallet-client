@@ -138,6 +138,15 @@ export interface BroadcastSpendBundleRequest {
   signature: string;
 }
 
+export interface BroadcastOfferRequest {
+  offer_string: string;
+}
+
+export interface BroadcastOfferResponse {
+  message: string;
+  success: boolean;
+}
+
 export interface GetPublicKeyRequest {
   transaction_payload: Record<string, unknown>;
 }
@@ -290,6 +299,9 @@ export interface TakeOfferResponse {
   success: boolean;
   transaction_id: string;
   status: string;
+  data: {
+    unsigned_offer: string;
+  };
   message?: string;
 }
 
@@ -990,6 +1002,40 @@ export class ChiaCloudWalletClient {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to broadcast spend bundle',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Broadcast an offer with error handling
+   */
+  async broadcastOffer(request: BroadcastOfferRequest): Promise<Result<BroadcastOfferResponse>> {
+    try {
+      if (!request.offer_string || request.offer_string.trim() === '') {
+        throw new ChiaCloudWalletApiError('Offer string is required for broadcasting');
+      }
+
+      // Validate offer format (should start with "offer1")
+      if (!request.offer_string.startsWith('offer1')) {
+        throw new ChiaCloudWalletApiError('Invalid offer format: offer must start with "offer1"');
+      }
+
+      this.logInfo('Broadcasting offer', {
+        offerLength: request.offer_string.length,
+        offerPrefix: request.offer_string.substring(0, 20) + '...'
+      });
+
+      const result = await this.makeRequest<BroadcastOfferResponse>('/wallet/offer/broadcast', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to broadcast offer',
         details: error
       };
     }
