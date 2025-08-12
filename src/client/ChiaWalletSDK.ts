@@ -583,6 +583,8 @@ export class ChiaWalletSDK {
       request
     );
 
+    console.log('createNFTOffer result', result);
+
     if (result.success) {
       this.emit('transactionCompleted', {
         type: 'nft_offer',

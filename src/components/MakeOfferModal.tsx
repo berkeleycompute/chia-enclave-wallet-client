@@ -130,7 +130,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         }
       }
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         console.error('Metadata fetch timed out:', metadataUri);
       } else {
         console.error('Error fetching NFT metadata:', error, 'URI:', metadataUri);
@@ -450,6 +450,32 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return true;
   };
 
+  const submitOfferToDexie = async (offerString: string): Promise<void> => {
+    try {
+      const response = await fetch('https://api.dexie.space/v1/offers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          offer: offerString
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Dexie API error (${response.status}): ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Offer successfully submitted to Dexie:', result);
+    } catch (error) {
+      console.error('Failed to submit offer to Dexie:', error);
+      // Don't throw here - we still want to save locally even if Dexie fails
+    }
+  };
+
   const submitOffer = async () => {
     if (!validateOfferAmount() || !selectedNft || !syntheticPublicKey) {
       return;
@@ -490,8 +516,11 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         originalRequest: simpleOfferRequest
       };
       
-      // Always save to localStorage directly
+      // Save to localStorage first
       saveOfferToStorage(offerData);
+      
+      // Submit to Dexie API (don't await - run in parallel)
+      submitOfferToDexie(result.data.signed_offer);
       
       // Also call the callback if provided (for parent component compatibility)
       onOfferCreated?.(offerData);
