@@ -223,22 +223,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const getNftImageUrl = (nft: SpacescanNFT | HydratedCoin): string | undefined => {
     // Handle Spacescan NFT format
     if ('nft_id' in nft) {
-      // Use preview_url from Spacescan API first
-      if (nft.preview_url) {
-        return nft.preview_url;
-      }
-      // Fallback to legacy fields
-      if (nft.data_uris && nft.data_uris.length > 0) {
-        return nft.data_uris[0];
-      }
-      const metadata = nft.metadata;
-      if (metadata?.image) {
-        return metadata.image;
-      }
-      if (metadata?.data_uris && metadata.data_uris.length > 0) {
-        return metadata.data_uris[0];
-      }
-      return undefined;
+
+      return `https://edge.silicon-dev.net/spacescan/nfts/${nft.nft_id}/original`
     }
     
     // Handle legacy HydratedCoin format
@@ -2827,6 +2813,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           margin: 0 0 4px 0;
           color: #888;
           font-size: 12px;
+          line-height: 1.3;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
 
         .nft-edition {
@@ -3599,6 +3588,28 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         .cancel-btn:hover {
           background: rgba(239, 68, 68, 0.3);
           border-color: rgba(239, 68, 68, 0.6);
+        }
+
+        /* Info value styles for collection IDs and other long text */
+        .info-value {
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          hyphens: auto;
+          line-height: 1.4;
+        }
+
+        .info-value.monospace {
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          font-size: 12px;
+          background: rgba(255, 255, 255, 0.05);
+          padding: 2px 6px;
+          border-radius: 4px;
+          word-break: break-all;
+        }
+
+        .info-value.description {
+          line-height: 1.5;
+          color: #ccc;
         }
       `}</style>
     </>
