@@ -26,6 +26,9 @@ import {
 // Import types
 import { UnifiedWalletClient } from '../../src/client/UnifiedWalletClient';
 
+// Import Spacescan client and hook
+import { useSpacescanBalance } from '../../src/client/SpacescanClient';
+
 // Navigation component
 const Navigation: React.FC<{
   currentView: string;
@@ -144,15 +147,40 @@ const JWTTokenInput: React.FC<{
   );
 };
 
-// Wallet Information Display - Updated to use client
+// Wallet Information Display - Updated to use client and Spacescan balance
 const WalletInfo: React.FC<{ 
   walletClient: UnifiedWalletClient 
 }> = ({ walletClient }) => {
-  if (!walletClient.isConnected) {
+  // Get address directly from SDK state (available before full connection)
+  const address = walletClient.sdk.walletState.address;
+  // Use Spacescan to get balance - works independently of wallet connection
+  const spacescanBalance = useSpacescanBalance(address);
+
+  if (!address) {
     return (
       <div className="wallet-info-section">
         <h2>💰 Wallet Information</h2>
-        <p className="not-connected">Please connect with a JWT token to see wallet information.</p>
+        <p className="not-connected">Please connect with a JWT token to see full wallet information.</p>
+        {address && (
+          <div className="info-grid">
+            <div className="info-item">
+              <strong>Address:</strong>
+              <span className="address">{walletClient.formatAddress(address)}</span>
+            </div>
+            <div className="info-item">
+              <strong>Balance:</strong>
+              <span className="balance">
+                {spacescanBalance.loading ? (
+                  <span className="loading">Loading...</span>
+                ) : spacescanBalance.error ? (
+                  <span className="error" title={spacescanBalance.error}>Error loading balance</span>
+                ) : (
+                  `${spacescanBalance.formattedBalance} XCH`
+                )}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -175,7 +203,19 @@ const WalletInfo: React.FC<{
         </div>
         <div className="info-item">
           <strong>Balance:</strong>
-          <span className="balance">{walletClient.formattedBalance} XCH</span>
+          <span className="balance">
+            {spacescanBalance.loading ? (
+              <span className="loading">Loading...</span>
+            ) : spacescanBalance.error ? (
+              <span className="error" title={spacescanBalance.error}>Error loading balance</span>
+            ) : (
+              `${spacescanBalance.formattedBalance} XCH`
+            )}
+          </span>
+        </div>
+        <div className="info-item">
+          <strong>Balance (Local):</strong>
+          <span className="balance-local">{walletClient.formattedBalance} XCH</span>
         </div>
         <div className="info-item">
           <strong>Coin Count:</strong>
@@ -306,6 +346,11 @@ const DialogsView: React.FC<{
   
   // Get access to dialog states from the main context
   const globalDialogs = useGlobalDialogs();
+  
+  // Get address directly from SDK state (available before full connection)
+  const address = walletClient.sdk.walletState.address;
+  // Get Spacescan balance for this view - works independently of wallet connection
+  const spacescanBalance = useSpacescanBalance(address);
 
   const [lastAction, setLastAction] = useState<string>('');
 
@@ -379,7 +424,10 @@ const DialogsView: React.FC<{
             <strong>Address:</strong> {walletClient.formatAddress()}
           </div>
           <div className="summary-item">
-            <strong>Balance:</strong> {walletClient.formattedBalance} XCH
+            <strong>Balance:</strong> {spacescanBalance.loading ? 'Loading...' : spacescanBalance.error ? 'Error' : `${spacescanBalance.formattedBalance} XCH`}
+          </div>
+          <div className="summary-item">
+            <strong>Balance (Local):</strong> {walletClient.formattedBalance} XCH
           </div>
           <div className="summary-item">
             <strong>Coins:</strong> {walletClient.coinCount}
@@ -554,6 +602,11 @@ const CoinsView: React.FC<{
 }> = ({ walletClient }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCoinType, setSelectedCoinType] = useState<'all' | 'xch' | 'cat' | 'nft'>('all');
+  
+  // Get address directly from SDK state (available before full connection)
+  const address = walletClient.sdk.walletState.address;
+  // Get Spacescan balance for this view - works independently of wallet connection
+  const spacescanBalance = useSpacescanBalance(address);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -651,8 +704,14 @@ const CoinsView: React.FC<{
             <span className="count">{nftCoins.length}</span>
           </div>
           <div className="summary-card">
-            <strong>Total Balance:</strong>
-            <span className="balance">{walletClient.formattedBalance} XCH</span>
+            <strong>Balance:</strong>
+            <span className="balance">
+              {spacescanBalance.loading ? 'Loading...' : spacescanBalance.error ? 'Error' : `${spacescanBalance.formattedBalance} XCH`}
+            </span>
+          </div>
+          <div className="summary-card">
+            <strong>Balance (Local):</strong>
+            <span className="balance-local">{walletClient.formattedBalance} XCH</span>
           </div>
         </div>
       </div>
@@ -759,6 +818,11 @@ const ExampleApp: React.FC = () => {
   
   // Get the unified wallet client
   const walletClient = useUnifiedWalletClient();
+  
+  // Get address directly from SDK state (available before full connection)
+  const address = walletClient.sdk.walletState.address;
+  // Get Spacescan balance for header display - works independently of wallet connection
+  const spacescanBalance = useSpacescanBalance(address);
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -787,7 +851,7 @@ const ExampleApp: React.FC = () => {
           </span>
           {walletClient.isConnected && (
             <span className="client-balance">
-              • Balance: {walletClient.formattedBalance} XCH
+              • Balance: {spacescanBalance.loading ? 'Loading...' : spacescanBalance.error ? 'Error' : `${spacescanBalance.formattedBalance} XCH`}
             </span>
           )}
         </div>

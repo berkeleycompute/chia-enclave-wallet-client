@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { PiHandCoins, PiCaretRight } from "react-icons/pi";
 import { 
   useWalletConnection, 
@@ -9,7 +9,18 @@ import {
 } from '../hooks/useChiaWalletSDK';
 import { SentTransaction, SavedOffer } from './types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
-import { useSpacescanNFTs, useSpacescanBalance, type SpacescanNFT } from '../client/SpacescanClient';
+import { 
+  useSpacescanNFTs, 
+  useSpacescanBalance, 
+  useSpacescanXCHTransactions,
+  useSpacescanNFTTransactions,
+  useSpacescanTokenTransactions,
+  getTokenDisplayName,
+  type SpacescanNFT,
+  type SpacescanTransaction,
+  type SpacescanNFTTransaction,
+  type SpacescanTokenTransaction
+} from '../client/SpacescanClient';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
@@ -81,12 +92,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   const { 
     hydratedCoins, 
-    nftCoins: sdkNftCoins,
     isLoading: coinsLoading,
     error: coinsError 
   } = useWalletCoins();
   
-  // Use Spacescan for NFTs
+  // Use Spacescan for NFTs and balance
   const { 
     nfts: spacescanNfts, 
     loading: nftsLoading, 
@@ -95,7 +105,15 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     refetch: refetchNfts
   } = useSpacescanNFTs(address);
   
-  // Convert Spacescan NFTs to compatible format
+  // Use Spacescan for balance display
+  const spacescanBalance = useSpacescanBalance(address);
+  
+  // Use Spacescan for transaction history (last 100 transactions)
+  const spacescanXchTransactions = useSpacescanXCHTransactions(address, 100, 0);
+  const spacescanNftTransactions = useSpacescanNFTTransactions(address, 100, 0);
+  const spacescanTokenTransactions = useSpacescanTokenTransactions(address, 100, 0);
+  
+  // Use Spacescan NFTs as the primary NFT source
   const nftCoins = spacescanNfts;
 
   // Helper functions for NFT data (moved to component level)
@@ -119,6 +137,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const getNftDisplayName = (nft: SpacescanNFT | HydratedCoin): string => {
     // Handle Spacescan NFT format
     if ('nft_id' in nft) {
+      // Use the name field directly from Spacescan API
+      if (nft.name) {
+        return nft.name;
+      }
+      // Fallback to metadata name
       const metadata = nft.metadata;
       if (metadata?.name) {
         return metadata.name;
@@ -126,7 +149,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       if (nft.edition_number && nft.edition_total) {
         return `NFT Edition ${nft.edition_number}/${nft.edition_total}`;
       }
-      return `NFT ${nft.launcher_id.substring(0, 8)}...${nft.launcher_id.substring(nft.launcher_id.length - 8)}`;
+      return `NFT ${nft.nft_id.substring(0, 8)}...${nft.nft_id.substring(nft.nft_id.length - 8)}`;
     }
     
     // Handle legacy HydratedCoin format
@@ -156,7 +179,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       if (nft.metadata?.collection?.name) {
         return nft.metadata.collection.name;
       }
-      return `Collection ${nft.launcher_id.substring(0, 8)}...${nft.launcher_id.substring(nft.launcher_id.length - 8)}`;
+      if (nft.collection_id) {
+        return `Collection ${nft.collection_id.substring(0, 8)}...${nft.collection_id.substring(nft.collection_id.length - 8)}`;
+      }
+      return `Collection ${nft.nft_id.substring(0, 8)}...${nft.nft_id.substring(nft.nft_id.length - 8)}`;
     }
     
     // Handle legacy HydratedCoin format
@@ -197,6 +223,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const getNftImageUrl = (nft: SpacescanNFT | HydratedCoin): string | undefined => {
     // Handle Spacescan NFT format
     if ('nft_id' in nft) {
+      // Use preview_url from Spacescan API first
+      if (nft.preview_url) {
+        return nft.preview_url;
+      }
+      // Fallback to legacy fields
       if (nft.data_uris && nft.data_uris.length > 0) {
         return nft.data_uris[0];
       }
@@ -250,18 +281,138 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
   }, [jwtToken, isConnected, isConnecting, setJwtToken, connect]);
 
-  // Emit wallet updates
-  useEffect(() => {
-    if (onWalletUpdate) {
-      onWalletUpdate({
-        connected: isConnected,
-        address: address,
-        balance: totalBalance,
-        coinCount: coinCount,
-        formattedBalance: formattedBalance
+  // Memoize wallet data to prevent unnecessary re-renders
+  const walletData = useMemo(() => ({
+    connected: isConnected,
+    address: address,
+    balance: spacescanBalance.xch || 0,
+    coinCount: coinCount,
+    formattedBalance: spacescanBalance.formattedBalance
+  }), [isConnected, address, spacescanBalance.xch, spacescanBalance.formattedBalance, coinCount]);
+
+  // Use ref to track previous wallet data
+  const prevWalletDataRef = useRef<any>(null);
+
+  // Combined transactions from all Spacescan sources
+  const allTransactions = useMemo(() => {
+    const combined: Array<{
+      id: string;
+      type: 'XCH' | 'NFT' | 'TOKEN';
+      amount?: number;
+      nft_id?: string;
+      asset_id?: string;
+      created_at_time: number;
+      confirmed_at_height: number;
+      spent_at_time?: number;
+      spent_at_height?: number;
+      coin_name: string;
+      data: SpacescanTransaction | SpacescanNFTTransaction | SpacescanTokenTransaction;
+    }> = [];
+
+    // Add XCH transactions
+    spacescanXchTransactions.transactions.forEach(tx => {
+      const timestamp = new Date(tx.time).getTime() / 1000; // Convert ISO string to timestamp
+      combined.push({
+        id: tx.coin_id,
+        type: 'XCH',
+        amount: tx.amount_mojo, // Use mojo amount for consistency
+        created_at_time: timestamp,
+        confirmed_at_height: tx.height,
+        spent_at_time: undefined, // XCH transactions don't have spent info in this format
+        spent_at_height: undefined,
+        coin_name: tx.coin_id,
+        data: tx
       });
+    });
+
+    // Add NFT transactions
+    spacescanNftTransactions.transactions.forEach(tx => {
+      const timestamp = new Date(tx.time).getTime() / 1000; // Convert ISO string to timestamp
+      combined.push({
+        id: tx.coin_id,
+        type: 'NFT',
+        nft_id: tx.nft_id,
+        created_at_time: timestamp,
+        confirmed_at_height: tx.height,
+        spent_at_time: undefined, // NFT transactions don't have spent info in this format
+        spent_at_height: undefined,
+        coin_name: tx.coin_id,
+        data: tx
+      });
+    });
+
+    // Add Token transactions
+    spacescanTokenTransactions.transactions.forEach(tx => {
+      const timestamp = new Date(tx.time).getTime() / 1000; // Convert ISO string to timestamp
+      combined.push({
+        id: tx.coin_id,
+        type: 'TOKEN',
+        amount: tx.token_amount,
+        asset_id: tx.asset_id,
+        created_at_time: timestamp,
+        confirmed_at_height: tx.height,
+        spent_at_time: undefined, // Token transactions don't have spent info in this format
+        spent_at_height: undefined,
+        coin_name: tx.coin_id,
+        data: tx
+      });
+    });
+
+    // Sort by creation time (newest first)
+    return combined.sort((a, b) => b.created_at_time - a.created_at_time);
+  }, [spacescanXchTransactions.transactions, spacescanNftTransactions.transactions, spacescanTokenTransactions.transactions]);
+
+  // Helper function to format transaction amount
+  const formatTransactionAmount = (transaction: typeof allTransactions[0]): string => {
+    if (transaction.type === 'XCH' && transaction.amount) {
+      const xchAmount = transaction.amount / 1e12; // Convert mojo to XCH
+      return `${xchAmount.toFixed(6)} XCH`;
+    } else if (transaction.type === 'TOKEN' && transaction.amount) {
+      // For token transactions, use the token display name mapping
+      const tokenData = transaction.data as any;
+      const tokenDisplayName = getTokenDisplayName(transaction.asset_id || '', tokenData.token_id);
+      return `${transaction.amount} ${tokenDisplayName}`;
+    } else if (transaction.type === 'NFT') {
+      return 'NFT';
     }
-  }, [isConnected, address, totalBalance, coinCount, formattedBalance, onWalletUpdate]);
+    return 'Unknown';
+  };
+
+  // Helper function to format transaction time
+  const formatTransactionTime = (timestamp: number): string => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  };
+
+  // Helper function to get transaction icon
+  const getTransactionIcon = (type: 'XCH' | 'NFT' | 'TOKEN'): string => {
+    switch (type) {
+      case 'XCH': return '🌾';
+      case 'NFT': return '🖼️';
+      case 'TOKEN': return '🪙';
+      default: return '💰';
+    }
+  };
+
+  // Emit wallet updates only when data actually changes
+  useEffect(() => {
+    if (onWalletUpdate && isConnected && !spacescanBalance.loading) {
+      const prevData = prevWalletDataRef.current;
+      const currentData = walletData;
+      
+      // Only call onWalletUpdate if the data has actually changed
+      if (!prevData || 
+          prevData.connected !== currentData.connected ||
+          prevData.address !== currentData.address ||
+          prevData.balance !== currentData.balance ||
+          prevData.coinCount !== currentData.coinCount ||
+          prevData.formattedBalance !== currentData.formattedBalance) {
+        
+        prevWalletDataRef.current = currentData;
+        onWalletUpdate(currentData);
+      }
+    }
+  }, [onWalletUpdate, isConnected, spacescanBalance.loading, walletData]);
 
   // Storage key generators for NFT metadata
   const getNftMetadataStorageKey = useCallback((pubKey: string | null): string => {
@@ -779,12 +930,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                             </div>
                             <div className="balance-details">
                               <h4 className="token-name">Chia</h4>
-                              {balanceLoading ? (
+                              {spacescanBalance.loading ? (
                                 <p className="token-balance">Loading...</p>
-                              ) : error ? (
+                              ) : spacescanBalance.error ? (
                                 <p className="token-balance">Error</p>
                               ) : (
-                                <p className="token-balance">{formattedBalance || '0 XCH'}</p>
+                                <p className="token-balance">{spacescanBalance.formattedBalance} XCH</p>
                               )}
                             </div>
                           </div>
@@ -903,43 +1054,62 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           </div>
                         ))}
 
-                        {/* Incoming Transactions (Hydrated Coins) */}
-                        {hydratedCoins.map((hydratedCoin, index) => {
-                          const coinType = getCoinType(hydratedCoin);
-                          const coinTypeIcon = getCoinTypeIcon(coinType);
-                          const assetInfo = getAssetInfo(hydratedCoin);
+                        {/* Spacescan Transactions */}
+                        {allTransactions.map((transaction, index) => {
+                          const isSpent = transaction.spent_at_time !== undefined;
+                          const transactionIcon = getTransactionIcon(transaction.type);
 
                           return (
-                            <div key={index} className={`transaction-item incoming ${coinType.toLowerCase()}`}>
+                            <div key={transaction.id} className={`transaction-item ${isSpent ? 'outgoing' : 'incoming'} ${transaction.type.toLowerCase()}`}>
                               <div className="transaction-icon">
-                                <span className="coin-type-icon">{coinTypeIcon}</span>
+                                <span className="coin-type-icon">{transactionIcon}</span>
                               </div>
                               <div className="transaction-info">
-                                <div className="transaction-amount">+{formatCoinAmount(hydratedCoin)}</div>
+                                <div className="transaction-amount">
+                                  {isSpent ? '-' : '+'}
+                                  {formatTransactionAmount(transaction)}
+                                </div>
                                 <div className="transaction-details">
                                   <div className="transaction-address">
-                                    {coinType === 'XCH' ? (
-                                      `Coin #${index + 1}`
+                                    {transaction.type === 'XCH' ? (
+                                      `XCH Transaction`
+                                    ) : transaction.type === 'NFT' ? (
+                                      `NFT: ${transaction.nft_id?.slice(0, 8)}...`
                                     ) : (
-                                      <div className="asset-info">
-                                        <span className="asset-type">{coinType}</span>
-                                        <span className="asset-details">{assetInfo}</span>
-                                      </div>
+                                      `Token: ${getTokenDisplayName(transaction.asset_id || '', (transaction.data as any)?.token_id)}`
                                     )}
                                   </div>
                                   <div className="transaction-time">
-                                    {coinType === 'NFT' ? `NFT • Height: ${hydratedCoin.createdHeight}` : `Available • Height: ${hydratedCoin.createdHeight}`}
+                                    {isSpent ? 
+                                      `Spent • Height: ${transaction.spent_at_height}` : 
+                                      `Created • Height: ${transaction.confirmed_at_height}`
+                                    }
                                   </div>
                                 </div>
                               </div>
-                              <div className={`transaction-status confirmed ${coinType.toLowerCase()}`}>
-                                {coinType === 'NFT' ? 'Owned' : 'Confirmed'}
+                              <div className={`transaction-status confirmed ${transaction.type.toLowerCase()}`}>
+                                {isSpent ? 'Spent' : 'Confirmed'}
                               </div>
                             </div>
                           );
                         })}
 
-                        {hydratedCoins.length === 0 && sentTransactions.length === 0 && (
+                        {/* Loading states */}
+                        {(spacescanXchTransactions.loading || spacescanNftTransactions.loading || spacescanTokenTransactions.loading) && (
+                          <div className="loading-transactions">
+                            <p>Loading transactions...</p>
+                          </div>
+                        )}
+
+                        {/* Error states */}
+                        {(spacescanXchTransactions.error || spacescanNftTransactions.error || spacescanTokenTransactions.error) && (
+                          <div className="error-transactions">
+                            <p>Error loading transactions: {spacescanXchTransactions.error || spacescanNftTransactions.error || spacescanTokenTransactions.error}</p>
+                          </div>
+                        )}
+
+                        {allTransactions.length === 0 && sentTransactions.length === 0 && 
+                         !spacescanXchTransactions.loading && !spacescanNftTransactions.loading && !spacescanTokenTransactions.loading && (
                           <div className="no-transactions">
                             <p>No transactions yet</p>
                           </div>
@@ -1112,7 +1282,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                    <div className="info-item">
                                      <label>Launcher ID</label>
                                      <code className="info-value monospace">
-                                       {'nft_id' in selectedNft ? selectedNft.launcher_id : 'N/A'}
+                                       {(() => {
+                                         if ('nft_id' in selectedNft) {
+                                           const spacescanNft = selectedNft as any;
+                                           return spacescanNft.launcher_id || spacescanNft.nft_id || 'N/A';
+                                         }
+                                         return 'N/A';
+                                       })()}
                                      </code>
                                    </div>
                                    <div className="info-item">
@@ -1187,18 +1363,18 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                      <label>Created Height</label>
                                      <span className="info-value">{selectedNft.createdHeight}</span>
                                    </div>
-                                   {onChainMetadata?.dataHash && (
-                                     <div className="info-item">
-                                       <label>Data Hash</label>
-                                       <code className="info-value monospace">{onChainMetadata.dataHash}</code>
-                                     </div>
-                                   )}
-                                   {onChainMetadata?.metadataHash && (
-                                     <div className="info-item">
-                                       <label>Metadata Hash</label>
-                                       <code className="info-value monospace">{onChainMetadata.metadataHash}</code>
-                                     </div>
-                                   )}
+                                                                     {metadata?.dataHash && (
+                                    <div className="info-item">
+                                      <label>Data Hash</label>
+                                      <code className="info-value monospace">{metadata.dataHash}</code>
+                                    </div>
+                                  )}
+                                  {metadata?.metadataHash && (
+                                    <div className="info-item">
+                                      <label>Metadata Hash</label>
+                                      <code className="info-value monospace">{metadata.metadataHash}</code>
+                                    </div>
+                                  )}
                                  </div>
                                </div>
 

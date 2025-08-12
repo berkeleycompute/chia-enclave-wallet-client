@@ -1321,3 +1321,31 @@ body {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Spacescan balance states */
+.balance .loading {
+  color: #667eea;
+  font-style: italic;
+  animation: pulse 1.5s ease-in-out infinite alternate;
+}
+
+.balance .error {
+  color: #e74c3c;
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.balance-local {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
+}
