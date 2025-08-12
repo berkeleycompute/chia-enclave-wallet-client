@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useUnifiedWalletClient } from '../hooks/useChiaWalletSDK';
 import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
+import { useSpacescanBalance } from '../client/SpacescanClient';
 
 export interface ChiaWalletButtonProps {
   variant?: 'primary' | 'secondary';

@@ -9,6 +9,7 @@ import {
 } from '../hooks/useChiaWalletSDK';
 import { SentTransaction, SavedOffer } from './types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
+import { useSpacescanNFTs, useSpacescanBalance, type SpacescanNFT } from '../client/SpacescanClient';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
@@ -80,10 +81,145 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   const { 
     hydratedCoins, 
-    nftCoins,
+    nftCoins: sdkNftCoins,
     isLoading: coinsLoading,
     error: coinsError 
   } = useWalletCoins();
+  
+  // Use Spacescan for NFTs
+  const { 
+    nfts: spacescanNfts, 
+    loading: nftsLoading, 
+    error: nftsError,
+    count: nftCount,
+    refetch: refetchNfts
+  } = useSpacescanNFTs(address);
+  
+  // Convert Spacescan NFTs to compatible format
+  const nftCoins = spacescanNfts;
+
+  // Helper functions for NFT data (moved to component level)
+  const getNftMetadata = (nft: SpacescanNFT | HydratedCoin): any => {
+    // Handle Spacescan NFT format
+    if ('nft_id' in nft) {
+      return nft.metadata || null;
+    }
+    
+    // Handle legacy HydratedCoin format
+    const driverInfo = (nft as HydratedCoin).parentSpendInfo.driverInfo;
+    if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
+      return null;
+    }
+
+    const metadataUri = driverInfo.info.metadata.metadataUris[0];
+    const cacheKey = `${(nft as HydratedCoin).coin.parentCoinInfo}_${(nft as HydratedCoin).coin.puzzleHash}_${metadataUri}`;
+    return nftMetadata.get(cacheKey);
+  };
+
+  const getNftDisplayName = (nft: SpacescanNFT | HydratedCoin): string => {
+    // Handle Spacescan NFT format
+    if ('nft_id' in nft) {
+      const metadata = nft.metadata;
+      if (metadata?.name) {
+        return metadata.name;
+      }
+      if (nft.edition_number && nft.edition_total) {
+        return `NFT Edition ${nft.edition_number}/${nft.edition_total}`;
+      }
+      return `NFT ${nft.launcher_id.substring(0, 8)}...${nft.launcher_id.substring(nft.launcher_id.length - 8)}`;
+    }
+    
+    // Handle legacy HydratedCoin format
+    const metadata = getNftMetadata(nft);
+    if (metadata?.name) {
+      return metadata.name;
+    }
+    
+    const driverInfo = (nft as HydratedCoin).parentSpendInfo.driverInfo;
+    if (driverInfo?.type === 'NFT') {
+      const onChainMetadata = driverInfo.info?.metadata;
+      if (onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) {
+        return `NFT Edition ${onChainMetadata.editionNumber}/${onChainMetadata.editionTotal}`;
+      }
+      const launcherId = driverInfo.info?.launcherId || 'Unknown';
+      return `NFT ${launcherId.substring(0, 8)}...${launcherId.substring(launcherId.length - 8)}`;
+    }
+    return 'Unknown NFT';
+  };
+
+  const getNftCollectionName = (nft: SpacescanNFT | HydratedCoin): string => {
+    // Handle Spacescan NFT format
+    if ('nft_id' in nft) {
+      if (nft.collection_name) {
+        return nft.collection_name;
+      }
+      if (nft.metadata?.collection?.name) {
+        return nft.metadata.collection.name;
+      }
+      return `Collection ${nft.launcher_id.substring(0, 8)}...${nft.launcher_id.substring(nft.launcher_id.length - 8)}`;
+    }
+    
+    // Handle legacy HydratedCoin format
+    const metadata = getNftMetadata(nft);
+    if (metadata?.collection?.name) {
+      return metadata.collection.name;
+    }
+    
+    const driverInfo = (nft as HydratedCoin).parentSpendInfo.driverInfo;
+    if (driverInfo?.type === 'NFT') {
+      const launcherId = driverInfo.info?.launcherId || 'Unknown';
+      return `Collection ${launcherId.substring(0, 8)}...${launcherId.substring(launcherId.length - 8)}`;
+    }
+    return 'Unknown Collection';
+  };
+
+  const getNftEditionInfo = (nft: SpacescanNFT | HydratedCoin): string | undefined => {
+    // Handle Spacescan NFT format
+    if ('nft_id' in nft) {
+      if (nft.edition_number && nft.edition_total) {
+        return `#${nft.edition_number} of ${nft.edition_total}`;
+      }
+      const metadata = nft.metadata;
+      if (metadata?.series_number && metadata?.series_total) {
+        return `#${metadata.series_number} of ${metadata.series_total}`;
+      }
+      return undefined;
+    }
+    
+    // Handle legacy HydratedCoin format
+    const metadata = getNftMetadata(nft);
+    if (metadata?.series_number && metadata?.series_total) {
+      return `#${metadata.series_number} of ${metadata.series_total}`;
+    }
+    return undefined;
+  };
+
+  const getNftImageUrl = (nft: SpacescanNFT | HydratedCoin): string | undefined => {
+    // Handle Spacescan NFT format
+    if ('nft_id' in nft) {
+      if (nft.data_uris && nft.data_uris.length > 0) {
+        return nft.data_uris[0];
+      }
+      const metadata = nft.metadata;
+      if (metadata?.image) {
+        return metadata.image;
+      }
+      if (metadata?.data_uris && metadata.data_uris.length > 0) {
+        return metadata.data_uris[0];
+      }
+      return undefined;
+    }
+    
+    // Handle legacy HydratedCoin format
+    const metadata = getNftMetadata(nft);
+    if (metadata?.data_uris && metadata.data_uris.length > 0) {
+      return metadata.data_uris[0];
+    }
+    if (metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value) {
+      return metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value;
+    }
+    return undefined;
+  };
 
   const { sendXCH, isSending } = useSendTransaction();
 
@@ -293,69 +429,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     if (!address) return;
 
     try {
-      // Helper functions for NFT data
-      const getNftMetadata = (nftCoin: HydratedCoin): any => {
-        const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-        if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
-          return null;
-        }
-
-        const metadataUri = driverInfo.info.metadata.metadataUris[0];
-        const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
-        return nftMetadata.get(cacheKey);
-      };
-
-      const getNftDisplayName = (nftCoin: HydratedCoin): string => {
-        const metadata = getNftMetadata(nftCoin);
-        if (metadata?.name) {
-          return metadata.name;
-        }
-
-        const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-        if (driverInfo?.type === 'NFT') {
-          const onChainMetadata = driverInfo.info?.metadata;
-          if (onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) {
-            return `NFT Edition ${onChainMetadata.editionNumber}/${onChainMetadata.editionTotal}`;
-          }
-          const launcherId = driverInfo.info?.launcherId || 'Unknown';
-          return `NFT ${launcherId.substring(0, 8)}...${launcherId.substring(launcherId.length - 8)}`;
-        }
-        return 'Unknown NFT';
-      };
-
-      const getNftCollectionName = (nftCoin: HydratedCoin): string => {
-        const metadata = getNftMetadata(nftCoin);
-        if (metadata?.collection?.name) {
-          return metadata.collection.name;
-        }
-
-        const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-        if (driverInfo?.type === 'NFT') {
-          const launcherId = driverInfo.info?.launcherId || 'Unknown';
-          return `Collection ${launcherId.substring(0, 8)}...${launcherId.substring(launcherId.length - 8)}`;
-        }
-        return 'Unknown Collection';
-      };
-
-      const getNftEditionInfo = (nftCoin: HydratedCoin): string | undefined => {
-        const metadata = getNftMetadata(nftCoin);
-        if (metadata?.series_number && metadata?.series_total) {
-          return `#${metadata.series_number} of ${metadata.series_total}`;
-        }
-        return undefined;
-      };
-
-      const getNftImageUrl = (nftCoin: HydratedCoin): string | undefined => {
-        const metadata = getNftMetadata(nftCoin);
-        if (metadata?.data_uris && metadata.data_uris.length > 0) {
-          return metadata.data_uris[0];
-        }
-        if (metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value) {
-          return metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value;
-        }
-        return undefined;
-      };
-
       // Create SavedOffer object
       const savedOffer: SavedOffer = {
         id: `offer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -464,27 +537,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, [getCoinType]);
 
   // NFT metadata utility functions
-  const getNftMetadata = useCallback((nftCoin: HydratedCoin): any => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-    if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
-      return null;
-    }
-
-    const metadataUri = driverInfo.info.metadata.metadataUris[0];
-    const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
-    return nftMetadata.get(cacheKey);
-  }, [nftMetadata]);
-
-  const isNftMetadataLoading = useCallback((nftCoin: HydratedCoin): boolean => {
-    const driverInfo = nftCoin.parentSpendInfo.driverInfo;
-    if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
-      return false;
-    }
-
-    const metadataUri = driverInfo.info.metadata.metadataUris[0];
-    const cacheKey = `${nftCoin.coin.parentCoinInfo}_${nftCoin.coin.puzzleHash}_${metadataUri}`;
-    return loadingMetadata.has(cacheKey);
-  }, [loadingMetadata]);
+  // Legacy NFT metadata functions removed - now using Spacescan API
 
   const convertIpfsUrl = useCallback((url: string): string => {
     if (!url) return url;
@@ -913,37 +966,42 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
                       <div className="assets-content">
                         <div className="grid grid-3">
-                          {nftCoins.map((nftCoin, index) => {
-                            const metadata = getNftMetadata(nftCoin);
-                            const isLoading = isNftMetadataLoading(nftCoin);
-                            const nftInfo = nftCoin.parentSpendInfo.driverInfo?.info;
-                            const onChainMetadata = nftInfo?.metadata;
+                          {nftCoins.map((nft, index) => {
+                            const metadata = getNftMetadata(nft);
+                            const isLoading = false; // Spacescan NFTs are already loaded
+                            const displayName = getNftDisplayName(nft);
+                            const collectionName = getNftCollectionName(nft);
+                            const editionInfo = getNftEditionInfo(nft);
+                            const imageUrl = getNftImageUrl(nft);
 
                             return (
-                              <div key={index} className="asset-card" onClick={() => openNftDetails(nftCoin)}>
+                              <div key={index} className="asset-card" onClick={() => {
+                                // For now, we'll handle SpacescanNFT differently
+                                if ('nft_id' in nft) {
+                                  console.log('Spacescan NFT clicked:', nft);
+                                } else {
+                                  openNftDetails(nft as HydratedCoin);
+                                }
+                              }}>
                                 <div className="asset-image">
                                   {isLoading ? (
                                     <div className="loading-state">
                                       <div className="spinner"></div>
                                     </div>
-                                  ) : metadata?.data_uris && metadata.data_uris.length > 0 ? (
-                                    <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
-                                  ) : metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
-                                    <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
+                                  ) : imageUrl ? (
+                                    <img src={convertIpfsUrl(imageUrl)} alt={displayName || 'NFT'} />
                                   ) : (
                                     <div className="asset-placeholder">🖼️</div>
                                   )}
                                 </div>
                                 <div className="asset-info">
-                                  <h5 className="asset-name">{metadata?.name || `NFT #${index + 1}`}</h5>
-                                  <p className="asset-collection">{metadata?.collection?.name || 'Unknown Collection'}</p>
+                                  <h5 className="asset-name">{displayName}</h5>
+                                  <p className="asset-collection">{collectionName}</p>
                                   
                                   {/* Edition Info */}
-                                  {(onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) ? (
-                                    <div className="asset-edition">#{onChainMetadata.editionNumber} of {onChainMetadata.editionTotal}</div>
-                                  ) : (metadata?.series_number && metadata?.series_total) ? (
-                                    <div className="asset-edition">#{metadata.series_number} of {metadata.series_total}</div>
-                                  ) : null}
+                                  {editionInfo && (
+                                    <div className="asset-edition">{editionInfo}</div>
+                                  )}
 
                                   {/* Key Attributes Preview */}
                                   {metadata?.attributes && metadata.attributes.length > 0 && (
@@ -962,11 +1020,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
                                   {/* Rarity/Special indicators */}
                                   <div className="asset-badges">
-                                    {nftInfo?.royaltyTenThousandths && nftInfo.royaltyTenThousandths > 0 && (
-                                      <span className="badge royalty">
-                                        {(nftInfo.royaltyTenThousandths / 100).toFixed(1)}% Royalty
-                                      </span>
-                                    )}
+                                    {/* Spacescan NFTs don't have royalty info in the same format */}
                                     {metadata?.properties?.category && (
                                       <span className="badge category">{metadata.properties.category}</span>
                                     )}
@@ -1002,9 +1056,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                        <div className="nft-details-content">
                          {(() => {
                            const metadata = getNftMetadata(selectedNft);
-                           const isLoading = isNftMetadataLoading(selectedNft);
-                           const nftInfo = selectedNft.parentSpendInfo.driverInfo?.info;
-                           const onChainMetadata = nftInfo?.metadata;
+                           const isLoading = false; // Spacescan NFTs are already loaded
+                           const displayName = getNftDisplayName(selectedNft);
+                           const collectionName = getNftCollectionName(selectedNft);
+                           const editionInfo = getNftEditionInfo(selectedNft);
+                           const imageUrl = getNftImageUrl(selectedNft);
 
                            return (
                              <>
@@ -1032,7 +1088,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                    <div className="info-item">
                                      <label>Name</label>
                                      <span className="info-value">
-                                       {metadata?.name || `NFT ${nftInfo?.launcherId?.substring(0, 8)}...${nftInfo?.launcherId?.substring(nftInfo.launcherId.length - 8)}` || 'Unknown'}
+                                       {displayName}
                                      </span>
                                    </div>
                                    <div className="info-item">
@@ -1050,25 +1106,19 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                    <div className="info-item">
                                      <label>Edition</label>
                                      <span className="info-value">
-                                       {onChainMetadata?.editionNumber && onChainMetadata?.editionTotal 
-                                         ? `${onChainMetadata.editionNumber} of ${onChainMetadata.editionTotal}`
-                                         : metadata?.series_number && metadata?.series_total
-                                         ? `#${metadata.series_number} of ${metadata.series_total}`
-                                         : 'N/A'
-                                       }
+                                       {editionInfo || 'N/A'}
                                      </span>
                                    </div>
                                    <div className="info-item">
                                      <label>Launcher ID</label>
-                                     <code className="info-value monospace">{nftInfo?.launcherId || 'N/A'}</code>
+                                     <code className="info-value monospace">
+                                       {'nft_id' in selectedNft ? selectedNft.launcher_id : 'N/A'}
+                                     </code>
                                    </div>
                                    <div className="info-item">
-                                     <label>Royalty</label>
+                                     <label>Edition</label>
                                      <span className="info-value">
-                                       {nftInfo?.royaltyTenThousandths 
-                                         ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
-                                         : '0%'
-                                       }
+                                       {editionInfo || 'N/A'}
                                      </span>
                                    </div>
                                  </div>
