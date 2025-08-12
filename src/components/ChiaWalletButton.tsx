@@ -19,6 +19,8 @@ export interface ChiaWalletButtonProps {
   style?: React.CSSProperties;
   // Unified client prop
   walletClient?: UnifiedWalletClient;
+  // Optional footer content above disconnect button
+  footer?: React.ReactNode;
 }
 
 export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
@@ -29,6 +31,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
   className = '',
   style,
   walletClient,
+  footer,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -142,6 +145,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
         onClose={closeModal}
         onWalletUpdate={onWalletUpdate}
         walletClient={actualWalletClient}
+        footer={footer}
       />
       
       <style>{`

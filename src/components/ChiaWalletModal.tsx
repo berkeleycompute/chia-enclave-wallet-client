@@ -32,6 +32,8 @@ export interface ChiaWalletModalProps {
   onWalletUpdate?: (walletData: any) => void;
   // Unified client prop
   walletClient?: UnifiedWalletClient;
+  // Optional footer content above disconnect button
+  footer?: React.ReactNode;
 }
 
 export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
@@ -40,6 +42,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   jwtToken,
   onWalletUpdate,
   walletClient,
+  footer,
 }) => {
   // Use provided client or fall back to hooks
   const hookWalletClient = useUnifiedWalletClient();
@@ -1179,6 +1182,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   </button>
                 </div>
               )}
+              
+              {/* Footer Section - Inside Modal Body */}
+              {isConnected && footer && footer}
             </div>
             
             {/* Disconnect Section - Bottom */}

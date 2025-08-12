@@ -246,6 +246,40 @@ const ComponentsView: React.FC<{
               />
               <small>Component uses the shared walletClient prop</small>
             </div>
+            <div className="demo-item">
+              <h5>With Custom Footer</h5>
+              <ChiaWalletButton 
+                walletClient={walletClient}
+                variant="primary"
+                size="medium"
+                onWalletUpdate={handleWalletUpdate}
+                footer={
+                  <button 
+                    className="menu-item"
+                    onClick={() => alert('Connect to Base Wallet')}
+                  >
+                    <div className="menu-icon-large">
+                      <div style={{ 
+                        width: '24px', 
+                        height: '24px', 
+                        borderRadius: '50%', 
+                        background: '#0052ff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                     
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                      </div>
+                    </div>
+                    <span>Base Wallet</span>
+                  </button>
+                }
+              />
+              <small>Component with custom footer content above disconnect</small>
+            </div>
           </div>
         </div>
 
