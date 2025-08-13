@@ -27,7 +27,7 @@ export interface Coin {
   parentCoinInfo: string;
   puzzleHash: string;
   amount: string;
-  coinId?: string;
+  coinId: string;
 }
 
 // Raw coin interface that matches API responses (snake_case)
@@ -290,8 +290,8 @@ export interface StoredOffer {
 export interface TakeOfferRequest {
   offer_string: string;
   synthetic_public_key: string;
-  xch_coins: string; // comma-separated coin ids or empty string
-  cat_coins: string; // comma-separated CAT coin ids
+  xch_coins: string[]; // array of coin ids
+  cat_coins: string[]; // array of CAT coin ids
   fee: number;
 }
 
@@ -402,7 +402,10 @@ export class ChiaCloudWalletClient {
     options: RequestInit = {},
     requireAuth: boolean = true
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // Check if endpoint is a complete URL (starts with http:// or https://)
+    const url = endpoint.startsWith('http://') || endpoint.startsWith('https://') 
+      ? endpoint 
+      : `${this.baseUrl}${endpoint}`;
 
     try {
       const headers: any = {
@@ -700,7 +703,7 @@ export class ChiaCloudWalletClient {
         xchPaymentsCount: request.requested_payments.xch?.length || 0
       });
 
-      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('/wallet/offer/make-unsigned-nft', {
+      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_unsigned_offer/create-offer', {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
@@ -926,9 +929,16 @@ export class ChiaCloudWalletClient {
         offerPrefix: request.offer_string.substring(0, 20) + '...'
       });
 
-      const result = await this.makeRequest<TakeOfferResponse>('/wallet/offer/sage-offer-taker', {
+      // Convert arrays to comma-separated strings for API compatibility
+      const apiRequest = {
+        ...request,
+        xch_coins: request.xch_coins.join(','),
+        cat_coins: request.cat_coins.join(',')
+      };
+
+      const result = await this.makeRequest<TakeOfferResponse>('https://edge.silicon-dev.net/chia/take_unsigned_offer/take-offer', {
         method: 'POST',
-        body: JSON.stringify(request),
+        body: JSON.stringify(apiRequest),
       });
 
       return { success: true, data: result };

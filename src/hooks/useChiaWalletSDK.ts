@@ -378,7 +378,7 @@ export function useTakeOffer() {
     }
   }, [sdk]);
 
-  const takeOffer = useCallback(async (req: string | { offer_string: string; synthetic_public_key: string; xch_coins: string; cat_coins: string; fee: number }) => {
+  const takeOffer = useCallback(async (req: string | { offer_string: string; synthetic_public_key: string; xch_coins: string[]; cat_coins: string[]; fee: number }) => {
     setTakeOfferState(prev => ({ ...prev, isTakingOffer: true, error: null }));
 
     try {

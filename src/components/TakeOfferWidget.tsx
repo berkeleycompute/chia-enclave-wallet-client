@@ -273,11 +273,11 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
             const requestBody = {
                 offer_string: dexieData.offer.offer,
                 synthetic_public_key: walletState.syntheticPublicKey!,
-                xch_coins: '', // Empty for CAT-only offers
+                xch_coins: [] as string[], // Empty array for CAT-only offers
                 // Use coinIds exclusively as requested
-                cat_coins: coinIds.join(','),
+                cat_coins: coinIds,
                 fee: 0
-            } as const;
+            };
 
             setLastCoinIds(coinIds);
 
@@ -292,8 +292,8 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                     const di = c.parentSpendInfo.driverInfo;
                     return di?.type === 'CAT' && di.assetId === WUSDC_ASSET_ID;
                 });
-                const latestRefs = latestFresh.map(c => c.coin.parentCoinInfo);
-                const retryBody = { ...requestBody, cat_coins: latestRefs.join(',') } as const;
+                const latestRefs = latestFresh.map(c => c.coin.coinId);
+                const retryBody = { ...requestBody, cat_coins: latestRefs };
                 console.warn('Retrying takeOffer with refreshed coins', retryBody);
                 result = await takeOffer(retryBody);
             }

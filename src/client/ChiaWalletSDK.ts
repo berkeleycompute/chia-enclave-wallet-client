@@ -599,10 +599,10 @@ export class ChiaWalletSDK {
   /**
    * Take/accept an existing offer
    */
-  async takeOffer(request: { offer_string: string; synthetic_public_key: string; xch_coins: string; cat_coins: string; fee: number } | string): Promise<Result<TakeOfferResponse>> {
+  async takeOffer(request: { offer_string: string; synthetic_public_key: string; xch_coins: string[]; cat_coins: string[]; fee: number } | string): Promise<Result<TakeOfferResponse>> {
     try {
       const fullRequest = typeof request === 'string'
-        ? { offer_string: request, synthetic_public_key: this.state.syntheticPublicKey || '', xch_coins: '', cat_coins: '', fee: 0 }
+        ? { offer_string: request, synthetic_public_key: this.state.syntheticPublicKey || '', xch_coins: [], cat_coins: [], fee: 0 }
         : request;
 
       const result = await this.client.takeOffer(fullRequest);

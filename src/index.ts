@@ -72,6 +72,7 @@ export type {
   SimpleMakeUnsignedNFTOfferRequest,
   
   // Offer types
+  TakeOfferRequest,
   TakeOfferResponse, 
   ParsedOfferData,
   BroadcastOfferRequest,
