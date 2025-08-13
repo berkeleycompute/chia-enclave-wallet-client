@@ -196,8 +196,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         }
 
         try {
-            // Always refresh coins just-in-time to avoid using stale/spent coins
-            await refreshCoins();
+         
 
             // Recalculate selection from fresh coins of this asset
             // (Reuse already selected ordering; fallback to current selection if still valid)
@@ -279,6 +278,8 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 fee: 0
             };
 
+            console.log('requestBody', requestBody);
+
             setLastCoinIds(coinIds);
 
             console.log('Taking offer with request:', requestBody);
@@ -292,7 +293,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                     const di = c.parentSpendInfo.driverInfo;
                     return di?.type === 'CAT' && di.assetId === WUSDC_ASSET_ID;
                 });
-                const latestRefs = latestFresh.map(c => c.coin.coinId);
+                const latestRefs = latestFresh.map(c => c.coinId);
                 const retryBody = { ...requestBody, cat_coins: latestRefs };
                 console.warn('Retrying takeOffer with refreshed coins', retryBody);
                 result = await takeOffer(retryBody);

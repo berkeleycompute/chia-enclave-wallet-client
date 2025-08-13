@@ -27,7 +27,7 @@ export interface Coin {
   parentCoinInfo: string;
   puzzleHash: string;
   amount: string;
-  coinId: string;
+
 }
 
 // Raw coin interface that matches API responses (snake_case)
@@ -195,6 +195,7 @@ export interface ParentSpendInfo {
 
 export interface HydratedCoin {
   coin: Coin;
+  coinId: string;
   createdHeight: string;
   parentSpendInfo: ParentSpendInfo;
 }
@@ -257,10 +258,9 @@ export interface SimpleMakeUnsignedNFTOfferRequest {
 }
 
 export interface MakeUnsignedNFTOfferResponse {
-  success: boolean;
-  data: {
-    unsigned_offer_string: string;
-  };
+  success: boolean; 
+  offer_string: string;
+
 }
 
 // Add new interfaces for signing offers
@@ -299,9 +299,7 @@ export interface TakeOfferResponse {
   success: boolean;
   transaction_id: string;
   status: string;
-  data: {
-    unsigned_offer: string;
-  };
+  unsigned_offer: string;
   message?: string;
 }
 
@@ -403,8 +401,8 @@ export class ChiaCloudWalletClient {
     requireAuth: boolean = true
   ): Promise<T> {
     // Check if endpoint is a complete URL (starts with http:// or https://)
-    const url = endpoint.startsWith('http://') || endpoint.startsWith('https://') 
-      ? endpoint 
+    const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
+      ? endpoint
       : `${this.baseUrl}${endpoint}`;
 
     try {
@@ -802,7 +800,7 @@ export class ChiaCloudWalletClient {
         throw new Error(`Failed to create unsigned offer: ${unsignedResult.error}`);
       }
 
-      const unsignedOfferString = unsignedResult.data.data?.unsigned_offer_string;
+      const unsignedOfferString = unsignedResult.data?.offer_string;
       if (!unsignedOfferString) {
         throw new Error('No unsigned offer string returned from API');
       }
@@ -932,8 +930,6 @@ export class ChiaCloudWalletClient {
       // Convert arrays to comma-separated strings for API compatibility
       const apiRequest = {
         ...request,
-        xch_coins: request.xch_coins.join(','),
-        cat_coins: request.cat_coins.join(',')
       };
 
       const result = await this.makeRequest<TakeOfferResponse>('https://edge.silicon-dev.net/chia/take_unsigned_offer/take-offer', {

@@ -610,7 +610,7 @@ export class ChiaWalletSDK {
       if (result.success) {
         console.log('takeOffer result', result);
 
-        const signedOffer = await this.client.signOffer({ offer: result.data.data.unsigned_offer });
+        const signedOffer = await this.client.signOffer({ offer: result.data.unsigned_offer });
         if (!signedOffer.success) {
           throw new Error(signedOffer.error);
         }
