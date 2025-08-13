@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useUnifiedWalletClient } from '../hooks/useChiaWalletSDK';
 import { ChiaWalletModalWithProvider } from './ChiaWalletModalWithProvider';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
+import { useSpacescanBalance } from '../client/SpacescanClient';
 
 export interface ChiaWalletButtonProps {
   variant?: 'primary' | 'secondary';
@@ -19,6 +20,8 @@ export interface ChiaWalletButtonProps {
   style?: React.CSSProperties;
   // Unified client prop
   walletClient?: UnifiedWalletClient;
+  // Optional footer content above disconnect button
+  footer?: React.ReactNode;
 }
 
 export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
@@ -29,6 +32,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
   className = '',
   style,
   walletClient,
+  footer,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -51,27 +55,39 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
     isConnecting = false,
   } = walletState;
   
-  // Call onWalletUpdate when wallet state changes
-  React.useEffect(() => {
-    if (onWalletUpdate) {
-      onWalletUpdate({
-        isConnected,
-        publicKey,
-        address,
-        totalBalance,
-        coinCount,
-        error,
-      });
-    }
-  }, [
+  // Memoize wallet data to prevent unnecessary re-renders
+  const walletData = useMemo(() => ({
     isConnected,
     publicKey,
     address,
     totalBalance,
     coinCount,
     error,
-    onWalletUpdate,
-  ]);
+  }), [isConnected, publicKey, address, totalBalance, coinCount, error]);
+
+  // Use ref to track previous wallet data
+  const prevWalletDataRef = useRef<any>(null);
+
+  // Call onWalletUpdate only when wallet state actually changes
+  useEffect(() => {
+    if (onWalletUpdate) {
+      const prevData = prevWalletDataRef.current;
+      const currentData = walletData;
+      
+      // Only call onWalletUpdate if the data has actually changed
+      if (!prevData || 
+          prevData.isConnected !== currentData.isConnected ||
+          prevData.publicKey !== currentData.publicKey ||
+          prevData.address !== currentData.address ||
+          prevData.totalBalance !== currentData.totalBalance ||
+          prevData.coinCount !== currentData.coinCount ||
+          prevData.error !== currentData.error) {
+        
+        prevWalletDataRef.current = currentData;
+        onWalletUpdate(currentData);
+      }
+    }
+  }, [onWalletUpdate, walletData]);
   
   const openModal = () => {
     if (!disabled) {
@@ -142,6 +158,7 @@ export const ChiaWalletButton: React.FC<ChiaWalletButtonProps> = ({
         onClose={closeModal}
         onWalletUpdate={onWalletUpdate}
         walletClient={actualWalletClient}
+        footer={footer}
       />
       
       <style>{`

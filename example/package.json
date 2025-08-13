@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "bech32": "^2.0.0",
-    "chia-enclave-wallet-client": "file:..",
+    "chia-enclave-wallet-client": "github:berkeleycompute/chia-enclave-wallet-client",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

@@ -8,9 +8,7 @@ import {
 import {
   type SendXCHRequest,
   type SimpleMakeUnsignedNFTOfferRequest,
-  type HydratedCoin,
-  type TakeOfferResponse,
-  type ParsedOfferData
+  type HydratedCoin
 } from '../client/ChiaCloudWalletClient';
 import { UnifiedWalletState } from '../components/types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';

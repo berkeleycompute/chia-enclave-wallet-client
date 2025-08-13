@@ -27,7 +27,6 @@ export interface Coin {
   parentCoinInfo: string;
   puzzleHash: string;
   amount: string;
-
 }
 
 // Raw coin interface that matches API responses (snake_case)
@@ -423,14 +422,14 @@ export class ChiaCloudWalletClient {
       // Add timeout and explicit redirect handling for robustness
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for API calls
-
+      
       const response = await fetch(url, {
         ...options,
         headers,
         redirect: 'follow', // Explicitly follow redirects
         signal: controller.signal
       });
-
+      
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -458,7 +457,7 @@ export class ChiaCloudWalletClient {
       if (error instanceof ChiaCloudWalletApiError) {
         throw error;
       }
-
+      
       // Handle timeout errors specifically
       if (error instanceof Error && error.name === 'AbortError') {
         const timeoutError = new ChiaCloudWalletApiError(
@@ -469,7 +468,7 @@ export class ChiaCloudWalletClient {
         this.logError(`Request timed out for ${endpoint}`, timeoutError);
         throw timeoutError;
       }
-
+      
       const networkError = new ChiaCloudWalletApiError(
         `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         undefined,

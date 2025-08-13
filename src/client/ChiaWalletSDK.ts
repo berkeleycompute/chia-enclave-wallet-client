@@ -10,8 +10,8 @@ import {
   type BroadcastResponse,
   type SignOfferResponse,
   type SimpleMakeUnsignedNFTOfferRequest,
-  type TakeOfferResponse,
-  type ParsedOfferData
+  ParsedOfferData,
+  TakeOfferResponse
 } from './ChiaCloudWalletClient';
 
 // Event types for reactivity
@@ -584,6 +584,8 @@ export class ChiaWalletSDK {
       this.state.syntheticPublicKey,
       request
     );
+
+    console.log('createNFTOffer result', result);
 
     if (result.success) {
       this.emit('transactionCompleted', {
