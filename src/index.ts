@@ -88,9 +88,5 @@ export type {
 export type {
   SentTransaction,
   SavedOffer,
-  DexieOfferData,
-  TakeOfferWidgetProps,
-  SelectedCoinInfo
 } from './components/types'; 
-export type { HydratedCoin } from './client/ChiaCloudWalletClient';
-export type { SentTransaction, SavedOffer } from './components/types'; 
+
