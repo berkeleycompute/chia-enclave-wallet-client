@@ -172,12 +172,14 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-// Debounced request manager
+// Debounced request manager with throttling
 class DebouncedRequestManager {
   private pendingRequests = new Map<string, Promise<any>>();
   private cache = new Map<string, CacheEntry<any>>();
   private readonly cacheTimeout = 30000; // 30 seconds cache
   private readonly debounceDelay = 300; // 300ms debounce
+  private readonly throttleDelay = 200; // 200ms minimum delay between requests
+  private lastRequestTime = 0;
 
   /**
    * Get cached data if it exists and is not expired
@@ -205,7 +207,7 @@ class DebouncedRequestManager {
   }
 
   /**
-   * Execute a debounced request with caching
+   * Execute a debounced and throttled request with caching
    */
   async executeRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
     // Check cache first
@@ -220,10 +222,22 @@ class DebouncedRequestManager {
       return existingRequest;
     }
 
-    // Create new debounced request
+    // Create new debounced and throttled request
     const debouncedRequest = new Promise<T>((resolve, reject) => {
       setTimeout(async () => {
         try {
+          // Apply throttling - ensure minimum delay between requests
+          const now = Date.now();
+          const timeSinceLastRequest = now - this.lastRequestTime;
+          const additionalDelay = Math.max(0, this.throttleDelay - timeSinceLastRequest);
+          
+          if (additionalDelay > 0) {
+            await new Promise(resolve => setTimeout(resolve, additionalDelay));
+          }
+          
+          // Update last request time
+          this.lastRequestTime = Date.now();
+          
           const result = await requestFn();
           this.setCachedData(key, result);
           this.pendingRequests.delete(key);
@@ -257,6 +271,9 @@ class DebouncedRequestManager {
     return {
       size: this.cache.size,
       pendingRequests: this.pendingRequests.size,
+      lastRequestTime: this.lastRequestTime,
+      throttleDelay: this.throttleDelay,
+      timeSinceLastRequest: Date.now() - this.lastRequestTime,
       entries: Array.from(this.cache.entries()).map(([key, entry]) => ({
         key,
         timestamp: entry.timestamp,

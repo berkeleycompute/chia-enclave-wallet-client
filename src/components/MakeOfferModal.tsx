@@ -385,21 +385,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const getNftImageUrl = useCallback((nft: SpacescanNFT | HydratedCoin): string | undefined => {
     // Handle Spacescan NFT format - prioritize preview_url from Spacescan
     if ('nft_id' in nft) {
-      if (nft.preview_url) {
-        return nft.preview_url;
-      }
-      // Fallback to data_uris if available
-      if (nft.data_uris && nft.data_uris.length > 0) {
-        return nft.data_uris[0];
-      }
-      const metadata = getNftMetadata(nft);
-      if (metadata?.image) {
-        return metadata.image;
-      }
-      if (metadata?.data_uris && metadata.data_uris.length > 0) {
-        return metadata.data_uris[0];
-      }
-      return undefined;
+      return `https://edge.silicon-dev.net/spacescan/mintgarden/nfts/${nft.nft_id}/thumbnail`
     }
     
     // Handle HydratedCoin format (legacy)

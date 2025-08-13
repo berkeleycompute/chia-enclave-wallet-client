@@ -224,7 +224,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     // Handle Spacescan NFT format
     if ('nft_id' in nft) {
 
-      return `https://edge.silicon-dev.net/spacescan/nfts/${nft.nft_id}/original`
+      return `https://edge.silicon-dev.net/spacescan/mintgarden/nfts/${nft.nft_id}/thumbnail`
     }
     
     // Handle legacy HydratedCoin format
