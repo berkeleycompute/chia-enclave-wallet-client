@@ -641,7 +641,8 @@ export class ChiaCloudWalletClient {
         selected_coins: normalizeCoins(request.selected_coins)
       };
 
-      const result = await this.makeRequest<SendXCHResponse>('/wallet/transaction/send-xch', {
+      const endpoint = this.getEndpoint('/wallet/transaction/send-xch', '/api/wallet/send-xch');
+      const result = await this.makeRequest<SendXCHResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
@@ -664,7 +665,7 @@ export class ChiaCloudWalletClient {
       const endpoint = this.getEndpoint(`/wallet/unspent-hydrated-coins/${address}`, `/api/wallet/hydrated-coins/${address}`);
       const result = await this.makeRequest<UnspentHydratedCoinsResponse>(endpoint, {
         method: 'GET',
-      }, false);
+      });
       return { success: true, data: result };
     } catch (error) {
       return {
@@ -694,7 +695,8 @@ export class ChiaCloudWalletClient {
         offerPrefix: request.offer.substring(0, 20) + '...'
       });
 
-      const result = await this.makeRequest<SignOfferResponse>('/wallet/transaction/sign-offer', {
+      const endpoint = this.getEndpoint('/wallet/transaction/sign-offer', '/api/enclave/sign-offer');
+      const result = await this.makeRequest<SignOfferResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(request),
       });
@@ -747,7 +749,8 @@ export class ChiaCloudWalletClient {
         xchPaymentsCount: request.requested_payments.xch?.length || 0
       });
 
-      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('/wallet/offer/make-unsigned-nft', {
+      const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
+      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
