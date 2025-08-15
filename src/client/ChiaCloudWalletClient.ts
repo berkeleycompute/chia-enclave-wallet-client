@@ -241,20 +241,19 @@ export interface RequestedPayments {
 export interface MakeUnsignedNFTOfferRequest {
   synthetic_public_key: string;
   requested_payments: RequestedPayments;
-  nft_data: HydratedCoin;
+  nft_json: HydratedCoin;
 }
 
 // New simplified request interface
 export interface SimpleMakeUnsignedNFTOfferRequest {
   requested_payments: SimpleRequestedPayments;
-  nft_data: HydratedCoin;
+  nft_json: HydratedCoin;
 }
 
 export interface MakeUnsignedNFTOfferResponse {
   success: boolean;
-  data: {
-    unsigned_offer_string: string;
-  };
+  offer_string: string;
+  message?: string;
 }
 
 // Add new interfaces for signing offers
@@ -435,6 +434,38 @@ export class ChiaCloudWalletClient {
    */
   private getEndpoint(testPath: string, prodPath: string): string {
     return this.environment === 'test' ? testPath : prodPath;
+  }
+
+  /**
+   * Normalize HydratedCoin for API calls - ensures correct data types
+   */
+  private normalizeHydratedCoinForApi(coin: HydratedCoin): any {
+    return {
+      ...coin,
+      // Ensure createdHeight is a string
+      createdHeight: String(coin.createdHeight),
+      coin: {
+        ...coin.coin,
+        // Main coin amount should be a string
+        amount: String(coin.coin.amount),
+        // Remove 0x prefixes from hex strings
+        parentCoinInfo: coin.coin.parentCoinInfo.replace(/^0x/, ''),
+        puzzleHash: coin.coin.puzzleHash.replace(/^0x/, '')
+      },
+      parentSpendInfo: {
+        ...coin.parentSpendInfo,
+        // Remove 0x prefix from parentCoinId
+        parentCoinId: coin.parentSpendInfo.parentCoinId.replace(/^0x/, ''),
+        coin: {
+          ...coin.parentSpendInfo.coin,
+          // Parent spend info coin amount should be u64 (integer)
+          amount: parseInt(coin.parentSpendInfo.coin.amount),
+          // Remove 0x prefixes from hex strings
+          parentCoinInfo: coin.parentSpendInfo.coin.parentCoinInfo.replace(/^0x/, ''),
+          puzzleHash: coin.parentSpendInfo.coin.puzzleHash.replace(/^0x/, '')
+        }
+      }
+    };
   }
 
   /**
@@ -791,20 +822,17 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Requested payments with CAT tokens or XCH are required');
       }
 
-      if (!request.nft_data) {
+      if (!request.nft_json) {
         throw new ChiaCloudWalletApiError('NFT data is required');
       }
 
-      // Ensure NFT data coin format is normalized
-      const normalizedNFTData = {
-        ...request.nft_data,
-        coin: normalizeCoin(request.nft_data.coin)
-      };
+      // Normalize NFT data for API call (correct data types and format)
+      const normalizedNFTData = this.normalizeHydratedCoinForApi(request.nft_json);
 
       // Prepare the request with normalized data
       const normalizedRequest = {
         ...request,
-        nft_data: normalizedNFTData
+        nft_json: normalizedNFTData
       };
 
       this.logInfo('Making unsigned NFT offer request', {
@@ -819,8 +847,15 @@ export class ChiaCloudWalletClient {
         body: JSON.stringify(normalizedRequest),
       });
 
-      // Return the unsigned offer - signing should be done separately
-      return { success: true, data: result };
+      // The API now returns a signed offer directly, so we need to adapt the response
+      // to match what the existing code expects
+      const adaptedResponse = {
+        success: result.success,
+        offer_string: result.offer_string,
+        message: result.message
+      };
+      
+      return { success: true, data: adaptedResponse };
     } catch (error) {
       return {
         success: false,
@@ -846,7 +881,7 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Requested payments with CAT tokens or XCH are required');
       }
 
-      if (!request.nft_data) {
+      if (!request.nft_json) {
         throw new ChiaCloudWalletApiError('NFT data is required');
       }
 
@@ -907,31 +942,31 @@ export class ChiaCloudWalletClient {
         xchPaymentsCount: request.requested_payments.xch?.length || 0
       });
 
-      // Step 1: Create unsigned offer
-      const unsignedResult = await this.makeUnsignedNFTOffer(request);
-      if (!unsignedResult.success) {
-        throw new Error(`Failed to create unsigned offer: ${unsignedResult.error}`);
+      // The API now returns a signed offer directly from the create-offer endpoint
+      const offerResult = await this.makeUnsignedNFTOffer(request);
+      if (!offerResult.success) {
+        throw new Error(`Failed to create offer: ${offerResult.error}`);
       }
 
-      const unsignedOfferString = unsignedResult.data.data.unsigned_offer_string;
-      if (!unsignedOfferString) {
-        throw new Error('No unsigned offer string returned from API');
+      const signedOfferString = offerResult.data.offer_string;
+      if (!signedOfferString) {
+        throw new Error('No offer string returned from API');
       }
 
-      this.logInfo('Unsigned offer created successfully, proceeding to sign', {
-        offerLength: unsignedOfferString.length,
-        offerPrefix: unsignedOfferString.substring(0, 20) + '...'
+      this.logInfo('NFT offer created and signed successfully', {
+        offerLength: signedOfferString.length,
+        offerPrefix: signedOfferString.substring(0, 20) + '...'
       });
 
-      // Step 2: Sign the offer
-      const signedResult = await this.signOffer({ offer: unsignedOfferString });
-      if (!signedResult.success) {
-        throw new Error(`Failed to sign offer: ${signedResult.error}`);
-      }
+      // Return in the expected SignOfferResponse format
+      const signOfferResponse = {
+        success: true,
+        email: '', // API doesn't return email anymore
+        signed_offer: signedOfferString,
+        user_id: '' // API doesn't return user_id anymore
+      };
 
-      this.logInfo('NFT offer created and signed successfully');
-
-      return { success: true, data: signedResult.data };
+      return { success: true, data: signOfferResponse };
     } catch (error) {
       return {
         success: false,
@@ -957,7 +992,7 @@ export class ChiaCloudWalletClient {
           cats: [],
           xch: []
         },
-        nft_data: request.nft_data
+        nft_json: request.nft_json
       };
 
       // Convert CAT payments from addresses to puzzle hashes

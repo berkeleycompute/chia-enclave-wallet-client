@@ -660,7 +660,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
             amount: parseFloat(offerAmount)
           }]
         },
-        nft_data: baseNft
+        nft_json: baseNft
       };
 
       // Create the offer using the hook
