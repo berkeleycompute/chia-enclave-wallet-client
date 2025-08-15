@@ -21,6 +21,7 @@ export interface ChiaCloudWalletConfig {
   baseUrl?: string;
   jwtToken?: string;
   enableLogging?: boolean;
+  environment?: 'development' | 'production' | 'test';
 }
 
 export interface Coin {
@@ -291,11 +292,72 @@ export class ChiaCloudWalletClient {
   private baseUrl: string;
   private jwtToken?: string;
   private enableLogging: boolean;
+  private environment: 'development' | 'production' | 'test';
 
   constructor(config: ChiaCloudWalletConfig = {}) {
-    this.baseUrl = config.baseUrl || 'https://chia-enclave.silicon-dev.net';
+    this.environment = config.environment || this.detectEnvironment();
+    this.baseUrl = config.baseUrl || this.getBaseUrlForEnvironment();
     this.jwtToken = config.jwtToken;
     this.enableLogging = config.enableLogging ?? true;
+  }
+
+  /**
+   * Detect the current environment from Vite build variables or fallbacks
+   */
+  private detectEnvironment(): 'development' | 'production' | 'test' {
+    // Check for Vite environment variable (replaced at build time)
+    // Vite will replace process.env.VITE_ENV with the actual value during build
+    try {
+      // @ts-ignore - Vite may replace this at build time
+      const viteEnv = process?.env?.VITE_ENV;
+      if (typeof viteEnv === 'string') {
+        if (viteEnv === 'prod') return 'production';
+        if (viteEnv === 'dev') return 'development';
+        if (viteEnv === 'test') return 'test';
+      }
+    } catch {
+      // Ignore errors when process is not available
+    }
+
+    // Alternative: Check for global variable that consuming app might set
+    try {
+      // @ts-ignore - May be set by consuming application
+      const globalEnv = (globalThis as any).__VITE_ENV__ || (window as any).__VITE_ENV__;
+      if (typeof globalEnv === 'string') {
+        if (globalEnv === 'prod') return 'production';
+        if (globalEnv === 'dev') return 'development';
+        if (globalEnv === 'test') return 'test';
+      }
+    } catch {
+      // Ignore errors
+    }
+
+    // Fallback to hostname detection for development
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'development';
+      }
+    }
+    
+    // Default to test environment as requested
+    return 'test';
+  }
+
+  /**
+   * Get the base URL for the current environment
+   */
+  private getBaseUrlForEnvironment(): string {
+    switch (this.environment) {
+      case 'development':
+        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1';
+      case 'production':
+        return 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1';
+      case 'test':
+        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1'; // Original endpoints for test
+      default:
+        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1'; // Default to test
+    }
   }
 
   /**
@@ -344,6 +406,29 @@ export class ChiaCloudWalletClient {
    */
   getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  /**
+   * Get the current environment
+   */
+  getEnvironment(): 'development' | 'production' | 'test' {
+    return this.environment;
+  }
+
+  /**
+   * Set the environment and update base URL accordingly
+   */
+  setEnvironment(environment: 'development' | 'production' | 'test'): void {
+    this.environment = environment;
+    this.baseUrl = this.getBaseUrlForEnvironment();
+    this.logInfo(`Environment updated to: ${environment}, Base URL: ${this.baseUrl}`);
+  }
+
+  /**
+   * Get the correct endpoint path based on environment
+   */
+  private getEndpoint(testPath: string, prodPath: string): string {
+    return this.environment === 'test' ? testPath : prodPath;
   }
 
   /**
@@ -436,7 +521,8 @@ export class ChiaCloudWalletClient {
    */
   async healthCheck(): Promise<Result<HealthCheckResponse>> {
     try {
-      const result = await this.makeRequest<HealthCheckResponse>('/health', {
+      const endpoint = this.getEndpoint('/health', '/api/health');
+      const result = await this.makeRequest<HealthCheckResponse>(endpoint, {
         method: 'GET',
       }, false);
       return { success: true, data: result };
@@ -459,7 +545,8 @@ export class ChiaCloudWalletClient {
     console.log(`🔑 [${timestamp}] getPublicKey() called from: ${stack}`);
 
     try {
-      const result = await this.makeRequest<PublicKeyResponse>('/public-key', {
+      const endpoint = this.getEndpoint('/public-key', '/api/enclave/public-key');
+      const result = await this.makeRequest<PublicKeyResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
       });
@@ -480,7 +567,8 @@ export class ChiaCloudWalletClient {
    */
   async exportMnemonic(): Promise<Result<MnemonicResponse>> {
     try {
-      const result = await this.makeRequest<MnemonicResponse>('/mnemonic', {
+      const endpoint = this.getEndpoint('/mnemonic', '/api/enclave/export-mnemonic');
+      const result = await this.makeRequest<MnemonicResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
       });
@@ -515,7 +603,8 @@ export class ChiaCloudWalletClient {
         };
       }
 
-      const result = await this.makeRequest<SignedSpendBundleResponse>('/wallet/transaction/sign', {
+      const endpoint = this.getEndpoint('/wallet/transaction/sign', '/api/enclave/sign-spendbundle');
+      const result = await this.makeRequest<SignedSpendBundleResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
@@ -567,7 +656,8 @@ export class ChiaCloudWalletClient {
    */
   async getUnspentHydratedCoins(address: string): Promise<Result<UnspentHydratedCoinsResponse>> {
     try {
-      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/wallet/unspent-hydrated-coins/${address}`, {
+      const endpoint = this.getEndpoint(`/wallet/unspent-hydrated-coins/${address}`, `/api/wallet/hydrated-coins/${address}`);
+      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(endpoint, {
         method: 'GET',
       }, false);
       return { success: true, data: result };
@@ -880,7 +970,8 @@ export class ChiaCloudWalletClient {
         coin: normalizeCoin(coinSpend.coin)
       }));
 
-      const result = await this.makeRequest<BroadcastResponse>('/wallet/transaction/broadcast', {
+      const endpoint = this.getEndpoint('/wallet/transaction/broadcast', '/api/broadcast');
+      const result = await this.makeRequest<BroadcastResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           coinSpends: normalizedCoinSpends,
