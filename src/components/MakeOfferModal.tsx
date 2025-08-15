@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient';
 import { bech32m } from 'bech32';
 import { 
@@ -63,7 +63,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   // wUSDC.b asset ID
   const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
 
-  const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
+  const [selectedNft, setSelectedNft] = useState<EnrichedNftCoin | null>(null);
   const [offerAmount, setOfferAmount] = useState(initialOfferAmount || '');
   const [depositAddress, setDepositAddress] = useState(initialDepositAddress || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,23 +71,37 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [step, setStep] = useState<'select-nft' | 'confirm'>('select-nft');
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const hasRefreshedOnOpen = useRef(false);
+  const hasUserSelectedNft = useRef(false);
 
-  // Initialize selectedNft when modal opens with a pre-selected NFT and handle initial values
+  // Handle modal opening/closing and initial setup
   useEffect(() => {
-    if (isOpen && initialSelectedNft) {
-      setSelectedNft(initialSelectedNft);
-      setStep('confirm'); // Skip NFT selection step if NFT is pre-selected
-    } else if (isOpen && !initialSelectedNft) {
-      // Reset to selection step when opening without pre-selected NFT
-      setStep('select-nft');
-      setSelectedNft(null);
-    }
+    console.log('🔄 Modal state useEffect triggered:', { 
+      isOpen, 
+      hasInitialSelectedNft: !!initialSelectedNft, 
+      currentStep: step,
+      hasSelectedNft: !!selectedNft,
+      hasUserSelectedNft: hasUserSelectedNft.current
+    });
     
-    // Update initial values when modal opens
     if (isOpen) {
+      // Update initial values when modal opens
       setOfferAmount(initialOfferAmount || '');
       setDepositAddress(initialDepositAddress || (address || ''));
       setError(null);
+      
+      // Handle initial NFT selection
+      if (initialSelectedNft) {
+        console.log('🎯 Setting up initial selected NFT');
+        // Enrich the initial selected NFT with Spacescan data
+        const enrichedInitialNft = enrichNftWithSpacescanData(initialSelectedNft);
+        setSelectedNft(enrichedInitialNft);
+        setStep('confirm'); // Skip NFT selection step if NFT is pre-selected
+      } else if (!hasUserSelectedNft.current) {
+        console.log('🔄 Resetting to select-nft step (no user selection yet)');
+        // Only reset to selection step if user hasn't manually selected an NFT
+        setStep('select-nft');
+        setSelectedNft(null);
+      }
       
       // Refresh hydrated coins when modal opens for the first time only
       if (!hasRefreshedOnOpen.current) {
@@ -95,10 +109,20 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         refreshCoins();
       }
     } else {
-      // Reset the refresh flag when modal closes
+      // Reset flags when modal closes
       hasRefreshedOnOpen.current = false;
+      hasUserSelectedNft.current = false;
     }
-  }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address, refreshCoins]);
+  }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address]);
+
+  // Separate effect for spacescan data updates
+  useEffect(() => {
+    if (isOpen && initialSelectedNft && spacescanNfts) {
+      console.log('🔄 Spacescan data updated, re-enriching initial NFT');
+      const enrichedInitialNft = enrichNftWithSpacescanData(initialSelectedNft);
+      setSelectedNft(enrichedInitialNft);
+    }
+  }, [spacescanNfts, isOpen, initialSelectedNft]);
 
   // Helper function to get launcher ID from HydratedCoin
   const getLauncherId = (nft: HydratedCoin): string | null => {
@@ -146,7 +170,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   };
 
   // Use NFT coins from wallet as the primary NFT source, enriched with Spacescan data
-  const nftCoinsToDisplay = nftCoins.map(enrichNftWithSpacescanData);
+  const nftCoinsToDisplay = useMemo(() => {
+    return nftCoins.map(enrichNftWithSpacescanData);
+  }, [nftCoins, spacescanNfts]);
 
   // Auto-populate deposit address with main wallet address
   useEffect(() => {
@@ -505,7 +531,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   // Event handlers
   const selectNft = (nft: EnrichedNftCoin) => {
-    console.log('NFT selected:', {
+    console.log('🎯 NFT selected:', {
       nft: nft,
       displayName: getNftDisplayName(nft),
       collectionName: getNftCollectionName(nft),
@@ -515,9 +541,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       metadata: getNftMetadata(nft)
     });
     
-    // Store the base HydratedCoin for the offer creation
-    const { spacescanData, ...baseNft } = nft;
-    setSelectedNft(baseNft);
+    console.log('🔄 Setting selectedNft and step to confirm');
+    // Mark that user has manually selected an NFT
+    hasUserSelectedNft.current = true;
+    
+    // Store the enriched NFT for display purposes
+    setSelectedNft(nft);
     setStep('confirm');
   };
 
@@ -527,6 +556,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setSelectedNft(null);
       setOfferAmount('');
       setDepositAddress(address || '');
+      // Reset the user selection flag when going back
+      hasUserSelectedNft.current = false;
     }
   };
 
@@ -617,6 +648,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     setError(null);
 
     try {
+      // Extract the base HydratedCoin from the enriched NFT for the API call
+      const { spacescanData, ...baseNft } = selectedNft;
+      
       // Use the SDK hook to create the offer
       const simpleOfferRequest: SimpleMakeUnsignedNFTOfferRequest = {
         requested_payments: {
@@ -626,7 +660,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
             amount: parseFloat(offerAmount)
           }]
         },
-        nft_data: selectedNft
+        nft_data: baseNft
       };
 
       // Create the offer using the hook
@@ -636,9 +670,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         throw new Error(result.error);
       }
 
-      // Prepare the offer data
+      // Prepare the offer data using the base NFT
       const offerData = {
-        nft: selectedNft,
+        nft: baseNft,
         amount: parseFloat(offerAmount),
         depositAddress: depositAddress,
         wusdcAssetId: WUSDC_ASSET_ID,
