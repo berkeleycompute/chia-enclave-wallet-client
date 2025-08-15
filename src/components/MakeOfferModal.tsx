@@ -7,7 +7,7 @@ import {
   useWalletState,
   useNFTOffers
 } from '../hooks/useChiaWalletSDK';
-import { useSpacescanNFTs, type SpacescanNFT } from '../client/SpacescanClient';
+
 import { injectModalStyles } from './modal-styles';
 import { SavedOffer } from './types';
 
@@ -38,12 +38,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const { syntheticPublicKey } = walletState;
   const { createNFTOffer, isCreatingOffer } = useNFTOffers();
   
-  // Use Spacescan for NFTs
-  const { 
-    nfts: spacescanNfts, 
-    loading: nftsLoading, 
-    error: nftsError 
-  } = useSpacescanNFTs(address);
+
   
   // Inject shared modal styles
   React.useEffect(() => {
@@ -57,7 +52,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   // wUSDC.b asset ID
   const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
 
-  const [selectedNft, setSelectedNft] = useState<SpacescanNFT | HydratedCoin | null>(null);
+  const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
   const [offerAmount, setOfferAmount] = useState(initialOfferAmount || '');
   const [depositAddress, setDepositAddress] = useState(initialDepositAddress || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,8 +79,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     }
   }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address]);
 
-  // Use Spacescan NFTs as the primary NFT source
-  const nftCoinsToDisplay = spacescanNfts;
+  // Filter hydrated coins to get only NFTs
+  const nftCoinsToDisplay = hydratedCoins.filter(coin => 
+    coin.parentSpendInfo?.driverInfo?.type === 'NFT'
+  );
 
   // Auto-populate deposit address with main wallet address
   useEffect(() => {
@@ -223,14 +220,11 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     }
   }, [nftMetadata, loadingMetadata, fetchNftMetadata, getCachedNftMetadata, setCachedNftMetadata]);
 
-  // Load metadata for all NFT coins when they change (only for HydratedCoins)
+  // Load metadata for all NFT coins when they change
   useEffect(() => {
     if (nftCoinsToDisplay.length > 0) {
-      nftCoinsToDisplay.forEach((nft: SpacescanNFT | HydratedCoin) => {
-        // Only load metadata for HydratedCoins, Spacescan NFTs already have metadata
-        if (!('nft_id' in nft)) {
-          loadNftMetadata(nft);
-        }
+      nftCoinsToDisplay.forEach((nft: HydratedCoin) => {
+        loadNftMetadata(nft);
       });
     }
   }, [nftCoinsToDisplay, loadNftMetadata]);
@@ -256,13 +250,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return url;
   };
 
-  const getNftMetadata = (nft: SpacescanNFT | HydratedCoin): any => {
-    // Handle Spacescan NFT format
-    if ('nft_id' in nft) {
-      return nft.metadata || null;
-    }
-    
-    // Handle HydratedCoin format (legacy)
+  const getNftMetadata = (nft: HydratedCoin): any => {
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return null;
@@ -273,13 +261,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return nftMetadata.get(cacheKey);
   };
 
-  const isNftMetadataLoading = (nft: SpacescanNFT | HydratedCoin): boolean => {
-    // Spacescan NFTs don't need metadata loading since they come with metadata
-    if ('nft_id' in nft) {
-      return false;
-    }
-    
-    // Handle HydratedCoin format (legacy)
+  const isNftMetadataLoading = (nft: HydratedCoin): boolean => {
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return false;
@@ -290,24 +272,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return loadingMetadata.has(cacheKey);
   };
 
-  const getNftDisplayName = (nft: SpacescanNFT | HydratedCoin): string => {
-    // Handle Spacescan NFT format - prioritize name from Spacescan
-    if ('nft_id' in nft) {
-      if (nft.name) {
-        return nft.name;
-      }
-      const metadata = getNftMetadata(nft);
-      if (metadata?.name) {
-        return metadata.name;
-      }
-      // Check for edition info
-      if (nft.edition_number && nft.edition_total) {
-        return `NFT Edition ${nft.edition_number}/${nft.edition_total}`;
-      }
-      return nft.nft_id.slice(0, 16) + '...';
-    }
-    
-    // Handle HydratedCoin format (legacy)
+  const getNftDisplayName = (nft: HydratedCoin): string => {
     const metadata = getNftMetadata(nft);
     if (metadata?.name) {
       return metadata.name;
@@ -325,23 +290,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return 'Unknown NFT';
   };
 
-  const getNftCollectionName = (nft: SpacescanNFT | HydratedCoin): string => {
-    // Handle Spacescan NFT format
-    if ('nft_id' in nft) {
-      if (nft.collection_name) {
-        return nft.collection_name;
-      }
-      const metadata = getNftMetadata(nft);
-      if (metadata?.collection?.name) {
-        return metadata.collection.name;
-      }
-      if (nft.collection_id) {
-        return nft.collection_id;
-      }
-      return nft.nft_id.slice(0, 16) + '...';
-    }
-    
-    // Handle HydratedCoin format (legacy)
+  const getNftCollectionName = (nft: HydratedCoin): string => {
     const metadata = getNftMetadata(nft);
     if (metadata?.collection?.name) {
       return metadata.collection.name;
@@ -355,20 +304,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return 'Unknown Collection';
   };
 
-  const getNftEditionInfo = (nft: SpacescanNFT | HydratedCoin): string | undefined => {
-    // Handle Spacescan NFT format
-    if ('nft_id' in nft) {
-      if (nft.edition_number && nft.edition_total) {
-        return `#${nft.edition_number} of ${nft.edition_total}`;
-      }
-      const metadata = getNftMetadata(nft);
-      if (metadata?.series_number && metadata?.series_total) {
-        return `#${metadata.series_number} of ${metadata.series_total}`;
-      }
-      return undefined;
-    }
-    
-    // Handle HydratedCoin format (legacy)
+  const getNftEditionInfo = (nft: HydratedCoin): string | undefined => {
     const metadata = getNftMetadata(nft);
     if (metadata?.series_number && metadata?.series_total) {
       return `#${metadata.series_number} of ${metadata.series_total}`;
@@ -382,13 +318,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return `chia_active_offers_${pubKey.substring(0, 16)}`;
   }, []);
 
-  const getNftImageUrl = useCallback((nft: SpacescanNFT | HydratedCoin): string | undefined => {
-    // Handle Spacescan NFT format - prioritize preview_url from Spacescan
-    if ('nft_id' in nft) {
-      return `https://edge.silicon-dev.net/spacescan/mintgarden/nfts/${nft.nft_id}/thumbnail`
-    }
-    
-    // Handle HydratedCoin format (legacy)
+  const getNftImageUrl = useCallback((nft: HydratedCoin): string | undefined => {
     const metadata = getNftMetadata(nft);
     if (metadata?.data_uris && metadata.data_uris.length > 0) {
       return metadata.data_uris[0];
@@ -456,7 +386,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   }, [address, getOffersStorageKey, getNftMetadata, getNftDisplayName, getNftCollectionName, getNftEditionInfo, getNftImageUrl]);
 
   // Event handlers
-  const selectNft = (nft: SpacescanNFT | HydratedCoin) => {
+  const selectNft = (nft: HydratedCoin) => {
     setSelectedNft(nft);
     setStep('confirm');
   };
@@ -706,12 +636,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               {nftCoinsToDisplay.length === 0 ? (
                 <div className="no-items">
                   <p>No NFTs found in your wallet</p>
-                  {nftsLoading && <p>Loading NFTs from Spacescan...</p>}
-                  {nftsError && <p>Error loading NFTs: {nftsError}</p>}
                 </div>
               ) : (
                 <div className="nft-grid">
-                  {nftCoinsToDisplay.map((nft: SpacescanNFT | HydratedCoin, index: number) => {
+                  {nftCoinsToDisplay.map((nft: HydratedCoin, index: number) => {
                     const metadata = getNftMetadata(nft);
                     const isLoading = isNftMetadataLoading(nft);
                     const editionInfo = getNftEditionInfo(nft);
