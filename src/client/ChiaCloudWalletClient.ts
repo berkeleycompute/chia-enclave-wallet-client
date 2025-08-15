@@ -22,6 +22,8 @@ export interface ChiaCloudWalletConfig {
   jwtToken?: string;
   enableLogging?: boolean;
   environment?: 'development' | 'production' | 'test';
+  // Flag to disable environment-based URL detection and use explicit baseUrl
+  disableEnvironmentDetection?: boolean;
 }
 
 export interface Coin {
@@ -296,9 +298,23 @@ export class ChiaCloudWalletClient {
 
   constructor(config: ChiaCloudWalletConfig = {}) {
     this.environment = config.environment || this.detectEnvironment();
-    this.baseUrl = config.baseUrl || this.getBaseUrlForEnvironment();
+    
+    // Prioritize environment detection unless explicitly disabled
+    if (config.disableEnvironmentDetection && config.baseUrl) {
+      // Use explicit baseUrl when environment detection is disabled
+      this.baseUrl = config.baseUrl;
+    } else {
+      // Always use environment-based URL detection by default
+      this.baseUrl = this.getBaseUrlForEnvironment();
+    }
+    
     this.jwtToken = config.jwtToken;
     this.enableLogging = config.enableLogging ?? true;
+    
+    // Log the final configuration for debugging
+    if (this.enableLogging) {
+      console.log(`[ChiaCloudWalletClient] Initialized with environment: ${this.environment}, baseUrl: ${this.baseUrl}, disableEnvDetection: ${config.disableEnvironmentDetection}`);
+    }
   }
 
   /**

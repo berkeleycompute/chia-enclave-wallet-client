@@ -105,8 +105,8 @@ export class ChiaWalletSDK {
     this.client = new ChiaCloudWalletClient({
       baseUrl: this.config.baseUrl,
       jwtToken: this.config.jwtToken,
-      enableLogging: this.config.enableLogging
-
+      enableLogging: this.config.enableLogging,
+      environment: this.config.environment
     });
 
     // Initialize state
