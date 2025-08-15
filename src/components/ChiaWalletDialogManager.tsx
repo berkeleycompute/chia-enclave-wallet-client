@@ -177,7 +177,7 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         // Load hydrated coins
         const hydratedResult = await this.client.getUnspentHydratedCoins(address);
         if (hydratedResult.success) {
-          const hydratedCoins = hydratedResult.data;
+          const hydratedCoins = hydratedResult.data.data;
           const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
           this.setState({ hydratedCoins, unspentCoins });
         }

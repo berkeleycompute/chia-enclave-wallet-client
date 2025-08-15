@@ -182,7 +182,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         console.log('GlobalDialogProvider: Fetching hydrated coins...');
         const hydratedResult = await clientRef.current.getUnspentHydratedCoins(address);
         if (hydratedResult.success) {
-          const hydratedCoins = hydratedResult.data;
+          const hydratedCoins = hydratedResult.data.data;
           const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
 
           setWalletState(prev => ({
