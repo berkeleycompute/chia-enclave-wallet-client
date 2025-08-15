@@ -464,7 +464,7 @@ export class ChiaCloudWalletClient {
     options: RequestInit = {},
     requireAuth: boolean = true
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = endpoint.includes('https://') ? endpoint : `${this.baseUrl}${endpoint}`;
 
     try {
       const headers: any = {
@@ -685,7 +685,7 @@ export class ChiaCloudWalletClient {
      // const endpoint = this.getEndpoint(`/wallet/unspent-hydrated-coins/${address}`, `/api/wallet/hydrated-coins/${address}`);
       const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`https://edge.silicon-dev.net/chia/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
         method: 'GET',
-      });
+      }, false);
       
       // Normalize the response to handle different formats between environments
       const normalizedCoins = this.normalizeHydratedCoinsResponse(result);
