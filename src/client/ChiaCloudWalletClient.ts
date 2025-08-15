@@ -749,8 +749,8 @@ export class ChiaCloudWalletClient {
         xchPaymentsCount: request.requested_payments.xch?.length || 0
       });
 
-      const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
-      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>(endpoint, {
+    //  const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
+      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_unsigned_offer/create-offer', {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
