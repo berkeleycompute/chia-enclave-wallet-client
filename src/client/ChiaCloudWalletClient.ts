@@ -441,19 +441,37 @@ export class ChiaCloudWalletClient {
    * Normalize UnspentHydratedCoinsResponse to handle different response formats between environments
    */
   private normalizeHydratedCoinsResponse(response: UnspentHydratedCoinsResponse): HydratedCoin[] {
-    // Check if data is directly an array (production/development format)
+    let rawCoins: any[] = [];
+    
+    // Check if data is directly an array (this is the actual format from the edge endpoint)
     if (Array.isArray(response.data)) {
-      return response.data;
+      rawCoins = response.data;
+    }
+    // Check if data has nested data property (legacy format)
+    else if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      rawCoins = (response.data as { data: any[] }).data;
+    }
+    else {
+      // Fallback to empty array if structure is unexpected
+      console.warn('Unexpected hydrated coins response structure:', response);
+      return [];
     }
     
-    // Check if data has nested data property (test format)
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      return (response.data as { data: HydratedCoin[] }).data;
-    }
-    
-    // Fallback to empty array if structure is unexpected
-    console.warn('Unexpected hydrated coins response structure:', response);
-    return [];
+    // Normalize each coin to ensure consistent types
+    return rawCoins.map((coin: any) => ({
+      ...coin,
+      coin: {
+        ...coin.coin,
+        amount: String(coin.coin.amount) // Ensure amount is always a string
+      },
+      parentSpendInfo: {
+        ...coin.parentSpendInfo,
+        coin: {
+          ...coin.parentSpendInfo.coin,
+          amount: String(coin.parentSpendInfo.coin.amount) // Ensure amount is always a string
+        }
+      }
+    }));
   }
 
   /**
@@ -687,8 +705,24 @@ export class ChiaCloudWalletClient {
         method: 'GET',
       }, false);
       
+      // Debug logging to track the response structure
+      console.log('🔍 Raw hydrated coins response:', {
+        success: result.success,
+        dataType: typeof result.data,
+        isArray: Array.isArray(result.data),
+        dataLength: Array.isArray(result.data) ? result.data.length : 'N/A'
+      });
+      
       // Normalize the response to handle different formats between environments
       const normalizedCoins = this.normalizeHydratedCoinsResponse(result);
+      
+      console.log('✅ Normalized hydrated coins:', {
+        count: normalizedCoins.length,
+        firstCoin: normalizedCoins[0] ? {
+          coinId: normalizedCoins[0].coin?.parentCoinInfo?.substring(0, 10) + '...',
+          driverType: normalizedCoins[0].parentSpendInfo?.driverInfo?.type
+        } : null
+      });
       
       // Return consistent format with normalized data
       const normalizedResponse: UnspentHydratedCoinsResponse = {
