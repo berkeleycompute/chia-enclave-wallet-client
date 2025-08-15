@@ -305,31 +305,18 @@ export class ChiaCloudWalletClient {
    * Detect the current environment from Vite build variables or fallbacks
    */
   private detectEnvironment(): 'development' | 'production' | 'test' {
-    // Check for Vite environment variable (replaced at build time)
-    // Vite will replace process.env.VITE_ENV with the actual value during build
+    // Check for Vite environment variable (available at build time)
+    // Vite will replace import.meta.env.VITE_ENV with the actual value during build
     try {
-      // @ts-ignore - Vite may replace this at build time
-      const viteEnv = process?.env?.VITE_ENV;
+      // @ts-ignore - import.meta.env is available in Vite environments
+      const viteEnv = (import.meta.env.VITE_ENV as string);
       if (typeof viteEnv === 'string') {
         if (viteEnv === 'prod') return 'production';
         if (viteEnv === 'dev') return 'development';
         if (viteEnv === 'test') return 'test';
       }
     } catch {
-      // Ignore errors when process is not available
-    }
-
-    // Alternative: Check for global variable that consuming app might set
-    try {
-      // @ts-ignore - May be set by consuming application
-      const globalEnv = (globalThis as any).__VITE_ENV__ || (window as any).__VITE_ENV__;
-      if (typeof globalEnv === 'string') {
-        if (globalEnv === 'prod') return 'production';
-        if (globalEnv === 'dev') return 'development';
-        if (globalEnv === 'test') return 'test';
-      }
-    } catch {
-      // Ignore errors
+      // Ignore errors when import.meta.env is not available
     }
 
     // Fallback to hostname detection for development
