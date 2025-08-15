@@ -310,6 +310,7 @@ export class ChiaCloudWalletClient {
     try {
       // @ts-ignore - import.meta.env is available in Vite environments
       const viteEnv = (import.meta.env.VITE_ENV as string);
+      console.log('!!!!!!!!!!!! Vite Env:', viteEnv);
       if (typeof viteEnv === 'string') {
         if (viteEnv === 'prod') return 'production';
         if (viteEnv === 'dev') return 'development';
