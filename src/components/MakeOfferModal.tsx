@@ -33,7 +33,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 }) => {
   // Get wallet state from hooks (using same pattern as other modals)
   const { address, isConnected } = useWalletConnection();
-  const { hydratedCoins, nftCoins, refresh: refreshCoins } = useWalletCoins();
+  const { hydratedCoins, nftCoins, refresh: refreshCoins } = useWalletCoins ();
   const walletState = useWalletState();
   const { syntheticPublicKey } = walletState;
   const { createNFTOffer, isCreatingOffer } = useNFTOffers();
@@ -45,9 +45,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     error: nftsError 
   } = useSpacescanNFTs(address);
 
-  console.log('spacescanNfts', spacescanNfts);
+  /* console.log('spacescanNfts', spacescanNfts);
   console.log('nftCoins', nftCoins);
-  console.log('hydratedCoins', hydratedCoins);
+  console.log('hydratedCoins', hydratedCoins); */
   
   
   
@@ -112,13 +112,34 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   // Type for enriched NFT coin
   type EnrichedNftCoin = HydratedCoin & { spacescanData?: SpacescanNFT };
 
+  // Helper function to convert launcher ID to bech32 NFT ID
+  const launcherIdToNftId = (launcherId: string): string => {
+    try {
+      // Remove '0x' prefix if present and ensure lowercase
+      const cleanLauncherId = launcherId.replace(/^0x/, '').toLowerCase();
+      
+      // Convert hex string to Uint8Array
+      const bytes = new Uint8Array(cleanLauncherId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+      
+      // Use bech32.toWords to convert to 5-bit words, then encode
+      const words = bech32m.toWords(bytes);
+      return bech32m.encode("nft", words);
+    } catch (error) {
+      console.error('Error converting launcher ID to NFT ID:', error, 'launcher ID:', launcherId);
+      return '';
+    }
+  };
+
   // Helper function to enrich HydratedCoin with Spacescan metadata
   const enrichNftWithSpacescanData = (nft: HydratedCoin): EnrichedNftCoin => {
     const launcherId = getLauncherId(nft);
     if (launcherId && spacescanNfts) {
-      const spacescanNft = spacescanNfts.find(sNft => sNft.nft_id === bech32m.encode("nft", Uint8Array.from(launcherId.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))));
-      if (spacescanNft) {
-        return { ...nft, spacescanData: spacescanNft };
+      const nftId = launcherIdToNftId(launcherId);
+      if (nftId) {
+        const spacescanNft = spacescanNfts.find(sNft => sNft.nft_id === nftId);
+        if (spacescanNft) {
+          return { ...nft, spacescanData: spacescanNft };
+        }
       }
     }
     return nft;
@@ -484,6 +505,16 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   // Event handlers
   const selectNft = (nft: EnrichedNftCoin) => {
+    console.log('NFT selected:', {
+      nft: nft,
+      displayName: getNftDisplayName(nft),
+      collectionName: getNftCollectionName(nft),
+      editionInfo: getNftEditionInfo(nft),
+      launcherId: getLauncherId(nft),
+      spacescanData: nft.spacescanData,
+      metadata: getNftMetadata(nft)
+    });
+    
     // Store the base HydratedCoin for the offer creation
     const { spacescanData, ...baseNft } = nft;
     setSelectedNft(baseNft);
