@@ -295,7 +295,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       }
 
       // Filter only NFTs
-      const nftCoins = result.data.data.filter(coin =>
+      const nftCoins = result.data.data.filter((coin: HydratedCoin) =>
         coin.parentSpendInfo?.driverInfo?.type === 'NFT'
       );
 

@@ -194,6 +194,7 @@ export interface HydratedCoin {
 
 export interface UnspentHydratedCoinsResponse {
   success: boolean;
+  // Always normalized to be directly the array after processing
   data: HydratedCoin[];
 }
 
@@ -437,6 +438,25 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Normalize UnspentHydratedCoinsResponse to handle different response formats between environments
+   */
+  private normalizeHydratedCoinsResponse(response: UnspentHydratedCoinsResponse): HydratedCoin[] {
+    // Check if data is directly an array (production/development format)
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    // Check if data has nested data property (test format)
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      return (response.data as { data: HydratedCoin[] }).data;
+    }
+    
+    // Fallback to empty array if structure is unexpected
+    console.warn('Unexpected hydrated coins response structure:', response);
+    return [];
+  }
+
+  /**
    * Make an authenticated API request with enhanced error handling
    */
   private async makeRequest<T>(
@@ -666,7 +686,17 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<UnspentHydratedCoinsResponse>(endpoint, {
         method: 'GET',
       });
-      return { success: true, data: result };
+      
+      // Normalize the response to handle different formats between environments
+      const normalizedCoins = this.normalizeHydratedCoinsResponse(result);
+      
+      // Return consistent format with normalized data
+      const normalizedResponse: UnspentHydratedCoinsResponse = {
+        success: result.success,
+        data: normalizedCoins
+      };
+      
+      return { success: true, data: normalizedResponse };
     } catch (error) {
       return {
         success: false,

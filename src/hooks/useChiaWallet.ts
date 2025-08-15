@@ -275,7 +275,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       try {
         const hydratedResult = await client.getUnspentHydratedCoins(address);
         if (hydratedResult.success) {
-          hydratedCoins = hydratedResult.data.data;
+          hydratedCoins = hydratedResult.data;
           unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
           coinCount = unspentCoins.length;
 
@@ -399,7 +399,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       const hydratedResult = await client.getUnspentHydratedCoins(state.address);
 
       if (hydratedResult.success) {
-        const hydratedCoins = hydratedResult.data.data;
+        const hydratedCoins = hydratedResult.data;
         const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
         let balance = 0;
 

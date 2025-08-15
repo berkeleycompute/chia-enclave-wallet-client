@@ -200,7 +200,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
         throw new Error(result.error);
       }
 
-      const balanceBreakdown = calculateBalanceBreakdown(result.data.data);
+      const balanceBreakdown = calculateBalanceBreakdown(result.data);
       setBalance(balanceBreakdown);
       setLastUpdate(Date.now());
       setLoading(false);

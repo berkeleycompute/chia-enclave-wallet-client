@@ -124,7 +124,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
         throw new Error(coinsResult.error);
       }
 
-      const hydratedCoins = coinsResult.data.data;
+      const hydratedCoins = coinsResult.data;
       const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
       const balance = unspentCoins.reduce((sum, coin) => sum + parseInt(coin.amount), 0);
 
@@ -160,7 +160,7 @@ export const ChiaWalletProvider: React.FC<ChiaWalletProviderProps> = ({
         throw new Error(coinsResult.error);
       }
 
-      const hydratedCoins = coinsResult.data.data;
+      const hydratedCoins = coinsResult.data;
       const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
       const balance = unspentCoins.reduce((sum, coin) => sum + parseInt(coin.amount), 0);
 
