@@ -335,6 +335,7 @@ export class ChiaCloudWalletClient {
    * Get the base URL for the current environment
    */
   private getBaseUrlForEnvironment(): string {
+    console.log('!!!!!!!!!!!! Environment:', this.environment);
     switch (this.environment) {
       case 'development':
         return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1';
