@@ -913,7 +913,7 @@ export class ChiaCloudWalletClient {
         throw new Error(`Failed to create unsigned offer: ${unsignedResult.error}`);
       }
 
-      const unsignedOfferString = unsignedResult.data.data?.unsigned_offer_string;
+      const unsignedOfferString = unsignedResult.data.data.unsigned_offer_string;
       if (!unsignedOfferString) {
         throw new Error('No unsigned offer string returned from API');
       }

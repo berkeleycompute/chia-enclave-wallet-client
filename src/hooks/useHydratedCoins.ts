@@ -95,7 +95,7 @@ export function useHydratedCoins(config: UseHydratedCoinsConfig = {}): HydratedC
           throw new Error(hydratedResult.error);
         }
 
-        const hydratedCoins = hydratedResult.data;
+        const hydratedCoins = hydratedResult.data.data;
         const unspentCoins = ChiaCloudWalletClient.extractCoinsFromHydratedCoins(hydratedCoins);
 
         // Calculate balance
