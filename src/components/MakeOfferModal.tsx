@@ -553,6 +553,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       return;
     }
 
+    console.log('!!!!!!!!!!!! selectedNft:', selectedNft);
+
     // For now, only allow offers with HydratedCoins (local wallet NFTs)
     if ('nft_id' in selectedNft) {
       setError('Creating offers for Spacescan NFTs is not yet supported. Please select an NFT from your local wallet.');
