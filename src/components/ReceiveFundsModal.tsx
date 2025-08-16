@@ -65,10 +65,12 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
     }
   };
 
+  /*
   const formatAddress = (address: string): string => {
     if (!address) return '';
     return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
   };
+  */
 
   if (!isOpen) return null;
 

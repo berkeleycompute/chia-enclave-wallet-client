@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
 import {
   type WalletState,
@@ -7,8 +7,7 @@ import {
 } from '../client/ChiaWalletSDK';
 import {
   type SendXCHRequest,
-  type SimpleMakeUnsignedNFTOfferRequest,
-  type HydratedCoin
+  type SimpleMakeUnsignedNFTOfferRequest
 } from '../client/ChiaCloudWalletClient';
 import { UnifiedWalletState } from '../components/types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';

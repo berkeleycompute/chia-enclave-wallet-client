@@ -285,13 +285,13 @@ class DebouncedRequestManager {
 }
 
 export class SpacescanClient {
-  private apiKey: string;
+  // private apiKey: string;
   private baseUrl: string;
   private timeout: number;
   private requestManager: DebouncedRequestManager;
 
   constructor(config: SpacescanConfig) {
-    this.apiKey = config.apiKey;
+    // this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || 'https://edge.silicon-dev.net/spacescan';
     this.timeout = config.timeout || 10000; // 10 seconds
     this.requestManager = new DebouncedRequestManager();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { ChiaCloudWalletClient, type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient';
+import { type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient';
 import { bech32m } from 'bech32';
 import { 
   useWalletConnection, 
@@ -32,8 +32,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   initialDepositAddress
 }) => {
   // Get wallet state from hooks (using same pattern as other modals)
-  const { address, isConnected } = useWalletConnection();
-  const { hydratedCoins, nftCoins, refresh: refreshCoins } = useWalletCoins ();
+  const { address } = useWalletConnection();
+  const { nftCoins, refresh: refreshCoins } = useWalletCoins ();
   const walletState = useWalletState();
   const { syntheticPublicKey } = walletState;
   const { createNFTOffer, isCreatingOffer } = useNFTOffers();
@@ -806,7 +806,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               ) : (
                 <div className="nft-grid">
                   {nftCoinsToDisplay.map((nft: EnrichedNftCoin, index: number) => {
-                    const metadata = getNftMetadata(nft);
+                    // const metadata = getNftMetadata(nft);
                     const isLoading = isNftMetadataLoading(nft);
                     const editionInfo = getNftEditionInfo(nft);
                     

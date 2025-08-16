@@ -1,6 +1,6 @@
 import React, { useState, useCallback, createContext, useContext } from 'react';
 import { HydratedCoin } from '../client/ChiaCloudWalletClient';
-import { SavedOffer } from '../components/types';
+// import { SavedOffer } from '../components/types';
 
 // Central dialog state type
 export type DialogType = 

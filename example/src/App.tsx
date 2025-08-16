@@ -20,7 +20,7 @@ import {
   useMakeOfferDialog,
   useOffersDialog,
   useNFTDetailsDialog,
-  useGlobalDialogs,
+  // useGlobalDialogs,
 } from '../../src/components/GlobalDialogProvider';
 
 // Import types
@@ -345,7 +345,7 @@ const DialogsView: React.FC<{
   const nftDetailsDialog = useNFTDetailsDialog();
   
   // Get access to dialog states from the main context
-  const globalDialogs = useGlobalDialogs();
+  // const globalDialogs = useGlobalDialogs();
   
   // Get address directly from SDK state (available before full connection)
   const address = walletClient.sdk.walletState.address;
@@ -657,11 +657,13 @@ const CoinsView: React.FC<{
     }
   };
 
+  /*
   const formatCoinId = (coin: any): string => {
     if (!coin.coin) return 'N/A';
     const { parentCoinInfo, puzzleHash, amount } = coin.coin;
     return `${parentCoinInfo?.substring(0, 8)}...${puzzleHash?.substring(0, 8)}...${amount}`;
   };
+  */
 
   const getCoinType = (coin: any): string => {
     const driverInfo = coin.parentSpendInfo?.driverInfo;

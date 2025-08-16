@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { PiHandCoins, PiCaretRight } from "react-icons/pi";
+import { PiHandCoins } from "react-icons/pi";
 import { 
   useWalletConnection, 
   useWalletBalance, 
   useWalletCoins,
-  useSendTransaction,
+  // useSendTransaction,
   useUnifiedWalletClient
 } from '../hooks/useChiaWalletSDK';
-import { SentTransaction, SavedOffer } from './types';
+import { SentTransaction } from './types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
 import { 
   useSpacescanNFTs, 
@@ -61,7 +61,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const actualWalletClient = walletClient || hookWalletClient;
   
   // Extract values for easier access
-  const { sdk, walletState } = actualWalletClient;
+  const { walletState } = actualWalletClient;
   
   // Still need hooks for connection methods and balance operations
   const hookConnection = useWalletConnection();
@@ -83,9 +83,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const {
     isConnected,
     address,
-    totalBalance,
     coinCount,
-    formattedBalance,
     error,
     isConnecting = false,
   } = walletState;
@@ -99,10 +97,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // Use Spacescan for NFTs and balance
   const { 
     nfts: spacescanNfts, 
-    loading: nftsLoading, 
-    error: nftsError,
-    count: nftCount,
-    refetch: refetchNfts
+        loading: _nftsLoading,
+    error: _nftsError,
+    count: _nftCount,
+    refetch: _refetchNfts
   } = useSpacescanNFTs(address);
   
   // Use Spacescan for balance display
@@ -238,7 +236,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return undefined;
   };
 
-  const { sendXCH, isSending } = useSendTransaction();
+  // const { sendXCH, isSending } = useSendTransaction();
 
   // Replace manual modal states with dialog hooks
   const sendFundsDialog = useSendFundsDialog();
@@ -365,10 +363,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   };
 
   // Helper function to format transaction time
+  /*
   const formatTransactionTime = (timestamp: number): string => {
     const date = new Date(timestamp * 1000);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
+  */
 
   // Helper function to get transaction icon
   const getTransactionIcon = (type: 'XCH' | 'NFT' | 'TOKEN'): string => {
@@ -406,10 +406,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return `chia_nft_metadata_${pubKey.substring(0, 16)}`;
   }, []);
 
+  /*
   const getOffersStorageKey = useCallback((pubKey: string | null): string => {
     if (!pubKey) return 'chia_active_offers';
     return `chia_active_offers_${pubKey.substring(0, 16)}`;
   }, []);
+  */
 
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -553,6 +555,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, [hydratedCoins, loadNftMetadata]);
 
   // Save offer to localStorage
+  /*
   const saveOffer = useCallback((offerData: {
     nft: HydratedCoin;
     amount: number;
@@ -608,6 +611,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       console.error('Error saving offer:', error);
     }
   }, [address, getOffersStorageKey, nftMetadata]);
+  */
 
   // Utility functions
   const formatAddress = useCallback((address: string): string => {
@@ -628,13 +632,16 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, []);
 
   // NFT utility functions
+  /*
   const getCoinType = useCallback((hydratedCoin: HydratedCoin): string => {
     const driverInfo = hydratedCoin.parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'CAT') return 'CAT';
     if (driverInfo?.type === 'NFT') return 'NFT';
     return 'XCH';
   }, []);
+  */
 
+  /*
   const getCoinTypeIcon = useCallback((coinType: string): string => {
     switch (coinType) {
       case 'CAT': return '🎭';
@@ -642,7 +649,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       default: return '💰';
     }
   }, []);
+  */
 
+  /*
   const getAssetInfo = useCallback((hydratedCoin: HydratedCoin): string => {
     const driverInfo = hydratedCoin.parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'CAT') {
@@ -658,7 +667,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
     return 'Standard XCH';
   }, []);
+  */
 
+  /*
   const formatCoinAmount = useCallback((hydratedCoin: HydratedCoin): string => {
     const coinType = getCoinType(hydratedCoin);
     const amount = Number(hydratedCoin.coin.amount);
@@ -672,6 +683,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       return `${amount.toString()} NFT`;
     }
   }, [getCoinType]);
+  */
 
   // NFT metadata utility functions
   // Legacy NFT metadata functions removed - now using Spacescan API
@@ -767,12 +779,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     setCurrentView('nft-details');
   };
 
+  /*
   const getConnectionStatus = (): string => {
     if (!isConnected) return 'Not connected';
     if (isConnecting) return 'Connecting...';
     if (error) return 'Connection error';
     return 'Connected';
   };
+  */
 
   // Show loading states
   const isLoading = isConnecting || balanceLoading || coinsLoading;
@@ -1041,7 +1055,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         ))}
 
                         {/* Spacescan Transactions */}
-                        {allTransactions.map((transaction, index) => {
+                        {allTransactions.map((transaction, _index) => {
                           const isSpent = transaction.spent_at_time !== undefined;
                           const transactionIcon = getTransactionIcon(transaction.type);
 
@@ -1214,9 +1228,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                            const metadata = getNftMetadata(selectedNft);
                            const isLoading = false; // Spacescan NFTs are already loaded
                            const displayName = getNftDisplayName(selectedNft);
-                           const collectionName = getNftCollectionName(selectedNft);
+                           // const collectionName = getNftCollectionName(selectedNft);
                            const editionInfo = getNftEditionInfo(selectedNft);
-                           const imageUrl = getNftImageUrl(selectedNft);
+                           // const imageUrl = getNftImageUrl(selectedNft);
 
                            return (
                              <>
