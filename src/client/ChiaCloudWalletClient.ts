@@ -192,6 +192,7 @@ export interface HydratedCoin {
   coin: Coin;
   createdHeight: string;
   parentSpendInfo: ParentSpendInfo;
+  coinId: string;
 }
 
 export interface UnspentHydratedCoinsResponse {
@@ -452,6 +453,8 @@ export class ChiaCloudWalletClient {
       },
       // Ensure createdHeight is a string
       createdHeight: String(coin.createdHeight),
+      // Include coinId (remove 0x prefix if present)
+      coinId: coin.coinId ? coin.coinId.replace(/^0x/, '') : coin.coinId,
       parentSpendInfo: {
         coin: {
           // Parent spend info coin amount should be u64 (integer)
@@ -473,7 +476,7 @@ export class ChiaCloudWalletClient {
   /**
    * Normalize UnspentHydratedCoinsResponse to handle different response formats between environments
    */
-  private normalizeHydratedCoinsResponse(response: UnspentHydratedCoinsResponse): HydratedCoin[] {
+  private async normalizeHydratedCoinsResponse(response: UnspentHydratedCoinsResponse): Promise<HydratedCoin[]> {
     let rawCoins: any[] = [];
     
     // Check if data is directly an array (this is the actual format from the edge endpoint)
@@ -490,21 +493,45 @@ export class ChiaCloudWalletClient {
       return [];
     }
     
-    // Normalize each coin to ensure consistent types
-    return rawCoins.map((coin: any) => ({
-      ...coin,
-      coin: {
-        ...coin.coin,
-        amount: String(coin.coin.amount) // Ensure amount is always a string
-      },
-      parentSpendInfo: {
-        ...coin.parentSpendInfo,
+    // Normalize each coin to ensure consistent types and calculate coinId
+    const normalizedCoins = await Promise.all(rawCoins.map(async (coin: any) => {
+      const normalizedCoin = {
+        ...coin,
         coin: {
-          ...coin.parentSpendInfo.coin,
-          amount: String(coin.parentSpendInfo.coin.amount) // Ensure amount is always a string
+          ...coin.coin,
+          amount: String(coin.coin.amount) // Ensure amount is always a string
+        },
+        parentSpendInfo: {
+          ...coin.parentSpendInfo,
+          coin: {
+            ...coin.parentSpendInfo.coin,
+            amount: String(coin.parentSpendInfo.coin.amount) // Ensure amount is always a string
+          }
+        }
+      };
+
+      // Calculate coinId if not already present
+      if (!normalizedCoin.coinId) {
+        try {
+          const coinIdResult = await ChiaCloudWalletClient.calculateCoinId(normalizedCoin.coin);
+          if (coinIdResult.success) {
+            normalizedCoin.coinId = coinIdResult.data;
+          } else {
+            console.warn('Failed to calculate coinId for coin:', coinIdResult.error);
+            // Fallback to a deterministic but simple identifier
+            normalizedCoin.coinId = `${normalizedCoin.coin.parentCoinInfo}_${normalizedCoin.coin.puzzleHash}`.replace(/^0x/g, '').substring(0, 64);
+          }
+        } catch (error) {
+          console.warn('Error calculating coinId for coin:', error);
+          // Fallback to a deterministic but simple identifier
+          normalizedCoin.coinId = `${normalizedCoin.coin.parentCoinInfo}_${normalizedCoin.coin.puzzleHash}`.replace(/^0x/g, '').substring(0, 64);
         }
       }
+
+      return normalizedCoin;
     }));
+
+    return normalizedCoins;
   }
 
   /**
@@ -747,12 +774,12 @@ export class ChiaCloudWalletClient {
       });
       
       // Normalize the response to handle different formats between environments
-      const normalizedCoins = this.normalizeHydratedCoinsResponse(result);
+      const normalizedCoins = await this.normalizeHydratedCoinsResponse(result);
       
       console.log('✅ Normalized hydrated coins:', {
         count: normalizedCoins.length,
         firstCoin: normalizedCoins[0] ? {
-          coinId: normalizedCoins[0].coin?.parentCoinInfo?.substring(0, 10) + '...',
+          coinId: normalizedCoins[0].coinId?.substring(0, 10) + '...',
           driverType: normalizedCoins[0].parentSpendInfo?.driverInfo?.type
         } : null
       });
@@ -838,11 +865,13 @@ export class ChiaCloudWalletClient {
 
       this.logInfo('Making unsigned NFT offer request', {
         publicKey: request.synthetic_public_key.substring(0, 10) + '...',
-        catPaymentsCount: request.cat_payments?.length || 0
+        catPaymentsCount: request.cat_payments?.length || 0,
+        nftCoinId: normalizedNFTData.coinId?.substring(0, 10) + '...',
+        hasNftCoinId: !!normalizedNFTData.coinId
       });
 
     //  const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
-      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_any_offer/create-offer', {
+      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_any_offer/make-offer', {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
