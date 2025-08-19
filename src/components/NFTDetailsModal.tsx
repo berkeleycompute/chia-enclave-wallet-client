@@ -42,7 +42,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
         setOfferError(null);
         // Could store the offer or emit an event here
       } else {
-        setOfferError(`Failed to create offer: ${result.error}`);
+        setOfferError(`Failed to create offer: ${(result as any).error}`);
       }
     } catch (error) {
       setOfferError(error instanceof Error ? error.message : 'Unknown error');
@@ -73,13 +73,13 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
         </div>
 
         <div className="modal-tabs">
-          <button 
+          <button
             className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
             onClick={() => setActiveTab('details')}
           >
             📋 Details
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'offer' ? 'active' : ''}`}
             onClick={() => setActiveTab('offer')}
             disabled={!isConnected}
@@ -94,9 +94,9 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
               {/* NFT Image */}
               {metadata?.dataUris?.[0] && (
                 <div className="nft-image-section">
-                  <img 
-                    src={metadata.dataUris[0]} 
-                    alt="NFT" 
+                  <img
+                    src={metadata.dataUris[0]}
+                    alt="NFT"
                     className="nft-image"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
@@ -129,7 +129,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                   <div className="info-item">
                     <label>Royalty</label>
                     <span className="info-value">
-                      {nftInfo?.royaltyTenThousandths 
+                      {nftInfo?.royaltyTenThousandths
                         ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
                         : '0%'
                       }
@@ -162,7 +162,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                       </div>
                     )}
                   </div>
-                  
+
                   {metadata.dataUris && metadata.dataUris.length > 0 && (
                     <div className="uris-section">
                       <label>Data URIs</label>
@@ -239,7 +239,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                       </div>
                     )}
 
-                    <button 
+                    <button
                       onClick={handleCreateOffer}
                       disabled={offerLoading || !offerPrice.trim()}
                       className="create-offer-button"

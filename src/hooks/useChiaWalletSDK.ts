@@ -236,7 +236,7 @@ export function useSendTransaction() {
         setTransactionState({
           isSending: false,
           lastTransaction: null,
-          error: result.error
+          error: (result as any).error
         });
         return result;
       }
@@ -295,7 +295,7 @@ export function useNFTOffers() {
         setOfferState({
           isCreatingOffer: false,
           lastOffer: null,
-          error: result.error
+          error: (result as any).error
         });
         return result;
       }
@@ -356,7 +356,7 @@ export function useTakeOffer() {
           ...prev,
           isParsingOffer: false,
           parsedOffer: null,
-          error: result.error
+          error: (result as any).error
         }));
         return result;
       }
@@ -400,7 +400,7 @@ export function useTakeOffer() {
           ...prev,
           isTakingOffer: false,
           lastTakenOffer: null,
-          error: result.error
+          error: (result as any).error
         }));
         return result;
       }

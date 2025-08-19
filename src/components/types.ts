@@ -1,6 +1,7 @@
-import type { 
-  HydratedCoin, 
-  SimpleMakeUnsignedNFTOfferRequest 
+import type {
+  HydratedCoin,
+  SimpleMakeUnsignedNFTOfferRequest,
+  TakeOfferResponse
 } from '../client/ChiaCloudWalletClient';
 
 export interface SentTransaction {
@@ -38,7 +39,7 @@ export interface SavedOffer {
     isSigned: boolean;
   };
   originalRequest: SimpleMakeUnsignedNFTOfferRequest;
-} 
+}
 
 // Shared wallet state type for passing between components
 export interface UnifiedWalletState {
@@ -51,7 +52,7 @@ export interface UnifiedWalletState {
   formattedBalance: string;
   error: string | null;
   isConnecting?: boolean;
-} 
+}
 
 // Utility function to create UnifiedWalletState from external data
 export const createUnifiedWalletState = (options: {
@@ -76,4 +77,97 @@ export const createUnifiedWalletState = (options: {
     error: options.error ?? null,
     isConnecting: options.isConnecting ?? false,
   };
-}; 
+};
+
+// Take Offer Widget Types
+export interface TakeOfferResult {
+  transactionId: string;
+  status: string;
+  message?: string;
+  offerString: string;
+  timestamp: number;
+}
+
+export interface SelectedCoin {
+  coin: HydratedCoin;
+  amount: number;
+  displayName: string;
+  type: 'XCH' | 'CAT' | 'NFT';
+  assetId?: string;
+}
+
+export interface OfferAnalysis {
+  isValid: boolean;
+  requiredXCH: number;
+  requiredCATs: Array<{
+    assetId: string;
+    amount: number;
+    name?: string;
+  }>;
+  offeredNFTs: Array<{
+    launcherId: string;
+    amount: number;
+  }>;
+  estimatedValue: number;
+  error?: string;
+}
+
+export interface TakeOfferModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialOfferString?: string;
+  onOfferTaken?: (result: TakeOfferResult) => void;
+  onError?: (error: string) => void;
+  autoConnect?: boolean;
+  showAdvancedOptions?: boolean;
+}
+
+// Dexie-specific Take Offer Widget Types
+export interface DexieOfferData {
+  offer: {
+    id: string;
+    offer: string; // offer string
+    status: number;
+    date_completed?: string;
+    date_found: string;
+    price: number;
+    offered: Array<{
+      id: string;
+      amount: number;
+      code: string;
+      name: string;
+      is_nft?: boolean;
+      collection?: { name: string };
+    }>;
+    requested: Array<{
+      id: string;
+      amount: number;
+      code: string;
+      name: string;
+      is_nft?: boolean;
+      collection?: { name: string };
+    }>;
+    output_coins: Record<string, Array<{ amount: number }>>;
+  };
+}
+
+export interface DexieOfferResult {
+  transactionId: string;
+  status: string;
+  offerData: DexieOfferData;
+}
+
+export interface TakeOfferWidgetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  dexieOfferData: DexieOfferData;
+  onOfferTaken?: (result: DexieOfferResult) => void;
+  onError?: (error: string) => void;
+  jwtToken?: string;
+}
+
+export interface DexieSelectedCoin {
+  coin: HydratedCoin;
+  amount: number;
+  displayName: string;
+}

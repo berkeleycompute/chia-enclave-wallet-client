@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { type HydratedCoin, type SimpleMakeUnsignedNFTOfferRequest } from '../client/ChiaCloudWalletClient';
 import { bech32m } from 'bech32';
-import { 
-  useWalletConnection, 
+import {
+  useWalletConnection,
   useWalletCoins,
   useWalletState,
   useNFTOffers
@@ -22,9 +22,9 @@ interface MakeOfferModalProps {
   initialDepositAddress?: string;
 }
 
-export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ 
-  isOpen, 
-  onClose, 
+export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
+  isOpen,
+  onClose,
   selectedNft: initialSelectedNft,
   onOfferCreated,
   onRefreshWallet,
@@ -33,29 +33,29 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 }) => {
   // Get wallet state from hooks (using same pattern as other modals)
   const { address } = useWalletConnection();
-  const { nftCoins, refresh: refreshCoins } = useWalletCoins ();
+  const { nftCoins, refresh: refreshCoins } = useWalletCoins();
   const walletState = useWalletState();
   const { syntheticPublicKey } = walletState;
   const { createNFTOffer, isCreatingOffer } = useNFTOffers();
-  
+
   // Use Spacescan to get additional metadata for NFTs
-  const { 
-    nfts: spacescanNfts, 
-    loading: nftsLoading, 
-    error: nftsError 
+  const {
+    nfts: spacescanNfts,
+    loading: nftsLoading,
+    error: nftsError
   } = useSpacescanNFTs(address);
 
   /* console.log('spacescanNfts', spacescanNfts);
   console.log('nftCoins', nftCoins);
   console.log('hydratedCoins', hydratedCoins); */
-  
-  
-  
+
+
+
   // Inject shared modal styles
   React.useEffect(() => {
     injectModalStyles();
   }, []);
-  
+
   // Local NFT metadata state (similar to ChiaWalletModal pattern)
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
   const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
@@ -75,20 +75,20 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   // Handle modal opening/closing and initial setup
   useEffect(() => {
-    console.log('🔄 Modal state useEffect triggered:', { 
-      isOpen, 
-      hasInitialSelectedNft: !!initialSelectedNft, 
+    console.log('🔄 Modal state useEffect triggered:', {
+      isOpen,
+      hasInitialSelectedNft: !!initialSelectedNft,
       currentStep: step,
       hasSelectedNft: !!selectedNft,
       hasUserSelectedNft: hasUserSelectedNft.current
     });
-    
+
     if (isOpen) {
       // Update initial values when modal opens
       setOfferAmount(initialOfferAmount || '');
       setDepositAddress(initialDepositAddress || (address || ''));
       setError(null);
-      
+
       // Handle initial NFT selection
       if (initialSelectedNft) {
         console.log('🎯 Setting up initial selected NFT');
@@ -102,7 +102,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         setStep('select-nft');
         setSelectedNft(null);
       }
-      
+
       // Refresh hydrated coins when modal opens for the first time only
       if (!hasRefreshedOnOpen.current) {
         hasRefreshedOnOpen.current = true;
@@ -141,10 +141,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     try {
       // Remove '0x' prefix if present and ensure lowercase
       const cleanLauncherId = launcherId.replace(/^0x/, '').toLowerCase();
-      
+
       // Convert hex string to Uint8Array
       const bytes = new Uint8Array(cleanLauncherId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
-      
+
       // Use bech32.toWords to convert to 5-bit words, then encode
       const words = bech32m.toWords(bytes);
       return bech32m.encode("nft", words);
@@ -187,7 +187,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       // Configure fetch to properly handle redirects and timeouts
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
+
       const response = await fetch(metadataUri, {
         method: 'GET',
         redirect: 'follow', // Explicitly follow redirects (default but being explicit)
@@ -199,15 +199,15 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
           'User-Agent': 'Chia-Wallet-Client/1.0'
         }
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         // More detailed error information
         const errorText = await response.text().catch(() => 'Unknown error');
         throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
       }
-      
+
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         return await response.json();
@@ -330,16 +330,16 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   const convertIpfsUrl = (url: string): string => {
     if (!url) return url;
-    
+
     if (url.startsWith('ipfs://')) {
       const hash = url.replace('ipfs://', '');
       return `https://ipfs.io/ipfs/${hash}`;
     }
-    
+
     if (!url.startsWith('http') && url.length > 40) {
       return `https://ipfs.io/ipfs/${url}`;
     }
-    
+
     return url;
   };
 
@@ -348,7 +348,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     if (nft.spacescanData?.metadata) {
       return nft.spacescanData.metadata;
     }
-    
+
     // Fall back to cached metadata from HydratedCoin
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
@@ -365,7 +365,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     if (nft.spacescanData) {
       return false;
     }
-    
+
     // Check if HydratedCoin metadata is loading
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
@@ -389,13 +389,13 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       }
       return nft.spacescanData.nft_id.slice(0, 16) + '...';
     }
-    
+
     // Fall back to metadata from HydratedCoin
     const metadata = getNftMetadata(nft);
     if (metadata?.name) {
       return metadata.name;
     }
-    
+
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const onChainMetadata = driverInfo.info?.metadata;
@@ -419,13 +419,13 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       }
       return nft.spacescanData.nft_id.slice(0, 16) + '...';
     }
-    
+
     // Fall back to metadata from HydratedCoin
     const metadata = getNftMetadata(nft);
     if (metadata?.collection?.name) {
       return metadata.collection.name;
     }
-    
+
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const launcherId = driverInfo.info?.launcherId || 'Unknown';
@@ -441,7 +441,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         return `#${nft.spacescanData.edition_number} of ${nft.spacescanData.edition_total}`;
       }
     }
-    
+
     // Fall back to metadata from HydratedCoin
     const metadata = getNftMetadata(nft);
     if (metadata?.series_number && metadata?.series_total) {
@@ -461,7 +461,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     if (nft.spacescanData) {
       return `https://edge.silicon-dev.net/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
     }
-    
+
     // Fall back to metadata from HydratedCoin
     const metadata = getNftMetadata(nft);
     if (metadata?.data_uris && metadata.data_uris.length > 0) {
@@ -540,11 +540,11 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       spacescanData: nft.spacescanData,
       metadata: getNftMetadata(nft)
     });
-    
+
     console.log('🔄 Setting selectedNft and step to confirm');
     // Mark that user has manually selected an NFT
     hasUserSelectedNft.current = true;
-    
+
     // Store the enriched NFT for display purposes
     setSelectedNft(nft);
     setStep('confirm');
@@ -567,17 +567,17 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       if (!address || typeof address !== 'string') {
         return { isValid: false, error: 'Address must be a non-empty string' };
       }
-      
+
       const decoded = bech32m.decode(address);
-      
+
       if (decoded.prefix !== 'xch') {
         return { isValid: false, error: 'Invalid address prefix: must be "xch"' };
       }
-      
+
       if (decoded.words.length !== 52) {
         return { isValid: false, error: 'Invalid address data length' };
       }
-      
+
       return { isValid: true };
     } catch (err) {
       return {
@@ -650,7 +650,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     try {
       // Extract the base HydratedCoin from the enriched NFT for the API call
       const { spacescanData, ...baseNft } = selectedNft;
-      
+
       // Use the SDK hook to create the offer
       const simpleOfferRequest: SimpleMakeUnsignedNFTOfferRequest = {
         requested_payments: {
@@ -667,7 +667,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       const result = await createNFTOffer(simpleOfferRequest);
 
       if (!result.success) {
-        throw new Error(result.error);
+        throw new Error((result as any).error);
       }
 
       // Prepare the offer data using the base NFT
@@ -681,13 +681,13 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         isSigned: true,
         originalRequest: simpleOfferRequest
       };
-      
+
       // Save to localStorage first
       saveOfferToStorage(offerData);
-      
+
       // Submit to Dexie API (don't await - run in parallel)
       submitOfferToDexie(result.data.signed_offer);
-      
+
       // Also call the callback if provided (for parent component compatibility)
       onOfferCreated?.(offerData);
 
@@ -712,7 +712,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const refreshWalletData = () => {
     setIsRefreshingWallet(true);
     onRefreshWallet?.();
-    
+
     setTimeout(() => {
       setIsRefreshingWallet(false);
     }, 3000);
@@ -748,198 +748,198 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
             </button>
           </div>
 
-        <div className="modal-body">
-          {error && (
-            <div className="error-message">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                <line x1="12" y1="9" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-              <span>{error}</span>
-            </div>
-          )}
-
-          {!syntheticPublicKey && (
-            <div className="info-message">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-              </svg>
-              <span>
-                {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
-              </span>
-              <button 
-                className="refresh-wallet-btn" 
-                onClick={refreshWalletData} 
-                disabled={isRefreshingWallet}
-              >
-                {isRefreshingWallet ? (
-                  <>
-                    <div className="refresh-spinner"></div>
-                    Refreshing...
-                  </>
-                ) : (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 4v6h6"></path>
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                    </svg>
-                    Refresh
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {step === 'select-nft' ? (
-            <div className="step-content">
-              <p className="step-description">Select the NFT you want to make an offer for:</p>
-              
-              {nftCoinsToDisplay.length === 0 ? (
-                <div className="no-items">
-                  <p>No NFTs found in your wallet</p>
-                  {nftsLoading && <p>Loading NFTs from Spacescan...</p>}
-                  {nftsError && <p>Error loading NFTs: {nftsError}</p>}
-                </div>
-              ) : (
-                <div className="nft-grid">
-                  {nftCoinsToDisplay.map((nft: EnrichedNftCoin, index: number) => {
-                    // const metadata = getNftMetadata(nft);
-                    const isLoading = isNftMetadataLoading(nft);
-                    const editionInfo = getNftEditionInfo(nft);
-                    
-                    return (
-                      <div key={index} className="nft-card" onClick={() => selectNft(nft)}>
-                        <div className="nft-image">
-                          {isLoading ? (
-                            <div className="nft-loading">
-                              <div className="nft-spinner"></div>
-                            </div>
-                          ) : (() => {
-                            const imageUrl = getNftImageUrl(nft);
-                            return imageUrl ? (
-                              <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(nft)} />
-                            ) : (
-                              <div className="nft-placeholder">🖼️</div>
-                            );
-                          })()}
-                        </div>
-                        <div className="nft-info">
-                          <h4>{getNftDisplayName(nft)}</h4>
-                          <p className="nft-collection">{getNftCollectionName(nft)}</p>
-                          {editionInfo && <p className="nft-edition">{editionInfo}</p>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="step-content">
-              <div className="offer-summary">
-                <h4>Offer Summary</h4>
-                
-                <div className="summary-section">
-                  <h5>NFT to Offer:</h5>
-                  <div className="nft-summary-card">
-                    <div className="nft-summary-image">
-                      {selectedNft && isNftMetadataLoading(selectedNft) ? (
-                        <div className="nft-loading">
-                          <div className="nft-spinner"></div>
-                        </div>
-                      ) : selectedNft ? (
-                        (() => {
-                          const imageUrl = getNftImageUrl(selectedNft);
-                          return imageUrl ? (
-                            <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(selectedNft)} />
-                          ) : (
-                            '🖼️'
-                          );
-                        })()
-                      ) : null}
-                    </div>
-                    <div className="nft-summary-info">
-                      <h6>{selectedNft ? getNftDisplayName(selectedNft) : ''}</h6>
-                      <p>{selectedNft ? getNftCollectionName(selectedNft) : ''}</p>
-                      {selectedNft && getNftEditionInfo(selectedNft) && (
-                        <p className="nft-edition">{getNftEditionInfo(selectedNft)}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="summary-section">
-                  <h5>Payment Token:</h5>
-                  <div className="cat-summary-card">
-                    <div className="cat-summary-icon">💰</div>
-                    <div className="cat-summary-info">
-                      <h6>wUSDC.b</h6>
-                      <p>Asset ID: {formatAddress(WUSDC_ASSET_ID)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="summary-section">
-                  <h5>Offer Amount:</h5>
-                  <div className="amount-input-group">
-                    <input 
-                      type="number" 
-                      step="0.000001" 
-                      min="0" 
-                      value={offerAmount}
-                      onChange={(e) => setOfferAmount(e.target.value)}
-                      placeholder="Enter amount..."
-                      className="amount-input"
-                      disabled={isSubmitting}
-                    />
-                    <span className="amount-unit">wUSDC.b</span>
-                  </div>
-                </div>
-
-                <div className="summary-section">
-                  <h5>Deposit Address:</h5>
-                  <input 
-                    type="text" 
-                    value={depositAddress}
-                    onChange={(e) => setDepositAddress(e.target.value)}
-                    placeholder="Enter Chia address (xch...) or puzzle hash..."
-                    className="deposit-address-input"
-                    disabled={isSubmitting}
-                  />
-                </div>
+          <div className="modal-body">
+            {error && (
+              <div className="error-message">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span>{error}</span>
               </div>
+            )}
 
-              <div className="action-buttons">
-                <button className="cancel-btn" onClick={closeModal} disabled={isSubmitting || isCreatingOffer}>
-                  Cancel
-                </button>
-                <button 
-                  className="submit-btn" 
-                  onClick={submitOffer} 
-                  disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
+            {!syntheticPublicKey && (
+              <div className="info-message">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                <span>
+                  {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
+                </span>
+                <button
+                  className="refresh-wallet-btn"
+                  onClick={refreshWalletData}
+                  disabled={isRefreshingWallet}
                 >
-                  {isSubmitting || isCreatingOffer ? (
+                  {isRefreshingWallet ? (
                     <>
-                      <div className="button-spinner"></div>
-                      Creating Offer...
+                      <div className="refresh-spinner"></div>
+                      Refreshing...
                     </>
-                  ) : !syntheticPublicKey ? (
-                    'Wallet Not Ready'
                   ) : (
-                    'Create Offer'
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 4v6h6"></path>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                      </svg>
+                      Refresh
+                    </>
                   )}
                 </button>
               </div>
-            </div>
-          )}
+            )}
+
+            {step === 'select-nft' ? (
+              <div className="step-content">
+                <p className="step-description">Select the NFT you want to make an offer for:</p>
+
+                {nftCoinsToDisplay.length === 0 ? (
+                  <div className="no-items">
+                    <p>No NFTs found in your wallet</p>
+                    {nftsLoading && <p>Loading NFTs from Spacescan...</p>}
+                    {nftsError && <p>Error loading NFTs: {nftsError}</p>}
+                  </div>
+                ) : (
+                  <div className="nft-grid">
+                    {nftCoinsToDisplay.map((nft: EnrichedNftCoin, index: number) => {
+                      // const metadata = getNftMetadata(nft);
+                      const isLoading = isNftMetadataLoading(nft);
+                      const editionInfo = getNftEditionInfo(nft);
+
+                      return (
+                        <div key={index} className="nft-card" onClick={() => selectNft(nft)}>
+                          <div className="nft-image">
+                            {isLoading ? (
+                              <div className="nft-loading">
+                                <div className="nft-spinner"></div>
+                              </div>
+                            ) : (() => {
+                              const imageUrl = getNftImageUrl(nft);
+                              return imageUrl ? (
+                                <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(nft)} />
+                              ) : (
+                                <div className="nft-placeholder">🖼️</div>
+                              );
+                            })()}
+                          </div>
+                          <div className="nft-info">
+                            <h4>{getNftDisplayName(nft)}</h4>
+                            <p className="nft-collection">{getNftCollectionName(nft)}</p>
+                            {editionInfo && <p className="nft-edition">{editionInfo}</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="step-content">
+                <div className="offer-summary">
+                  <h4>Offer Summary</h4>
+
+                  <div className="summary-section">
+                    <h5>NFT to Offer:</h5>
+                    <div className="nft-summary-card">
+                      <div className="nft-summary-image">
+                        {selectedNft && isNftMetadataLoading(selectedNft) ? (
+                          <div className="nft-loading">
+                            <div className="nft-spinner"></div>
+                          </div>
+                        ) : selectedNft ? (
+                          (() => {
+                            const imageUrl = getNftImageUrl(selectedNft);
+                            return imageUrl ? (
+                              <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(selectedNft)} />
+                            ) : (
+                              '🖼️'
+                            );
+                          })()
+                        ) : null}
+                      </div>
+                      <div className="nft-summary-info">
+                        <h6>{selectedNft ? getNftDisplayName(selectedNft) : ''}</h6>
+                        <p>{selectedNft ? getNftCollectionName(selectedNft) : ''}</p>
+                        {selectedNft && getNftEditionInfo(selectedNft) && (
+                          <p className="nft-edition">{getNftEditionInfo(selectedNft)}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="summary-section">
+                    <h5>Payment Token:</h5>
+                    <div className="cat-summary-card">
+                      <div className="cat-summary-icon">💰</div>
+                      <div className="cat-summary-info">
+                        <h6>wUSDC.b</h6>
+                        <p>Asset ID: {formatAddress(WUSDC_ASSET_ID)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="summary-section">
+                    <h5>Offer Amount:</h5>
+                    <div className="amount-input-group">
+                      <input
+                        type="number"
+                        step="0.000001"
+                        min="0"
+                        value={offerAmount}
+                        onChange={(e) => setOfferAmount(e.target.value)}
+                        placeholder="Enter amount..."
+                        className="amount-input"
+                        disabled={isSubmitting}
+                      />
+                      <span className="amount-unit">wUSDC.b</span>
+                    </div>
+                  </div>
+
+                  <div className="summary-section">
+                    <h5>Deposit Address:</h5>
+                    <input
+                      type="text"
+                      value={depositAddress}
+                      onChange={(e) => setDepositAddress(e.target.value)}
+                      placeholder="Enter Chia address (xch...) or puzzle hash..."
+                      className="deposit-address-input"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+
+                <div className="action-buttons">
+                  <button className="cancel-btn" onClick={closeModal} disabled={isSubmitting || isCreatingOffer}>
+                    Cancel
+                  </button>
+                  <button
+                    className="submit-btn"
+                    onClick={submitOffer}
+                    disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
+                  >
+                    {isSubmitting || isCreatingOffer ? (
+                      <>
+                        <div className="button-spinner"></div>
+                        Creating Offer...
+                      </>
+                    ) : !syntheticPublicKey ? (
+                      'Wallet Not Ready'
+                    ) : (
+                      'Create Offer'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* MakeOfferModal-specific styles */}
+      {/* MakeOfferModal-specific styles */}
       <style>{`
         /* Make Offer Modal Specific Styles */
         .modal-overlay.make-offer-overlay {
