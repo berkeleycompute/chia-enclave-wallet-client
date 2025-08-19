@@ -202,7 +202,6 @@ export interface HydratedCoin {
   coinId: string;
   createdHeight: string;
   parentSpendInfo: ParentSpendInfo;
-  coinId: string;
 }
 
 export interface UnspentHydratedCoinsResponse {
@@ -265,8 +264,6 @@ export interface SimpleMakeUnsignedNFTOfferRequest {
 
 export interface MakeUnsignedNFTOfferResponse {
   success: boolean; 
-  offer_string: string;
-  success: boolean;
   offer_string: string;
   message?: string; 
 }
