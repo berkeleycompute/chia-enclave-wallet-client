@@ -21,6 +21,9 @@ export interface ChiaCloudWalletConfig {
   baseUrl?: string;
   jwtToken?: string;
   enableLogging?: boolean;
+  environment?: 'development' | 'production' | 'test';
+  // Flag to disable environment-based URL detection and use explicit baseUrl
+  disableEnvironmentDetection?: boolean;
 }
 
 export interface Coin {
@@ -190,6 +193,8 @@ export interface ParentSpendInfo {
   driverInfo: DriverInfo | null;
   parentCoinId: string;
   spentBlockIndex: number;
+  puzzleReveal?: string;
+  solution?: string;
 }
 
 export interface HydratedCoin {
@@ -197,10 +202,12 @@ export interface HydratedCoin {
   coinId: string;
   createdHeight: string;
   parentSpendInfo: ParentSpendInfo;
+  coinId: string;
 }
 
 export interface UnspentHydratedCoinsResponse {
   success: boolean;
+  // Always normalized to be directly the array after processing
   data: HydratedCoin[];
 }
 
@@ -246,20 +253,22 @@ export interface RequestedPayments {
 
 export interface MakeUnsignedNFTOfferRequest {
   synthetic_public_key: string;
-  requested_payments: RequestedPayments;
-  nft_data: HydratedCoin;
+  cat_payments: CatPayment[];
+  nft_json: HydratedCoin;
 }
 
 // New simplified request interface
 export interface SimpleMakeUnsignedNFTOfferRequest {
   requested_payments: SimpleRequestedPayments;
-  nft_data: HydratedCoin;
+  nft_json: HydratedCoin;
 }
 
 export interface MakeUnsignedNFTOfferResponse {
   success: boolean; 
   offer_string: string;
-
+  success: boolean;
+  offer_string: string;
+  message?: string; 
 }
 
 // Add new interfaces for signing offers
@@ -336,11 +345,75 @@ export class ChiaCloudWalletClient {
   private baseUrl: string;
   private jwtToken?: string;
   private enableLogging: boolean;
+  private environment: 'development' | 'production' | 'test';
 
   constructor(config: ChiaCloudWalletConfig = {}) {
-    this.baseUrl = config.baseUrl || 'https://chia-enclave.silicon-dev.net';
+    this.environment = config.environment || this.detectEnvironment();
+    
+    // Prioritize environment detection unless explicitly disabled
+    if (config.disableEnvironmentDetection && config.baseUrl) {
+      // Use explicit baseUrl when environment detection is disabled
+      this.baseUrl = config.baseUrl;
+    } else {
+      // Always use environment-based URL detection by default
+      this.baseUrl = this.getBaseUrlForEnvironment();
+    }
+    
     this.jwtToken = config.jwtToken;
     this.enableLogging = config.enableLogging ?? true;
+    
+    // Log the final configuration for debugging
+    if (this.enableLogging) {
+      console.log(`[ChiaCloudWalletClient] Initialized with environment: ${this.environment}, baseUrl: ${this.baseUrl}, disableEnvDetection: ${config.disableEnvironmentDetection}`);
+    }
+  }
+
+  /**
+   * Detect the current environment from Vite build variables or fallbacks
+   */
+  private detectEnvironment(): 'development' | 'production' | 'test' {
+    // Check for Vite environment variable (available at build time)
+    // Vite will replace import.meta.env.VITE_ENV with the actual value during build
+    try {
+      // @ts-ignore - import.meta.env is available in Vite environments
+      const viteEnv = (import.meta.env.VITE_ENV as string);
+      console.log('!!!!!!!!!!!! Vite Env:', viteEnv);
+      if (typeof viteEnv === 'string') {
+        if (viteEnv === 'prod') return 'production';
+        if (viteEnv === 'dev') return 'development';
+        if (viteEnv === 'test') return 'test';
+      }
+    } catch {
+      // Ignore errors when import.meta.env is not available
+    }
+
+    // Fallback to hostname detection for development
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'development';
+      }
+    }
+    
+    // Default to test environment as requested
+    return 'test';
+  }
+
+  /**
+   * Get the base URL for the current environment
+   */
+  private getBaseUrlForEnvironment(): string {
+    console.log('!!!!!!!!!!!! Environment:', this.environment);
+    switch (this.environment) {
+      case 'development':
+        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1';
+      case 'production':
+        return 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1';
+      case 'test':
+        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1'; // Original endpoints for test
+      default:
+        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1'; // Default to test
+    }
   }
 
   /**
@@ -392,6 +465,124 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Get the current environment
+   */
+  getEnvironment(): 'development' | 'production' | 'test' {
+    return this.environment;
+  }
+
+  /**
+   * Set the environment and update base URL accordingly
+   */
+  setEnvironment(environment: 'development' | 'production' | 'test'): void {
+    this.environment = environment;
+    this.baseUrl = this.getBaseUrlForEnvironment();
+    this.logInfo(`Environment updated to: ${environment}, Base URL: ${this.baseUrl}`);
+  }
+
+  /**
+   * Get the correct endpoint path based on environment
+   */
+  private getEndpoint(testPath: string, prodPath: string): string {
+    return this.environment === 'test' ? testPath : prodPath;
+  }
+
+  /**
+   * Normalize HydratedCoin for API calls - ensures correct data types and structure
+   */
+  private normalizeHydratedCoinForApi(coin: HydratedCoin): any {
+    return {
+      coin: {
+        // Main coin amount should be a string
+        amount: String(coin.coin.amount),
+        // Remove 0x prefixes from hex strings
+        parentCoinInfo: coin.coin.parentCoinInfo.replace(/^0x/, ''),
+        puzzleHash: coin.coin.puzzleHash.replace(/^0x/, '')
+      },
+      // Ensure createdHeight is a string
+      createdHeight: String(coin.createdHeight),
+      // Include coinId (remove 0x prefix if present)
+      coinId: coin.coinId ? coin.coinId.replace(/^0x/, '') : coin.coinId,
+      parentSpendInfo: {
+        coin: {
+          // Parent spend info coin amount should be u64 (integer)
+          amount: parseInt(coin.parentSpendInfo.coin.amount),
+          // Remove 0x prefixes from hex strings
+          parentCoinInfo: coin.parentSpendInfo.coin.parentCoinInfo.replace(/^0x/, ''),
+          puzzleHash: coin.parentSpendInfo.coin.puzzleHash.replace(/^0x/, '')
+        },
+        driverInfo: coin.parentSpendInfo.driverInfo,
+        // Remove 0x prefix from parentCoinId
+        parentCoinId: coin.parentSpendInfo.parentCoinId.replace(/^0x/, ''),
+        puzzleReveal: coin.parentSpendInfo.puzzleReveal,
+        solution: coin.parentSpendInfo.solution,
+        spentBlockIndex: coin.parentSpendInfo.spentBlockIndex
+      }
+    };
+  }
+
+  /**
+   * Normalize UnspentHydratedCoinsResponse to handle different response formats between environments
+   */
+  private async normalizeHydratedCoinsResponse(response: UnspentHydratedCoinsResponse): Promise<HydratedCoin[]> {
+    let rawCoins: any[] = [];
+    
+    // Check if data is directly an array (this is the actual format from the edge endpoint)
+    if (Array.isArray(response.data)) {
+      rawCoins = response.data;
+    }
+    // Check if data has nested data property (legacy format)
+    else if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      rawCoins = (response.data as { data: any[] }).data;
+    }
+    else {
+      // Fallback to empty array if structure is unexpected
+      console.warn('Unexpected hydrated coins response structure:', response);
+      return [];
+    }
+    
+    // Normalize each coin to ensure consistent types and calculate coinId
+    const normalizedCoins = await Promise.all(rawCoins.map(async (coin: any) => {
+      const normalizedCoin = {
+        ...coin,
+        coin: {
+          ...coin.coin,
+          amount: String(coin.coin.amount) // Ensure amount is always a string
+        },
+        parentSpendInfo: {
+          ...coin.parentSpendInfo,
+          coin: {
+            ...coin.parentSpendInfo.coin,
+            amount: String(coin.parentSpendInfo.coin.amount) // Ensure amount is always a string
+          }
+        }
+      };
+
+      // Calculate coinId if not already present
+      if (!normalizedCoin.coinId) {
+        try {
+          const coinIdResult = await ChiaCloudWalletClient.calculateCoinId(normalizedCoin.coin);
+          if (coinIdResult.success) {
+            normalizedCoin.coinId = coinIdResult.data;
+          } else {
+            console.warn('Failed to calculate coinId for coin:', coinIdResult.error);
+            // Fallback to a deterministic but simple identifier
+            normalizedCoin.coinId = `${normalizedCoin.coin.parentCoinInfo}_${normalizedCoin.coin.puzzleHash}`.replace(/^0x/g, '').substring(0, 64);
+          }
+        } catch (error) {
+          console.warn('Error calculating coinId for coin:', error);
+          // Fallback to a deterministic but simple identifier
+          normalizedCoin.coinId = `${normalizedCoin.coin.parentCoinInfo}_${normalizedCoin.coin.puzzleHash}`.replace(/^0x/g, '').substring(0, 64);
+        }
+      }
+
+      return normalizedCoin;
+    }));
+
+    return normalizedCoins;
+  }
+
+  /**
    * Make an authenticated API request with enhanced error handling
    */
   private async makeRequest<T>(
@@ -399,11 +590,10 @@ export class ChiaCloudWalletClient {
     options: RequestInit = {},
     requireAuth: boolean = true
   ): Promise<T> {
-    // Check if endpoint is a complete URL (starts with http:// or https://)
+
     const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
       ? endpoint
-      : `${this.baseUrl}${endpoint}`;
-
+      : `${this.baseUrl}${endpoint}`; 
     try {
       const headers: any = {
         'Content-Type': 'application/json',
@@ -484,7 +674,8 @@ export class ChiaCloudWalletClient {
    */
   async healthCheck(): Promise<Result<HealthCheckResponse>> {
     try {
-      const result = await this.makeRequest<HealthCheckResponse>('/health', {
+      const endpoint = this.getEndpoint('/health', '/api/health');
+      const result = await this.makeRequest<HealthCheckResponse>(endpoint, {
         method: 'GET',
       }, false);
       return { success: true, data: result };
@@ -507,7 +698,8 @@ export class ChiaCloudWalletClient {
     console.log(`🔑 [${timestamp}] getPublicKey() called from: ${stack}`);
 
     try {
-      const result = await this.makeRequest<PublicKeyResponse>('/public-key', {
+      const endpoint = this.getEndpoint('/public-key', '/api/enclave/public-key');
+      const result = await this.makeRequest<PublicKeyResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
       });
@@ -528,7 +720,8 @@ export class ChiaCloudWalletClient {
    */
   async exportMnemonic(): Promise<Result<MnemonicResponse>> {
     try {
-      const result = await this.makeRequest<MnemonicResponse>('/mnemonic', {
+      const endpoint = this.getEndpoint('/mnemonic', '/api/enclave/export-mnemonic');
+      const result = await this.makeRequest<MnemonicResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
       });
@@ -563,7 +756,8 @@ export class ChiaCloudWalletClient {
         };
       }
 
-      const result = await this.makeRequest<SignedSpendBundleResponse>('/wallet/transaction/sign', {
+      const endpoint = this.getEndpoint('/wallet/transaction/sign', '/api/enclave/sign-spendbundle');
+      const result = await this.makeRequest<SignedSpendBundleResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
@@ -595,7 +789,8 @@ export class ChiaCloudWalletClient {
         selected_coins: normalizeCoins(request.selected_coins)
       };
 
-      const result = await this.makeRequest<SendXCHResponse>('/wallet/transaction/send-xch', {
+      const endpoint = this.getEndpoint('/wallet/transaction/send-xch', '/api/wallet/send-xch');
+      const result = await this.makeRequest<SendXCHResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
@@ -614,11 +809,38 @@ export class ChiaCloudWalletClient {
    * @param address - The wallet address (not public key)
    */
   async getUnspentHydratedCoins(address: string): Promise<Result<UnspentHydratedCoinsResponse>> {
-    try {
-      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/wallet/unspent-hydrated-coins/${address}`, {
+    try { 
+     // const endpoint = this.getEndpoint(`/wallet/unspent-hydrated-coins/${address}`, `/api/wallet/hydrated-coins/${address}`); 
+      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`https://edge.silicon-dev.net/chia/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
         method: 'GET',
       }, false);
-      return { success: true, data: result };
+      
+      // Debug logging to track the response structure
+      console.log('🔍 Raw hydrated coins response:', {
+        success: result.success,
+        dataType: typeof result.data,
+        isArray: Array.isArray(result.data),
+        dataLength: Array.isArray(result.data) ? result.data.length : 'N/A'
+      });
+      
+      // Normalize the response to handle different formats between environments
+      const normalizedCoins = await this.normalizeHydratedCoinsResponse(result);
+      
+      console.log('✅ Normalized hydrated coins:', {
+        count: normalizedCoins.length,
+        firstCoin: normalizedCoins[0] ? {
+          coinId: normalizedCoins[0].coinId?.substring(0, 10) + '...',
+          driverType: normalizedCoins[0].parentSpendInfo?.driverInfo?.type
+        } : null
+      });
+      
+      // Return consistent format with normalized data
+      const normalizedResponse: UnspentHydratedCoinsResponse = {
+        success: result.success,
+        data: normalizedCoins
+      };
+      
+      return { success: true, data: normalizedResponse };
     } catch (error) {
       return {
         success: false,
@@ -647,7 +869,8 @@ export class ChiaCloudWalletClient {
         offerPrefix: request.offer.substring(0, 20) + '...'
       });
 
-      const result = await this.makeRequest<SignOfferResponse>('/wallet/transaction/sign-offer', {
+      const endpoint = this.getEndpoint('/wallet/transaction/sign-offer', '/api/enclave/sign-offer');
+      const result = await this.makeRequest<SignOfferResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(request),
       });
@@ -672,41 +895,46 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Synthetic public key is required');
       }
 
-      if (!request.requested_payments ||
-        (!request.requested_payments.cats?.length) &&
-        (!request.requested_payments.xch?.length)) {
-        throw new ChiaCloudWalletApiError('Requested payments with CAT tokens or XCH are required');
+      if (!request.cat_payments || request.cat_payments.length === 0) {
+        throw new ChiaCloudWalletApiError('CAT payments are required');
       }
 
-      if (!request.nft_data) {
+      if (!request.nft_json) {
         throw new ChiaCloudWalletApiError('NFT data is required');
       }
 
-      // Ensure NFT data coin format is normalized
-      const normalizedNFTData = {
-        ...request.nft_data,
-        coin: normalizeCoin(request.nft_data.coin)
-      };
+      // Normalize NFT data for API call (correct data types and format)
+      const normalizedNFTData = this.normalizeHydratedCoinForApi(request.nft_json);
 
-      // Prepare the request with normalized data
+      // Prepare the request with normalized data and correct structure
       const normalizedRequest = {
-        ...request,
-        nft_data: normalizedNFTData
+        synthetic_public_key: request.synthetic_public_key,
+        nft_json: normalizedNFTData,
+        cat_payments: request.cat_payments
       };
 
       this.logInfo('Making unsigned NFT offer request', {
         publicKey: request.synthetic_public_key.substring(0, 10) + '...',
-        catPaymentsCount: request.requested_payments.cats?.length || 0,
-        xchPaymentsCount: request.requested_payments.xch?.length || 0
+        catPaymentsCount: request.cat_payments?.length || 0,
+        nftCoinId: normalizedNFTData.coinId?.substring(0, 10) + '...',
+        hasNftCoinId: !!normalizedNFTData.coinId
       });
-
-      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_unsigned_offer/create-offer', {
+    //  const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
+      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_any_offer/make-offer', {
+ 
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
 
-      // Return the unsigned offer - signing should be done separately
-      return { success: true, data: result };
+      // The API now returns a signed offer directly, so we need to adapt the response
+      // to match what the existing code expects
+      const adaptedResponse = {
+        success: result.success,
+        offer_string: result.offer_string,
+        message: result.message
+      };
+      
+      return { success: true, data: adaptedResponse };
     } catch (error) {
       return {
         success: false,
@@ -726,13 +954,11 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Synthetic public key is required');
       }
 
-      if (!request.requested_payments ||
-        (!request.requested_payments.cats?.length) &&
-        (!request.requested_payments.xch?.length)) {
-        throw new ChiaCloudWalletApiError('Requested payments with CAT tokens or XCH are required');
+      if (!request.cat_payments || request.cat_payments.length === 0) {
+        throw new ChiaCloudWalletApiError('CAT payments are required');
       }
 
-      if (!request.nft_data) {
+      if (!request.nft_json) {
         throw new ChiaCloudWalletApiError('NFT data is required');
       }
 
@@ -742,9 +968,8 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Invalid synthetic public key format: must be a 96-character hex string');
       }
 
-      // Validate CAT payments if provided
-      if (request.requested_payments.cats) {
-        for (const catPayment of request.requested_payments.cats) {
+      // Validate CAT payments
+      for (const catPayment of request.cat_payments) {
           if (!catPayment.asset_id || !catPayment.puzzle_hash) {
             throw new ChiaCloudWalletApiError('Each CAT payment must have asset_id and puzzle_hash');
           }
@@ -765,59 +990,42 @@ export class ChiaCloudWalletClient {
             throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
           }
         }
-      }
-
-      // Validate XCH payments if provided
-      if (request.requested_payments.xch) {
-        for (const xchPayment of request.requested_payments.xch) {
-          if (!xchPayment.puzzle_hash) {
-            throw new ChiaCloudWalletApiError('Each XCH payment must have puzzle_hash');
-          }
-
-          if (typeof xchPayment.amount !== 'number' || xchPayment.amount <= 0) {
-            throw new ChiaCloudWalletApiError('Each XCH payment must have a positive amount');
-          }
-
-          // Validate hex string format
-          const cleanPuzzleHash = xchPayment.puzzle_hash.replace(/^0x/, '');
-
-          if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
-            throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
-          }
-        }
-      }
 
       this.logInfo('Making signed NFT offer request', {
         publicKey: request.synthetic_public_key.substring(0, 10) + '...',
-        catPaymentsCount: request.requested_payments.cats?.length || 0,
-        xchPaymentsCount: request.requested_payments.xch?.length || 0
+        catPaymentsCount: request.cat_payments?.length || 0
       });
 
-      // Step 1: Create unsigned offer
-      const unsignedResult = await this.makeUnsignedNFTOffer(request);
-      if (!unsignedResult.success) {
-        throw new Error(`Failed to create unsigned offer: ${unsignedResult.error}`);
+      // First create the unsigned offer
+      const offerResult = await this.makeUnsignedNFTOffer(request);
+      if (!offerResult.success) {
+        throw new Error(`Failed to create offer: ${offerResult.error}`);
       }
 
-      const unsignedOfferString = unsignedResult.data?.offer_string;
+ 
+      const unsignedOfferString = offerResult.data.offer_string;
+ 
       if (!unsignedOfferString) {
-        throw new Error('No unsigned offer string returned from API');
+        throw new Error('No offer string returned from API');
       }
 
-      this.logInfo('Unsigned offer created successfully, proceeding to sign', {
+      this.logInfo('Unsigned NFT offer created, now signing...', {
         offerLength: unsignedOfferString.length,
         offerPrefix: unsignedOfferString.substring(0, 20) + '...'
       });
 
-      // Step 2: Sign the offer
-      const signedResult = await this.signOffer({ offer: unsignedOfferString });
-      if (!signedResult.success) {
-        throw new Error(`Failed to sign offer: ${signedResult.error}`);
+      // Now sign the offer
+      const signResult = await this.signOffer({ offer: unsignedOfferString });
+      if (!signResult.success) {
+        throw new Error(`Failed to sign offer: ${signResult.error}`);
       }
 
-      this.logInfo('NFT offer created and signed successfully');
+      this.logInfo('NFT offer signed successfully', {
+        offerLength: signResult.data.signed_offer.length,
+        offerPrefix: signResult.data.signed_offer.substring(0, 20) + '...'
+      });
 
-      return { success: true, data: signedResult.data };
+      return { success: true, data: signResult.data };
     } catch (error) {
       return {
         success: false,
@@ -839,11 +1047,8 @@ export class ChiaCloudWalletClient {
       // Convert simple request to full request format
       const fullRequest: MakeUnsignedNFTOfferRequest = {
         synthetic_public_key: syntheticPublicKey,
-        requested_payments: {
-          cats: [],
-          xch: []
-        },
-        nft_data: request.nft_data
+        cat_payments: [],
+        nft_json: request.nft_json
       };
 
       // Convert CAT payments from addresses to puzzle hashes
@@ -865,39 +1070,15 @@ export class ChiaCloudWalletClient {
             puzzleHash = puzzleHashResult.data;
           }
 
-          fullRequest.requested_payments.cats!.push({
+          fullRequest.cat_payments.push({
             asset_id: catPayment.asset_id,
             puzzle_hash: puzzleHash,
-            amount: catPayment.amount
+            amount: catPayment.amount * 1000
           });
         }
       }
 
-      // Convert XCH payments from addresses to puzzle hashes
-      if (request.requested_payments.xch) {
-        for (const xchPayment of request.requested_payments.xch) {
-          let puzzleHash: string;
-
-          // Check if it's already a puzzle hash (64 hex characters) or a Chia address
-          const cleanAddress = xchPayment.deposit_address.replace(/^0x/, '');
-          if (/^[0-9a-fA-F]{64}$/.test(cleanAddress)) {
-            // It's already a puzzle hash
-            puzzleHash = cleanAddress;
-          } else {
-            // It's a Chia address, convert it
-            const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(xchPayment.deposit_address);
-            if (!puzzleHashResult.success) {
-              throw new ChiaCloudWalletApiError(`Failed to convert XCH deposit address to puzzle hash: ${puzzleHashResult.error}`);
-            }
-            puzzleHash = puzzleHashResult.data;
-          }
-
-          fullRequest.requested_payments.xch!.push({
-            puzzle_hash: puzzleHash,
-            amount: xchPayment.amount
-          });
-        }
-      }
+      // Note: XCH payments are not supported in the new API structure
 
       // Use the full makeSignedNFTOffer method
       return await this.makeSignedNFTOffer(fullRequest);
@@ -995,7 +1176,8 @@ export class ChiaCloudWalletClient {
         coin: normalizeCoin(coinSpend.coin)
       }));
 
-      const result = await this.makeRequest<BroadcastResponse>('/wallet/transaction/broadcast', {
+      const endpoint = this.getEndpoint('/wallet/transaction/broadcast', '/api/broadcast');
+      const result = await this.makeRequest<BroadcastResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           coinSpends: normalizedCoinSpends,

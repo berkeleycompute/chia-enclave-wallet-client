@@ -34,7 +34,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             amount: Math.round(parseFloat(offerPrice) * 1000000000000) // Convert XCH to mojos
           }]
         },
-        nft_data: nft
+        nft_json: nft
       });
 
       if (result.success) {

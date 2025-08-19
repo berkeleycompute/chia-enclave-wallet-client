@@ -487,7 +487,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
     if (config.autoConnect !== false && state.jwtToken && !state.isConnected && !state.isConnecting) {
       connectWallet(state.jwtToken);
     }
-  }, [config.autoConnect, state.jwtToken, state.isConnected, state.isConnecting, connectWallet]);
+  }, [config.autoConnect, state.jwtToken, state.isConnected, state.isConnecting]);
 
   return {
     // State

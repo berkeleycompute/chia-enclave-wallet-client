@@ -2,11 +2,8 @@ import {
   ChiaCloudWalletClient,
   type ChiaCloudWalletConfig,
   type HydratedCoin,
-  type Coin,
   type Result,
-  type PublicKeyResponse,
   type SendXCHRequest,
-  type SendXCHResponse,
   type BroadcastResponse,
   type SignOfferResponse,
   type SimpleMakeUnsignedNFTOfferRequest,
@@ -107,8 +104,8 @@ export class ChiaWalletSDK {
     this.client = new ChiaCloudWalletClient({
       baseUrl: this.config.baseUrl,
       jwtToken: this.config.jwtToken,
-      enableLogging: this.config.enableLogging
-
+      enableLogging: this.config.enableLogging,
+      environment: this.config.environment
     });
 
     // Initialize state
@@ -213,7 +210,7 @@ export class ChiaWalletSDK {
    * Update state and emit relevant events
    */
   private updateState(updates: Partial<WalletState>, changedFields?: (keyof WalletState)[]): void {
-    const oldState = { ...this.state };
+    // const oldState = { ...this.state };
     this.state = { ...this.state, ...updates };
 
     // Emit specific events based on what changed

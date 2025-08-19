@@ -191,7 +191,7 @@ export function useWalletInfo(config: UseWalletInfoConfig = {}): UseWalletInfoRe
     if (autoFetch && (jwtToken || externalClient)) {
       fetchWalletInfo();
     }
-  }, [autoFetch, jwtToken, externalClient, fetchWalletInfo]);
+  }, [autoFetch, jwtToken, externalClient]);
 
   return {
     walletInfo,

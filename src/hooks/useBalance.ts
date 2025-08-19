@@ -180,6 +180,13 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
 
   // Refresh balance data
   const refresh = useCallback(async (): Promise<boolean> => {
+    // Rate limiting: prevent calls more frequent than 1 second
+    const now = Date.now();
+    if (now - lastUpdate < 1000) {
+      console.log('🚫 useBalance: Refresh rate limited, skipping call');
+      return false;
+    }
+
     const client = getClient();
     if (!client) {
       setError('No client available');
@@ -248,14 +255,14 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
         refreshIntervalRef.current = null;
       }
     };
-  }, [autoRefresh, refreshInterval, refresh]);
+  }, [autoRefresh, refreshInterval]);
 
   // Auto-refresh when dependencies change
   useEffect(() => {
     if (jwtToken || externalClient || externalAddress) {
       refresh();
     }
-  }, [jwtToken, externalClient, externalAddress, refresh]);
+  }, [jwtToken, externalClient, externalAddress]);
 
   return {
     balance,
