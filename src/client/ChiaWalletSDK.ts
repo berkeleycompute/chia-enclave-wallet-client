@@ -6,7 +6,9 @@ import {
   type SendXCHRequest,
   type BroadcastResponse,
   type SignOfferResponse,
-  type SimpleMakeUnsignedNFTOfferRequest
+  type SimpleMakeUnsignedNFTOfferRequest,
+  ParsedOfferData,
+  TakeOfferResponse
 } from './ChiaCloudWalletClient';
 
 // Event types for reactivity
@@ -591,6 +593,70 @@ export class ChiaWalletSDK {
     }
 
     return result;
+  }
+
+  /**
+   * Take/accept an existing offer
+   */
+  async takeOffer(request: { offer_string: string; synthetic_public_key: string; xch_coins: string[]; cat_coins: string[]; fee: number } | string): Promise<Result<TakeOfferResponse>> {
+    try {
+      const fullRequest = typeof request === 'string'
+        ? { offer_string: request, synthetic_public_key: this.state.syntheticPublicKey || '', xch_coins: [], cat_coins: [], fee: 0 }
+        : request;
+
+      const result = await this.client.takeOffer(fullRequest);
+
+      if (result.success) {
+        console.log('takeOffer result', result);
+
+        const signedOffer = await this.client.signOffer({ offer: result.data.unsigned_offer });
+        if (!signedOffer.success) {
+          throw new Error(signedOffer.error);
+        }
+
+        const broadcastResult = await this.client.broadcastOffer({ offer_string: signedOffer.data.signed_offer });
+        if (!broadcastResult.success) {
+          throw new Error(broadcastResult.error);
+        }
+      
+
+        // Emit event for successful offer taking
+        this.emit('transactionCompleted', {
+          type: 'take_offer',
+          transactionId: result.data.transaction_id,
+          offerString: fullRequest.offer_string
+        });
+
+        // Refresh balance after successful offer taking
+        setTimeout(() => this.refreshBalance(), 2000);
+      }
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to take offer';
+      this.emit('error', { type: 'takeOffer', message: errorMessage });
+      return {
+        success: false as const,
+        error: errorMessage
+      };
+    }
+  }
+
+  /**
+   * Parse an offer string to extract payment requirements
+   * Useful for determining if wallet has sufficient funds before taking an offer
+   */
+  async parseOffer(offerString: string): Promise<Result<ParsedOfferData>> {
+    try {
+      return await this.client.parseOffer(offerString);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to parse offer';
+      this.emit('error', { type: 'parseOffer', message: errorMessage });
+      return {
+        success: false as const,
+        error: errorMessage
+      };
+    }
   }
 
   /**

@@ -140,6 +140,15 @@ export interface BroadcastSpendBundleRequest {
   signature: string;
 }
 
+export interface BroadcastOfferRequest {
+  offer_string: string;
+}
+
+export interface BroadcastOfferResponse {
+  message: string;
+  success: boolean;
+}
+
 export interface GetPublicKeyRequest {
   transaction_payload: Record<string, unknown>;
 }
@@ -190,6 +199,7 @@ export interface ParentSpendInfo {
 
 export interface HydratedCoin {
   coin: Coin;
+  coinId: string;
   createdHeight: string;
   parentSpendInfo: ParentSpendInfo;
   coinId: string;
@@ -254,9 +264,11 @@ export interface SimpleMakeUnsignedNFTOfferRequest {
 }
 
 export interface MakeUnsignedNFTOfferResponse {
+  success: boolean; 
+  offer_string: string;
   success: boolean;
   offer_string: string;
-  message?: string;
+  message?: string; 
 }
 
 // Add new interfaces for signing offers
@@ -280,6 +292,42 @@ export interface StoredOffer {
   user_id: string;
   created_at: string;
   status: 'pending' | 'accepted' | 'cancelled';
+}
+
+// Take offer interfaces
+export interface TakeOfferRequest {
+  offer_string: string;
+  synthetic_public_key: string;
+  xch_coins: string[]; // array of coin ids
+  cat_coins: string[]; // array of CAT coin ids
+  fee: number;
+}
+
+export interface TakeOfferResponse {
+  success: boolean;
+  transaction_id: string;
+  status: string;
+  unsigned_offer: string;
+  message?: string;
+}
+
+// Interface for parsing offer data to extract CAT requirements
+export interface ParsedOfferData {
+  success: boolean;
+  data?: {
+    cat_coins?: {
+      asset_id: string;
+      amount: number;
+    }[];
+    xch_coins?: {
+      amount: number;
+    }[];
+    nft_coins?: {
+      launcher_id: string;
+      amount: number;
+    }[];
+  };
+  error?: string;
 }
 
 export class ChiaCloudWalletApiError extends Error {
@@ -542,8 +590,10 @@ export class ChiaCloudWalletClient {
     options: RequestInit = {},
     requireAuth: boolean = true
   ): Promise<T> {
-    const url = endpoint.includes('https://') ? endpoint : `${this.baseUrl}${endpoint}`;
 
+    const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
+      ? endpoint
+      : `${this.baseUrl}${endpoint}`; 
     try {
       const headers: any = {
         'Content-Type': 'application/json',
@@ -869,9 +919,9 @@ export class ChiaCloudWalletClient {
         nftCoinId: normalizedNFTData.coinId?.substring(0, 10) + '...',
         hasNftCoinId: !!normalizedNFTData.coinId
       });
-
     //  const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
       const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_any_offer/make-offer', {
+ 
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
@@ -952,7 +1002,9 @@ export class ChiaCloudWalletClient {
         throw new Error(`Failed to create offer: ${offerResult.error}`);
       }
 
+ 
       const unsignedOfferString = offerResult.data.offer_string;
+ 
       if (!unsignedOfferString) {
         throw new Error('No offer string returned from API');
       }
@@ -1040,6 +1092,73 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Take/accept an existing offer
+   * @param request - The take offer request containing the offer string
+   */
+  async takeOffer(request: TakeOfferRequest): Promise<Result<TakeOfferResponse>> {
+    try {
+      // Validate required fields
+      if (!request.offer_string || request.offer_string.trim() === '') {
+        throw new ChiaCloudWalletApiError('Offer string is required');
+      }
+
+      this.logInfo('Taking offer', {
+        offerLength: request.offer_string.length,
+        offerPrefix: request.offer_string.substring(0, 20) + '...'
+      });
+
+      // Convert arrays to comma-separated strings for API compatibility
+      const apiRequest = {
+        ...request,
+      };
+
+      const result = await this.makeRequest<TakeOfferResponse>('https://edge.silicon-dev.net/chia/take_unsigned_offer/take-offer', {
+        method: 'POST',
+        body: JSON.stringify(apiRequest),
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to take offer',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Parse an offer string to extract required CAT coins and other payment requirements
+   * This is a utility method to help determine if a wallet has sufficient funds to take an offer
+   * @param offerString - The offer string to parse
+   */
+  async parseOffer(offerString: string): Promise<Result<ParsedOfferData>> {
+    try {
+      if (!offerString || offerString.trim() === '') {
+        throw new ChiaCloudWalletApiError('Offer string is required');
+      }
+
+      this.logInfo('Parsing offer', {
+        offerLength: offerString.length,
+        offerPrefix: offerString.substring(0, 20) + '...'
+      });
+
+      const result = await this.makeRequest<ParsedOfferData>('/wallet/offer/parse', {
+        method: 'POST',
+        body: JSON.stringify({ offer_string: offerString }),
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to parse offer',
+        details: error
+      };
+    }
+  }
+
+  /**
    * Broadcast a signed spend bundle with error handling
    */
   async broadcastSpendBundle(request: BroadcastSpendBundleRequest): Promise<Result<BroadcastResponse>> {
@@ -1070,6 +1189,40 @@ export class ChiaCloudWalletClient {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to broadcast spend bundle',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Broadcast an offer with error handling
+   */
+  async broadcastOffer(request: BroadcastOfferRequest): Promise<Result<BroadcastOfferResponse>> {
+    try {
+      if (!request.offer_string || request.offer_string.trim() === '') {
+        throw new ChiaCloudWalletApiError('Offer string is required for broadcasting');
+      }
+
+      // Validate offer format (should start with "offer1")
+      if (!request.offer_string.startsWith('offer1')) {
+        throw new ChiaCloudWalletApiError('Invalid offer format: offer must start with "offer1"');
+      }
+
+      this.logInfo('Broadcasting offer', {
+        offerLength: request.offer_string.length,
+        offerPrefix: request.offer_string.substring(0, 20) + '...'
+      });
+
+      const result = await this.makeRequest<BroadcastOfferResponse>('/wallet/offer/broadcast', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to broadcast offer',
         details: error
       };
     }
