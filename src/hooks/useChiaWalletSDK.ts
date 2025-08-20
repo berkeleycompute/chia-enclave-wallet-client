@@ -506,6 +506,88 @@ export const useUnifiedWalletState = (): UnifiedWalletState => {
 };
 
 /**
+ * Hook for managing Dexie marketplace integration
+ * Provides utilities for submitting and tracking offers on Dexie
+ */
+export function useDexieOffers() {
+  const [submissionState, setSubmissionState] = useState({
+    isSubmitting: false,
+    lastSubmission: null as any,
+    error: null as string | null
+  });
+
+  const submitToDexie = useCallback(async (offerString: string) => {
+    setSubmissionState(prev => ({ ...prev, isSubmitting: true, error: null }));
+
+    try {
+      const response = await fetch('https://api.dexie.space/v1/offers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          offer: offerString
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Dexie API error (${response.status}): ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      setSubmissionState({
+        isSubmitting: false,
+        lastSubmission: {
+          dexieOfferId: result.id,
+          dexieOfferUrl: result.offer_url,
+          timestamp: Date.now(),
+          offerString
+        },
+        error: null
+      });
+
+      return {
+        success: true as const,
+        data: result
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit to Dexie';
+      setSubmissionState({
+        isSubmitting: false,
+        lastSubmission: null,
+        error: errorMessage
+      });
+      return {
+        success: false as const,
+        error: errorMessage
+      };
+    }
+  }, []);
+
+  const openOnDexie = useCallback((dexieOfferId?: string, dexieOfferUrl?: string) => {
+    if (dexieOfferUrl) {
+      window.open(dexieOfferUrl, '_blank', 'noopener,noreferrer');
+    } else if (dexieOfferId) {
+      const dexieUrl = `https://dexie.space/offers/${dexieOfferId}`;
+      window.open(dexieUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      console.warn('No Dexie offer ID or URL provided');
+      return false;
+    }
+    return true;
+  }, []);
+
+  return {
+    ...submissionState,
+    submitToDexie,
+    openOnDexie
+  };
+}
+
+/**
  * Unified wallet client hook - combines SDK and wallet state into a single client
  * This is the BEST way to get a complete wallet client for passing to components
  */

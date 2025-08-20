@@ -38,6 +38,9 @@ export interface SavedOffer {
     isSigned: boolean;
   };
   originalRequest: SimpleMakeUnsignedNFTOfferRequest;
+  // Dexie marketplace integration
+  dexieOfferId?: string;
+  dexieOfferUrl?: string;
 } 
 
 // Shared wallet state type for passing between components
