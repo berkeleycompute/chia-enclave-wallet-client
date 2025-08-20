@@ -79,48 +79,7 @@ export const createUnifiedWalletState = (options: {
   };
 };
 
-// Take Offer Widget Types
-export interface TakeOfferResult {
-  transactionId: string;
-  status: string;
-  message?: string;
-  offerString: string;
-  timestamp: number;
-}
 
-export interface SelectedCoin {
-  coin: HydratedCoin;
-  amount: number;
-  displayName: string;
-  type: 'XCH' | 'CAT' | 'NFT';
-  assetId?: string;
-}
-
-export interface OfferAnalysis {
-  isValid: boolean;
-  requiredXCH: number;
-  requiredCATs: Array<{
-    assetId: string;
-    amount: number;
-    name?: string;
-  }>;
-  offeredNFTs: Array<{
-    launcherId: string;
-    amount: number;
-  }>;
-  estimatedValue: number;
-  error?: string;
-}
-
-export interface TakeOfferModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  initialOfferString?: string;
-  onOfferTaken?: (result: TakeOfferResult) => void;
-  onError?: (error: string) => void;
-  autoConnect?: boolean;
-  showAdvancedOptions?: boolean;
-}
 
 // Dexie-specific Take Offer Widget Types
 export interface DexieOfferData {
@@ -138,6 +97,12 @@ export interface DexieOfferData {
       name: string;
       is_nft?: boolean;
       collection?: { name: string };
+      nft_data?: {
+        data_uris?: string[];
+        metadata_uris?: string[];
+        license_uris?: string[];
+        [key: string]: any;
+      };
     }>;
     requested: Array<{
       id: string;
@@ -146,6 +111,12 @@ export interface DexieOfferData {
       name: string;
       is_nft?: boolean;
       collection?: { name: string };
+      nft_data?: {
+        data_uris?: string[];
+        metadata_uris?: string[];
+        license_uris?: string[];
+        [key: string]: any;
+      };
     }>;
     output_coins: Record<string, Array<{ amount: number }>>;
   };
@@ -157,6 +128,32 @@ export interface DexieOfferResult {
   offerData: DexieOfferData;
 }
 
+export interface NFTMetadata {
+  format?: string;
+  minting_tool?: string;
+  name?: string;
+  description?: string;
+  sensitive_content?: boolean;
+  series_number?: number;
+  series_total?: number;
+  custom_metadata_version?: string;
+  collection?: {
+    name?: string;
+    id?: string;
+    attributes?: Array<{
+      type: string;
+      value: string;
+    }>;
+  };
+  attributes?: Array<{
+    trait_type: string;
+    value: string | number;
+  }>;
+  data_uris?: string[];
+  metadata_uris?: string[];
+  license_uris?: string[];
+}
+
 export interface TakeOfferWidgetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -164,6 +161,8 @@ export interface TakeOfferWidgetProps {
   onOfferTaken?: (result: DexieOfferResult) => void;
   onError?: (error: string) => void;
   jwtToken?: string;
+  nftMetadata?: NFTMetadata; // Optional metadata override
+  imageUrl?: string; // Optional image URL override
 }
 
 export interface DexieSelectedCoin {

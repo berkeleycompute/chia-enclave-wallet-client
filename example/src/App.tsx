@@ -23,9 +23,9 @@ import {
     // useGlobalDialogs,
 } from '../../src/components/GlobalDialogProvider';
 
-// Import TakeOfferModal
-import { TakeOfferModal } from '../../src/components/TakeOfferModal';
-import type { TakeOfferResult } from '../../src/components/types';
+// Import TakeOfferWidget
+import { TakeOfferWidget } from '../../src/components/TakeOfferWidget';
+import type { DexieOfferData, DexieOfferResult } from '../../src/components/types';
 
 // Import types
 import { UnifiedWalletClient } from '../../src/client/UnifiedWalletClient';
@@ -358,9 +358,10 @@ const DialogsView: React.FC<{
 
     const [lastAction, setLastAction] = useState<string>('');
 
-    // TakeOfferModal state
-    const [isTakeOfferModalOpen, setIsTakeOfferModalOpen] = useState(false);
-    const [lastTakeOfferResult, setLastTakeOfferResult] = useState<TakeOfferResult | null>(null);
+    // TakeOfferWidget state
+    const [isTakeOfferWidgetOpen, setIsTakeOfferWidgetOpen] = useState(false);
+    const [lastTakeOfferResult, setLastTakeOfferResult] = useState<DexieOfferResult | null>(null);
+    const [exampleDexieData, setExampleDexieData] = useState<DexieOfferData | null>(null);
 
     // Get categorized coins from the SDK
     const hydratedCoins = walletClient.sdk.walletState.hydratedCoins || [];
@@ -408,8 +409,8 @@ const DialogsView: React.FC<{
         console.log('Opening NFT Details Dialog for:', randomNFT);
     };
 
-    // TakeOfferModal handlers
-    const handleOfferTaken = (result: TakeOfferResult) => {
+    // TakeOfferWidget handlers
+    const handleOfferTaken = (result: DexieOfferResult) => {
         setLastTakeOfferResult(result);
         setLastAction(`Offer taken successfully! Transaction: ${result.transactionId.substring(0, 16)}...`);
         console.log('Offer taken successfully:', result);
@@ -419,6 +420,41 @@ const DialogsView: React.FC<{
         setLastAction(`Take offer failed: ${error}`);
         console.error('Take offer error:', error);
     };
+
+    // Create example Dexie data for testing
+    const createExampleDexieData = useCallback(() => {
+        const exampleData: DexieOfferData = {
+            offer: {
+                id: 'example-offer-12345',
+                offer: 'offer1qqr83wcuu2rykcmqvpsxygqqwc7hynr6hum6e0mnf72sn7uvvkpt68eyumkhelprk0adeg42nlelk2mpagr8facdwt3',
+                status: 1, // Active
+                date_found: new Date().toISOString(),
+                price: 10.5,
+                offered: [{
+                    id: 'nft-123',
+                    amount: 1,
+                    code: 'NFT',
+                    name: 'Example NFT',
+                    is_nft: true,
+                    collection: { name: 'Test Collection' }
+                }],
+                requested: [{
+                    id: 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d',
+                    amount: 10.5,
+                    code: 'wUSDC',
+                    name: 'Wrapped USD Coin',
+                    is_nft: false
+                }],
+                output_coins: {
+                    'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d': [
+                        { amount: 10500 } // 10.5 wUSDC in mojos (1000 mojos = 1 wUSDC)
+                    ]
+                }
+            }
+        };
+        setExampleDexieData(exampleData);
+        setLastAction('Created example Dexie offer data for testing');
+    }, []);
 
     if (!walletClient.isConnected) {
         return (
@@ -498,11 +534,12 @@ const DialogsView: React.FC<{
 
                         <button
                             onClick={() => {
-                                handleDialogAction('Take Offer Dialog', () => setIsTakeOfferModalOpen(true));
+                                createExampleDexieData();
+                                handleDialogAction('Take Offer Widget', () => setIsTakeOfferWidgetOpen(true));
                             }}
                             className="dialog-btn take-offer-btn"
                         >
-                            🤝 Take Offer
+                            🤝 Take Offer (Create Example)
                         </button>
                     </div>
                     <div className="dialog-info">
@@ -610,20 +647,21 @@ const DialogsView: React.FC<{
                     <div className="result-details">
                         <p><strong>Transaction ID:</strong> {lastTakeOfferResult.transactionId}</p>
                         <p><strong>Status:</strong> {lastTakeOfferResult.status}</p>
-                        {lastTakeOfferResult.message && <p><strong>Message:</strong> {lastTakeOfferResult.message}</p>}
-                        <p><strong>Timestamp:</strong> {new Date(lastTakeOfferResult.timestamp).toLocaleString()}</p>
+                        <p><strong>Offer ID:</strong> {lastTakeOfferResult.offerData.offer.id}</p>
                     </div>
                 </div>
             )}
 
-            <TakeOfferModal
-                isOpen={isTakeOfferModalOpen}
-                onClose={() => setIsTakeOfferModalOpen(false)}
-                onOfferTaken={handleOfferTaken}
-                onError={handleTakeOfferError}
-                autoConnect={false}
-                showAdvancedOptions={true}
-            />
+            {exampleDexieData && (
+                <TakeOfferWidget
+                    isOpen={isTakeOfferWidgetOpen}
+                    onClose={() => setIsTakeOfferWidgetOpen(false)}
+                    dexieOfferData={exampleDexieData}
+                    onOfferTaken={handleOfferTaken}
+                    onError={handleTakeOfferError}
+                    jwtToken="your-jwt-token-here"
+                />
+            )}
 
             <div className="dialog-info-section">
                 <h3>📊 Dialog Information</h3>

@@ -49,7 +49,6 @@ export { ReceiveFundsModal } from './components/ReceiveFundsModal';
 export { MakeOfferModal } from './components/MakeOfferModal';
 export { ActiveOffersModal } from './components/ActiveOffersModal';
 export { NFTDetailsModal } from './components/NFTDetailsModal';
-export { TakeOfferModal } from './components/TakeOfferModal';
 export { TakeOfferWidget } from './components/TakeOfferWidget';
 
 // Export dialog hooks from GlobalDialogProvider
@@ -90,13 +89,10 @@ export type {
 export type {
   SentTransaction,
   SavedOffer,
-  TakeOfferResult,
-  SelectedCoin,
-  OfferAnalysis,
-  TakeOfferModalProps,
   DexieOfferData,
   DexieOfferResult,
   TakeOfferWidgetProps,
   DexieSelectedCoin,
+  NFTMetadata,
 } from './components/types';
 

@@ -1,6 +1,6 @@
-# TakeOfferModal Widget
+# TakeOfferWidget
 
-The `TakeOfferModal` is a comprehensive, ready-to-use React component for taking/accepting Chia offers. It provides a complete user interface with offer parsing, balance checking, coin selection, and transaction execution.
+The `TakeOfferWidget` is a comprehensive, ready-to-use React component for taking/accepting Chia offers using Dexie marketplace data. It provides a complete user interface with offer analysis, balance checking, coin selection, and transaction execution.
 
 ## Features
 
@@ -22,17 +22,26 @@ npm install chia-enclave-wallet-client
 ## Basic Usage
 
 ```tsx
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
-  TakeOfferModal, 
+  TakeOfferWidget, 
   ChiaWalletSDKProvider,
-  type TakeOfferResult 
+  type DexieOfferData,
+  type DexieOfferResult 
 } from 'chia-enclave-wallet-client';
 
 function MyApp() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWidgetOpen, setIsWidgetOpen] = useState(false);
+  const [dexieOfferData, setDexieOfferData] = useState<DexieOfferData | null>(null);
 
-  const handleOfferTaken = (result: TakeOfferResult) => {
+  // App fetches Dexie data (library doesn't handle this)
+  const fetchOfferData = useCallback(async (offerId: string) => {
+    const response = await fetch(`https://api.dexie.space/v1/offers/${offerId}`);
+    const data = await response.json();
+    setDexieOfferData(data);
+  }, []);
+
+  const handleOfferTaken = (result: DexieOfferResult) => {
     console.log('Offer taken!', result);
     alert(`Success! Transaction ID: ${result.transactionId}`);
   };
@@ -50,16 +59,24 @@ function MyApp() {
       }}
     >
       <div>
-        <button onClick={() => setIsModalOpen(true)}>
+        <button onClick={() => fetchOfferData('your-offer-id')}>
+          Load Offer
+        </button>
+        
+        <button onClick={() => setIsWidgetOpen(true)} disabled={!dexieOfferData}>
           Take Offer
         </button>
 
-        <TakeOfferModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onOfferTaken={handleOfferTaken}
-          onError={handleError}
-        />
+        {dexieOfferData && (
+          <TakeOfferWidget
+            isOpen={isWidgetOpen}
+            onClose={() => setIsWidgetOpen(false)}
+            dexieOfferData={dexieOfferData}
+            onOfferTaken={handleOfferTaken}
+            onError={handleOfferError}
+            jwtToken="your-jwt-token"
+          />
+        )}
       </div>
     </ChiaWalletSDKProvider>
   );
@@ -70,25 +87,54 @@ function MyApp() {
 
 | Prop | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| `isOpen` | `boolean` | ✅ | - | Controls modal visibility |
-| `onClose` | `() => void` | ✅ | - | Called when modal should close |
-| `initialOfferString` | `string` | ❌ | `''` | Pre-fill the offer input field |
-| `onOfferTaken` | `(result: TakeOfferResult) => void` | ❌ | - | Called when offer is successfully taken |
+| `isOpen` | `boolean` | ✅ | - | Controls widget visibility |
+| `onClose` | `() => void` | ✅ | - | Called when widget should close |
+| `dexieOfferData` | `DexieOfferData` | ✅ | - | Complete Dexie offer data object |
+| `onOfferTaken` | `(result: DexieOfferResult) => void` | ❌ | - | Called when offer is successfully taken |
 | `onError` | `(error: string) => void` | ❌ | - | Called when an error occurs |
-| `autoConnect` | `boolean` | ❌ | `true` | Automatically connect wallet when modal opens |
-| `showAdvancedOptions` | `boolean` | ❌ | `false` | Show advanced options like custom fees |
+| `jwtToken` | `string` | ❌ | - | JWT token for wallet authentication |
 
 ## Types
 
-### TakeOfferResult
+### DexieOfferResult
 
 ```tsx
-interface TakeOfferResult {
+interface DexieOfferResult {
   transactionId: string;    // Blockchain transaction ID
   status: string;           // Transaction status
-  message?: string;         // Optional message from the API
-  offerString: string;      // Original offer string
-  timestamp: number;        // When the offer was taken
+  offerData: DexieOfferData; // Complete original offer data
+}
+```
+
+### DexieOfferData
+
+```tsx
+interface DexieOfferData {
+  offer: {
+    id: string;                    // Dexie offer ID
+    offer: string;                 // Actual Chia offer string
+    status: number;                // 0=pending, 1=active, 2=completed, 3=cancelled
+    date_completed?: string;       // Completion timestamp if completed
+    date_found: string;            // Creation timestamp
+    price: number;                 // Offer price
+    offered: Array<{               // What the seller is offering
+      id: string;
+      amount: number;
+      code: string;
+      name: string;
+      is_nft?: boolean;
+      collection?: { name: string };
+    }>;
+    requested: Array<{             // What the seller is requesting
+      id: string;
+      amount: number;
+      code: string;
+      name: string;
+      is_nft?: boolean;
+      collection?: { name: string };
+    }>;
+    output_coins: Record<string, Array<{ amount: number }>>; // Precise coin amounts
+  };
 }
 ```
 

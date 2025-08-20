@@ -154,20 +154,6 @@ function App() {
               {showTakeOfferWidget ? 'Close Take Offer Widget' : 'Open Take Offer Widget'}
             </button>
 
-            <button
-              onClick={() => setOfferId('example-offer-id-12345')}
-              style={{
-                padding: '12px 24px',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              Load Example Offer ID
-            </button>
 
             <button
               onClick={() => {
