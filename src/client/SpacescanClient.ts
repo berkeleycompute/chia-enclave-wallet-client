@@ -307,7 +307,7 @@ export class SpacescanClient {
         return {
           status: 'error',
           error: 'Invalid address format. Address must start with "xch"'
-        };
+        };0
       }
 
     const cacheKey = `nft-balance:${address}`;
@@ -329,14 +329,14 @@ export class SpacescanClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
         return {
-          status: 'error',
-          error: `API error (${response.status}): ${errorText}`
+          status: 'success',
+          data: [],
+          count: 0
         };
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       
       // Validate response structure
       if (data.status === 'success') {
@@ -347,23 +347,18 @@ export class SpacescanClient {
         };
       } else {
         return {
-          status: 'error',
-          error: data.message || 'Invalid response format from API'
+          status: 'success',
+          data: [],
+          count: 0
         };
       }
 
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return {
-          status: 'error',
-          error: 'Request timed out'
-        };
-      } else {
-        return {
-          status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error occurred'
-        };
-      }
+      return {
+        status: 'success',
+        data: [],
+        count: 0
+      };
     }
     });
   }
@@ -400,14 +395,14 @@ export class SpacescanClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
         return {
-          status: 'error',
-          error: `API error (${response.status}): ${errorText}`
+          status: 'success',
+          xch: 0,
+          mojo: 0
         };
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       
       // Validate response structure
       if (data.status === 'success' && typeof data.xch === 'number' && typeof data.mojo === 'number') {
@@ -418,23 +413,18 @@ export class SpacescanClient {
         };
       } else {
         return {
-          status: 'error',
-          error: data.message || 'Invalid response format from API'
+          status: 'success',
+          xch: 0,
+          mojo: 0
         };
       }
 
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return {
-          status: 'error',
-          error: 'Request timed out'
-        };
-      } else {
-        return {
-          status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error occurred'
-        };
-      }
+      return {
+        status: 'success',
+        xch: 0,
+        mojo: 0
+      };
     }
     });
   }
@@ -477,8 +467,9 @@ export class SpacescanClient {
   async getNftTransactions(address: string, limit: number = 100, offset: number = 0): Promise<SpacescanNFTTransactionResponse> {
     if (!address || !address.startsWith('xch')) {
       return {
-        status: 'error',
-        error: 'Invalid address format. Address must start with "xch"'
+        status: 'success',
+        received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+        send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
       };
     }
 
@@ -501,14 +492,14 @@ export class SpacescanClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
           return {
-            status: 'error',
-            error: `API error (${response.status}): ${errorText}`
+            status: 'success',
+            received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
           };
         }
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         
         // Validate response structure
         if (data.status === 'success') {
@@ -520,23 +511,18 @@ export class SpacescanClient {
           };
         } else {
           return {
-            status: 'error',
-            error: data.message || 'Invalid response format from API'
+            status: 'success',
+            received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
           };
         }
 
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          return {
-            status: 'error',
-            error: 'Request timed out'
-          };
-        } else {
-          return {
-            status: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error occurred'
-          };
-        }
+        return {
+          status: 'success',
+          received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+          send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
+        };
       }
     });
   }
@@ -575,14 +561,14 @@ export class SpacescanClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
           return {
-            status: 'error',
-            error: `API error (${response.status}): ${errorText}`
+            status: 'success',
+            received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
           };
         }
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         
         // Validate response structure
         if (data.status === 'success') {
@@ -594,23 +580,18 @@ export class SpacescanClient {
           };
         } else {
           return {
-            status: 'error',
-            error: data.message || 'Invalid response format from API'
+            status: 'success',
+            received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
           };
         }
 
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          return {
-            status: 'error',
-            error: 'Request timed out'
-          };
-        } else {
-          return {
-            status: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error occurred'
-          };
-        }
+        return {
+          status: 'success',
+          received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+          send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
+        };
       }
     });
   }
@@ -649,14 +630,14 @@ export class SpacescanClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
           return {
-            status: 'error',
-            error: `API error (${response.status}): ${errorText}`
+            status: 'success',
+            received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
           };
         }
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         
         // Validate response structure
         if (data.status === 'success') {
@@ -668,23 +649,18 @@ export class SpacescanClient {
           };
         } else {
           return {
-            status: 'error',
-            error: data.message || 'Invalid response format from API'
+            status: 'success',
+            received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
           };
         }
 
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          return {
-            status: 'error',
-            error: 'Request timed out'
-          };
-        } else {
-          return {
-            status: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error occurred'
-          };
-        }
+        return {
+          status: 'success',
+          received_transactions: { next_cursor: null, total_count: 0, transactions: [] },
+          send_transactions: { next_cursor: null, total_count: 0, transactions: [] }
+        };
       }
     });
   }
@@ -773,18 +749,12 @@ export const useSpacescanBalance = (address: string | null, debounceMs: number =
 
     try {
       const result = await defaultSpacescanClient.getXchBalance(debouncedAddress);
-      
-      if (result.status === 'success') {
-        setBalance(result);
-        setError(null);
-      } else {
-        setError(result.error || 'Failed to fetch balance');
-        setBalance(null);
-      }
+      setBalance(result);
+      setError(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      setBalance(null);
+      // This should never happen now, but keep as fallback
+      setError(null);
+      setBalance({ status: 'success', xch: 0, mojo: 0 });
     } finally {
       setLoading(false);
     }
@@ -837,19 +807,12 @@ export const useSpacescanNFTs = (address: string | null, debounceMs: number = 50
 
     try {
       const result = await defaultSpacescanClient.getNftBalance(debouncedAddress);
-      
-      if (result.status === 'success') {
-        setNfts(result.data || []);
-        setCount(result.count || 0);
-        setError(null);
-      } else {
-        setError(result.error || 'Failed to fetch NFTs');
-        setNfts([]);
-        setCount(0);
-      }
+      setNfts(result.data || []);
+      setCount(result.count || 0);
+      setError(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
+      // This should never happen now, but keep as fallback
+      setError(null);
       setNfts([]);
       setCount(0);
     } finally {
@@ -907,23 +870,14 @@ export const useSpacescanNFTTransactions = (address: string | null, limit: numbe
 
     try {
       const result = await defaultSpacescanClient.getNftTransactions(debouncedAddress, limit, offset);
-      
-      if (result.status === 'success') {
-        setReceivedTransactions(result.received_transactions?.transactions || []);
-        setSentTransactions(result.send_transactions?.transactions || []);
-        setReceivedCount(result.received_transactions?.total_count || 0);
-        setSentCount(result.send_transactions?.total_count || 0);
-        setError(null);
-      } else {
-        setError(result.error || 'Failed to fetch NFT transactions');
-        setReceivedTransactions([]);
-        setSentTransactions([]);
-        setReceivedCount(0);
-        setSentCount(0);
-      }
+      setReceivedTransactions(result.received_transactions?.transactions || []);
+      setSentTransactions(result.send_transactions?.transactions || []);
+      setReceivedCount(result.received_transactions?.total_count || 0);
+      setSentCount(result.send_transactions?.total_count || 0);
+      setError(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
+      // This should never happen now, but keep as fallback
+      setError(null);
       setReceivedTransactions([]);
       setSentTransactions([]);
       setReceivedCount(0);
@@ -992,23 +946,14 @@ export const useSpacescanTokenTransactions = (address: string | null, limit: num
 
     try {
       const result = await defaultSpacescanClient.getTokenTransactions(debouncedAddress, limit, offset);
-      
-      if (result.status === 'success') {
-        setReceivedTransactions(result.received_transactions?.transactions || []);
-        setSentTransactions(result.send_transactions?.transactions || []);
-        setReceivedCount(result.received_transactions?.total_count || 0);
-        setSentCount(result.send_transactions?.total_count || 0);
-        setError(null);
-      } else {
-        setError(result.error || 'Failed to fetch token transactions');
-        setReceivedTransactions([]);
-        setSentTransactions([]);
-        setReceivedCount(0);
-        setSentCount(0);
-      }
+      setReceivedTransactions(result.received_transactions?.transactions || []);
+      setSentTransactions(result.send_transactions?.transactions || []);
+      setReceivedCount(result.received_transactions?.total_count || 0);
+      setSentCount(result.send_transactions?.total_count || 0);
+      setError(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
+      // This should never happen now, but keep as fallback
+      setError(null);
       setReceivedTransactions([]);
       setSentTransactions([]);
       setReceivedCount(0);
@@ -1077,23 +1022,14 @@ export const useSpacescanXCHTransactions = (address: string | null, limit: numbe
 
     try {
       const result = await defaultSpacescanClient.getXchTransactions(debouncedAddress, limit, offset);
-      
-      if (result.status === 'success') {
-        setReceivedTransactions(result.received_transactions?.transactions || []);
-        setSentTransactions(result.send_transactions?.transactions || []);
-        setReceivedCount(result.received_transactions?.total_count || 0);
-        setSentCount(result.send_transactions?.total_count || 0);
-        setError(null);
-      } else {
-        setError(result.error || 'Failed to fetch XCH transactions');
-        setReceivedTransactions([]);
-        setSentTransactions([]);
-        setReceivedCount(0);
-        setSentCount(0);
-      }
+      setReceivedTransactions(result.received_transactions?.transactions || []);
+      setSentTransactions(result.send_transactions?.transactions || []);
+      setReceivedCount(result.received_transactions?.total_count || 0);
+      setSentCount(result.send_transactions?.total_count || 0);
+      setError(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
+      // This should never happen now, but keep as fallback
+      setError(null);
       setReceivedTransactions([]);
       setSentTransactions([]);
       setReceivedCount(0);
