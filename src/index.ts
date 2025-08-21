@@ -76,7 +76,13 @@ export type {
   TakeOfferResponse,
   ParsedOfferData,
   BroadcastOfferRequest,
-  BroadcastOfferResponse
+  BroadcastOfferResponse,
+  
+  // Decode offer types
+  DecodeOfferRequest,
+  DecodeOfferResponse,
+  ApiSpendBundle,
+  ApiCoinSpend
 } from './client/ChiaCloudWalletClient';
 // Export SDK class and types
 export { ChiaWalletSDK } from './client/ChiaWalletSDK';
