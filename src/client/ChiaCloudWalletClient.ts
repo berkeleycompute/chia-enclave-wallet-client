@@ -143,7 +143,7 @@ export interface TransactionPayload {
 }
 
 export interface BroadcastSpendBundleRequest {
-  coinSpends: CoinSpend[];
+  coin_spends: CoinSpend[];
   signature: string;
 }
 
@@ -1212,7 +1212,7 @@ export class ChiaCloudWalletClient {
    */
   async broadcastSpendBundle(request: BroadcastSpendBundleRequest): Promise<Result<BroadcastResponse>> {
     try {
-      if (!request.coinSpends || request.coinSpends.length === 0) {
+      if (!request.coin_spends || request.coin_spends.length === 0) {
         throw new ChiaCloudWalletApiError('Coin spends are required for broadcasting');
       }
       if (!request.signature) {
@@ -1220,7 +1220,7 @@ export class ChiaCloudWalletClient {
       }
 
       // Normalize all coins in the coin spends
-      const normalizedCoinSpends = request.coinSpends.map(coinSpend => ({
+      const normalizedCoinSpends = request.coin_spends.map(coinSpend => ({
         ...coinSpend,
         coin: normalizeCoin(coinSpend.coin)
       }));
@@ -1314,8 +1314,8 @@ export class ChiaCloudWalletClient {
 
       // Step 2: Broadcast the spend bundle using the normal channel
       const broadcastResult = await this.broadcastSpendBundle({
-        coinSpends: internalSpendBundle.coinSpends,
-        signature: internalSpendBundle.aggregatedSignature
+        coin_spends: apiSpendBundle.coin_spends,
+        signature: apiSpendBundle.aggregated_signature
       });
 
       if (!broadcastResult.success) {
@@ -1350,7 +1350,7 @@ export class ChiaCloudWalletClient {
       const { coin_spends, aggregated_signature } = signedBundle.signed_spend_bundle;
 
       return await this.broadcastSpendBundle({
-        coinSpends: coin_spends,
+        coin_spends: coin_spends,
         signature: aggregated_signature
       });
     } catch (error) {
