@@ -150,6 +150,25 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
       letter-spacing: 0.5px;
     }
 
+    .dexie-badge {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 4px;
+      color: #3b82f6;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .dexie-badge svg {
+      opacity: 0.8;
+    }
+
     .offer-arrow {
       color: #666;
       margin-left: 8px;
@@ -282,10 +301,15 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     .offer-actions {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
       margin-top: 20px;
       padding-top: 20px;
       border-top: 1px solid #333;
+    }
+
+    .primary-actions {
+      display: flex;
+      gap: 12px;
     }
 
     .copy-offer-btn {
@@ -302,10 +326,34 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
       transition: all 0.2s;
       font-size: 14px;
       font-weight: 600;
+      flex: 1;
     }
 
     .copy-offer-btn:hover {
       background: #4a9f4a;
+      transform: translateY(-1px);
+    }
+
+    .dexie-view-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 8px;
+      color: #3b82f6;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .dexie-view-btn:hover {
+      background: rgba(59, 130, 246, 0.3);
+      border-color: rgba(59, 130, 246, 0.6);
       transform: translateY(-1px);
     }
 
@@ -481,6 +529,15 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
       .offer-status-actions {
         flex-direction: column;
       }
+
+      .primary-actions {
+        flex-direction: column;
+      }
+
+      .dexie-badge {
+        font-size: 8px;
+        padding: 1px 4px;
+      }
     }
 
     @media (max-width: 480px) {
@@ -593,6 +650,19 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
       console.log('Offer copied to clipboard');
     } catch (err) {
       console.error('Failed to copy offer:', err);
+    }
+  }, []);
+
+  // Open offer details on Dexie
+  const openOfferOnDexie = useCallback((offer: SavedOffer) => {
+    if (offer.dexieOfferUrl) {
+      window.open(offer.dexieOfferUrl, '_blank', 'noopener,noreferrer');
+    } else if (offer.dexieOfferId) {
+      // Construct Dexie URL from offer ID if direct URL not available
+      const dexieUrl = `https://dexie.space/offers/${offer.dexieOfferId}`;
+      window.open(dexieUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      console.warn('No Dexie offer ID or URL available for this offer');
     }
   }, []);
 
@@ -795,16 +865,33 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
               </div>
 
               <div className="offer-actions">
-                <button 
-                  className="copy-offer-btn" 
-                  onClick={() => copyOfferToClipboard(selectedOffer.offerData.offerString)}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                  Copy Offer String
-                </button>
+                <div className="primary-actions">
+                  <button 
+                    className="copy-offer-btn" 
+                    onClick={() => copyOfferToClipboard(selectedOffer.offerData.offerString)}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    Copy Offer String
+                  </button>
+                  
+                  {(selectedOffer.dexieOfferId || selectedOffer.dexieOfferUrl) && (
+                    <button 
+                      className="dexie-view-btn" 
+                      onClick={() => openOfferOnDexie(selectedOffer)}
+                      title="View this offer on Dexie marketplace"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15,3 21,3 21,9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                      View on Dexie
+                    </button>
+                  )}
+                </div>
                 
                 <div className="offer-status-actions">
                   <button 
@@ -899,6 +986,16 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
                     <div className="offer-type">
                       {offer.offerData.isSigned ? 'Signed' : 'Unsigned'}
                     </div>
+                    {(offer.dexieOfferId || offer.dexieOfferUrl) && (
+                      <div className="dexie-badge" title="Available on Dexie marketplace">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                          <polyline points="15,3 21,3 21,9"></polyline>
+                          <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        Dexie
+                      </div>
+                    )}
                   </div>
                   
                   <div className="offer-actions-preview">

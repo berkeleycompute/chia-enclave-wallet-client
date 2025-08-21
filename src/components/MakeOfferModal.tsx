@@ -482,6 +482,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     timestamp: number;
     isSigned: boolean;
     originalRequest?: any;
+    dexieOfferId?: string;
+    dexieOfferUrl?: string;
   }) => {
     if (!address) return;
 
@@ -509,7 +511,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
           offerString: offerData.offerString,
           isSigned: offerData.isSigned
         },
-        originalRequest: offerData.originalRequest || {} as any
+        originalRequest: offerData.originalRequest || {} as any,
+        // Dexie marketplace integration
+        dexieOfferId: offerData.dexieOfferId,
+        dexieOfferUrl: offerData.dexieOfferUrl
       };
 
       // Get existing offers
@@ -613,7 +618,15 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return true;
   };
 
-  const submitOfferToDexie = async (offerString: string): Promise<void> => {
+  const submitOfferToDexie = async (offerString: string): Promise<{
+    success: boolean;
+    data?: {
+      id: string;
+      offer_url?: string;
+      [key: string]: any;
+    };
+    error?: string;
+  }> => {
     try {
       const response = await fetch('https://api.dexie.space/v1/offers', {
         method: 'POST',
@@ -633,9 +646,17 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
       const result = await response.json();
       console.log('Offer successfully submitted to Dexie:', result);
+
+      return {
+        success: true,
+        data: result
+      };
     } catch (error) {
       console.error('Failed to submit offer to Dexie:', error);
-      // Don't throw here - we still want to save locally even if Dexie fails
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit offer to Dexie'
+      };
     }
   };
 
@@ -670,7 +691,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         throw new Error((result as any).error);
       }
 
-      // Prepare the offer data using the base NFT
+      // Submit to Dexie API and capture the response
+      const dexieResult = await submitOfferToDexie(result.data.signed_offer);
+
+      // Prepare the offer data using the base NFT, including Dexie data
       const offerData = {
         nft: baseNft,
         amount: parseFloat(offerAmount),
@@ -679,17 +703,30 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         offerString: result.data.signed_offer,
         timestamp: Date.now(),
         isSigned: true,
-        originalRequest: simpleOfferRequest
+        originalRequest: simpleOfferRequest,
+        // Include Dexie data if submission was successful
+        dexieOfferId: dexieResult.success ? dexieResult.data?.id : undefined,
+        dexieOfferUrl: dexieResult.success ? dexieResult.data?.offer_url : undefined
       };
+      
+      // Save to localStorage with Dexie information
 
       // Save to localStorage first
       saveOfferToStorage(offerData);
+
 
       // Submit to Dexie API (don't await - run in parallel)
       submitOfferToDexie(result.data.signed_offer);
 
       // Also call the callback if provided (for parent component compatibility)
       onOfferCreated?.(offerData);
+
+      console.log('Offer created and stored:', {
+        localOfferId: offerData.timestamp,
+        dexieOfferId: offerData.dexieOfferId,
+        dexieSuccess: dexieResult.success,
+        dexieError: dexieResult.error
+      });
 
       closeModal();
     } catch (err) {
