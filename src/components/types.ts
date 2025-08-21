@@ -1,6 +1,7 @@
-import type { 
-  HydratedCoin, 
-  SimpleMakeUnsignedNFTOfferRequest 
+import type {
+  HydratedCoin,
+  SimpleMakeUnsignedNFTOfferRequest,
+  TakeOfferResponse
 } from '../client/ChiaCloudWalletClient';
 
 export interface SentTransaction {
@@ -41,7 +42,7 @@ export interface SavedOffer {
   // Dexie marketplace integration
   dexieOfferId?: string;
   dexieOfferUrl?: string;
-} 
+}
 
 // Shared wallet state type for passing between components
 export interface UnifiedWalletState {
@@ -54,7 +55,7 @@ export interface UnifiedWalletState {
   formattedBalance: string;
   error: string | null;
   isConnecting?: boolean;
-} 
+}
 
 // Utility function to create UnifiedWalletState from external data
 export const createUnifiedWalletState = (options: {
@@ -79,4 +80,94 @@ export const createUnifiedWalletState = (options: {
     error: options.error ?? null,
     isConnecting: options.isConnecting ?? false,
   };
-}; 
+};
+
+
+
+// Dexie-specific Take Offer Widget Types
+export interface DexieOfferData {
+  offer: {
+    id: string;
+    offer: string; // offer string
+    status: number;
+    date_completed?: string;
+    date_found: string;
+    price: number;
+    offered: Array<{
+      id: string;
+      amount: number;
+      code: string;
+      name: string;
+      is_nft?: boolean;
+      collection?: { name: string };
+      nft_data?: {
+        data_uris?: string[];
+        metadata_uris?: string[];
+        license_uris?: string[];
+        [key: string]: any;
+      };
+    }>;
+    requested: Array<{
+      id: string;
+      amount: number;
+      code: string;
+      name: string;
+      is_nft?: boolean;
+      collection?: { name: string };
+      nft_data?: {
+        data_uris?: string[];
+        metadata_uris?: string[];
+        license_uris?: string[];
+        [key: string]: any;
+      };
+    }>;
+    output_coins: Record<string, Array<{ amount: number }>>;
+  };
+}
+
+export interface DexieOfferResult {
+  transactionId: string;
+  status: string;
+  offerData: DexieOfferData;
+}
+
+export interface NFTMetadata {
+  format?: string;
+  minting_tool?: string;
+  name?: string;
+  description?: string;
+  sensitive_content?: boolean;
+  series_number?: number;
+  series_total?: number;
+  custom_metadata_version?: string;
+  collection?: {
+    name?: string;
+    id?: string;
+    attributes?: Array<{
+      type: string;
+      value: string;
+    }>;
+  };
+  attributes?: Array<{
+    trait_type: string;
+    value: string | number;
+  }>;
+  data_uris?: string[];
+  metadata_uris?: string[];
+  license_uris?: string[];
+}
+
+export interface TakeOfferWidgetProps {
+  onClose: () => void;
+  dexieOfferData: DexieOfferData;
+  onTakeOfferSuccess?: (result: DexieOfferResult) => void;
+  onTakeOfferError?: (error: string) => void;
+  nftMetadata?: NFTMetadata; // Optional metadata override
+  imageUrl?: string; // Optional image URL override
+}
+
+export interface DexieSelectedCoin {
+  coin: HydratedCoin;
+  amount: number;
+  displayName: string;
+}

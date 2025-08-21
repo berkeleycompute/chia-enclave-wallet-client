@@ -22,15 +22,15 @@ export {
   useWalletCoins,
   useWalletEvents,
   useRawSDK,
-  
+
   // Transaction hooks
   useSendTransaction,
   useTakeOffer,
   useNFTOffers,
-  
+
   // Unified client hooks
   useUnifiedWalletClient,
-  useUnifiedWalletState 
+  useUnifiedWalletState
 } from './hooks/useChiaWalletSDK';
 export { useAllDialogs } from './hooks/useDialogs';
 
@@ -49,6 +49,7 @@ export { ReceiveFundsModal } from './components/ReceiveFundsModal';
 export { MakeOfferModal } from './components/MakeOfferModal';
 export { ActiveOffersModal } from './components/ActiveOffersModal';
 export { NFTDetailsModal } from './components/NFTDetailsModal';
+export { TakeOfferWidget } from './components/TakeOfferWidget';
 
 // Export dialog hooks from GlobalDialogProvider
 export {
@@ -64,15 +65,15 @@ export {
 export { sharedModalStyles, injectModalStyles } from './components/modal-styles';
 
 // Export types
-export type { 
+export type {
   // Core wallet types
-  HydratedCoin, 
+  HydratedCoin,
   SendXCHRequest,
   SimpleMakeUnsignedNFTOfferRequest,
-  
+
   // Offer types
   TakeOfferRequest,
-  TakeOfferResponse, 
+  TakeOfferResponse,
   ParsedOfferData,
   BroadcastOfferRequest,
   BroadcastOfferResponse,
@@ -83,16 +84,21 @@ export type {
   ApiSpendBundle,
   ApiCoinSpend
 } from './client/ChiaCloudWalletClient';
-// Export SDK types
+// Export SDK class and types
+export { ChiaWalletSDK } from './client/ChiaWalletSDK';
 export type {
   WalletState,
-  WalletEventType,
-  ChiaWalletSDK
+  WalletEventType
 } from './client/ChiaWalletSDK';
 
 // Export component types
 export type {
   SentTransaction,
   SavedOffer,
-} from './components/types'; 
+  DexieOfferData,
+  DexieOfferResult,
+  TakeOfferWidgetProps,
+  DexieSelectedCoin,
+  NFTMetadata,
+} from './components/types';
 

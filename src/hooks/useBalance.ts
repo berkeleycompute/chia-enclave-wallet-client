@@ -204,7 +204,7 @@ export function useBalance(config: UseBalanceConfig = {}): UseBalanceResult {
 
       const result = await client.getUnspentHydratedCoins(currentAddress);
       if (!result.success) {
-        throw new Error(result.error);
+        throw new Error((result as any).error);
       }
 
       const balanceBreakdown = calculateBalanceBreakdown(result.data.data);

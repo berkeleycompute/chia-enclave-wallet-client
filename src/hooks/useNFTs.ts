@@ -182,7 +182,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       // Configure fetch to properly handle redirects and timeouts
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
+
       const response = await fetch(metadataUri, {
         method: 'GET',
         redirect: 'follow', // Explicitly follow redirects
@@ -205,7 +205,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
 
       const contentType = response.headers.get('content-type');
       let metadata: NFTMetadata;
-      
+
       if (contentType && contentType.includes('application/json')) {
         metadata = await response.json();
       } else {
@@ -456,21 +456,27 @@ export function useNFTMetadata(nftUri?: string) {
     setError(null);
 
     try {
-      // Configure fetch to properly handle redirects and timeouts
+      console.log('🔄 Attempting to fetch metadata from:', uri);
+
+      // Convert IPFS URLs to HTTP gateway URLs (similar to RTK Query approach)
+      let fetchUrl = uri;
+      if (uri.startsWith('ipfs://')) {
+        const hash = uri.replace('ipfs://', '');
+        fetchUrl = `https://ipfs.io/ipfs/${hash}`;
+        console.log('🔄 Converted IPFS URL to:', fetchUrl);
+      }
+
+      // Configure fetch similar to RTK Query's fetchBaseQuery
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(uri, {
+
+      const response = await fetch(fetchUrl, {
         method: 'GET',
-        redirect: 'follow', // Explicitly follow redirects
-        mode: 'cors', // Handle CORS properly
-        cache: 'default', // Use browser caching
-        signal: controller.signal,
         headers: {
-          'Accept': 'application/json, */*',
-          'Cache-Control': 'max-age=300',
-          'User-Agent': 'Chia-Wallet-Client/1.0'
-        }
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Accept': 'application/json, */*'
+        },
+        signal: controller.signal
       });
 
       clearTimeout(timeoutId);
@@ -480,9 +486,11 @@ export function useNFTMetadata(nftUri?: string) {
         throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
       }
 
+      console.log('✅ Successfully fetched metadata from:', fetchUrl);
+
       const contentType = response.headers.get('content-type');
       let metadataData: NFTMetadata;
-      
+
       if (contentType && contentType.includes('application/json')) {
         metadataData = await response.json();
       } else {

@@ -356,9 +356,9 @@ export interface SimpleMakeUnsignedNFTOfferRequest {
 }
 
 export interface MakeUnsignedNFTOfferResponse {
-  success: boolean; 
+  success: boolean;
   offer_string: string;
-  message?: string; 
+  message?: string;
 }
 
 // Add new interfaces for signing offers
@@ -439,7 +439,7 @@ export class ChiaCloudWalletClient {
 
   constructor(config: ChiaCloudWalletConfig = {}) {
     this.environment = config.environment || this.detectEnvironment();
-    
+
     // Prioritize environment detection unless explicitly disabled
     if (config.disableEnvironmentDetection && config.baseUrl) {
       // Use explicit baseUrl when environment detection is disabled
@@ -448,10 +448,10 @@ export class ChiaCloudWalletClient {
       // Always use environment-based URL detection by default
       this.baseUrl = this.getBaseUrlForEnvironment();
     }
-    
+
     this.jwtToken = config.jwtToken;
     this.enableLogging = config.enableLogging ?? true;
-    
+
     // Log the final configuration for debugging
     if (this.enableLogging) {
       console.log(`[ChiaCloudWalletClient] Initialized with environment: ${this.environment}, baseUrl: ${this.baseUrl}, disableEnvDetection: ${config.disableEnvironmentDetection}`);
@@ -484,7 +484,7 @@ export class ChiaCloudWalletClient {
         return 'development';
       }
     }
-    
+
     // Default to test environment as requested
     return 'test';
   }
@@ -637,7 +637,7 @@ export class ChiaCloudWalletClient {
    */
   private async normalizeHydratedCoinsResponse(response: UnspentHydratedCoinsResponse): Promise<HydratedCoin[]> {
     let rawCoins: any[] = [];
-    
+
     // Check if data is directly an array (this is the actual format from the edge endpoint)
     if (Array.isArray(response.data)) {
       rawCoins = response.data;
@@ -651,7 +651,7 @@ export class ChiaCloudWalletClient {
       console.warn('Unexpected hydrated coins response structure:', response);
       return [];
     }
-    
+
     // Normalize each coin to ensure consistent types and calculate coinId
     const normalizedCoins = await Promise.all(rawCoins.map(async (coin: any) => {
       const normalizedCoin = {
@@ -676,7 +676,7 @@ export class ChiaCloudWalletClient {
           if (coinIdResult.success) {
             normalizedCoin.coinId = coinIdResult.data;
           } else {
-            console.warn('Failed to calculate coinId for coin:', coinIdResult.error);
+            console.warn('Failed to calculate coinId for coin:', (coinIdResult as any).error);
             // Fallback to a deterministic but simple identifier
             normalizedCoin.coinId = `${normalizedCoin.coin.parentCoinInfo}_${normalizedCoin.coin.puzzleHash}`.replace(/^0x/g, '').substring(0, 64);
           }
@@ -704,7 +704,7 @@ export class ChiaCloudWalletClient {
 
     const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
       ? endpoint
-      : `${this.baseUrl}${endpoint}`; 
+      : `${this.baseUrl}${endpoint}`;
     try {
       const headers: any = {
         'Content-Type': 'application/json',
@@ -723,14 +723,14 @@ export class ChiaCloudWalletClient {
       // Add timeout and explicit redirect handling for robustness
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for API calls
-      
+
       const response = await fetch(url, {
         ...options,
         headers,
         redirect: 'follow', // Explicitly follow redirects
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -758,7 +758,7 @@ export class ChiaCloudWalletClient {
       if (error instanceof ChiaCloudWalletApiError) {
         throw error;
       }
-      
+
       // Handle timeout errors specifically
       if (error instanceof Error && error.name === 'AbortError') {
         const timeoutError = new ChiaCloudWalletApiError(
@@ -769,7 +769,7 @@ export class ChiaCloudWalletClient {
         this.logError(`Request timed out for ${endpoint}`, timeoutError);
         throw timeoutError;
       }
-      
+
       const networkError = new ChiaCloudWalletApiError(
         `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         undefined,
@@ -920,12 +920,12 @@ export class ChiaCloudWalletClient {
    * @param address - The wallet address (not public key)
    */
   async getUnspentHydratedCoins(address: string): Promise<Result<UnspentHydratedCoinsResponse>> {
-    try { 
-     // const endpoint = this.getEndpoint(`/wallet/unspent-hydrated-coins/${address}`, `/api/wallet/hydrated-coins/${address}`); 
+    try {
+      // const endpoint = this.getEndpoint(`/wallet/unspent-hydrated-coins/${address}`, `/api/wallet/hydrated-coins/${address}`); 
       const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`https://edge.silicon-dev.net/chia/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
         method: 'GET',
       }, false);
-      
+
       // Debug logging to track the response structure
       console.log('🔍 Raw hydrated coins response:', {
         success: result.success,
@@ -933,10 +933,10 @@ export class ChiaCloudWalletClient {
         isArray: Array.isArray(result.data),
         dataLength: Array.isArray(result.data) ? result.data.length : 'N/A'
       });
-      
+
       // Normalize the response to handle different formats between environments
       const normalizedCoins = await this.normalizeHydratedCoinsResponse(result);
-      
+
       console.log('✅ Normalized hydrated coins:', {
         count: normalizedCoins.length,
         firstCoin: normalizedCoins[0] ? {
@@ -944,13 +944,13 @@ export class ChiaCloudWalletClient {
           driverType: normalizedCoins[0].parentSpendInfo?.driverInfo?.type
         } : null
       });
-      
+
       // Return consistent format with normalized data
       const normalizedResponse: UnspentHydratedCoinsResponse = {
         success: result.success,
         data: normalizedCoins
       };
-      
+
       return { success: true, data: normalizedResponse };
     } catch (error) {
       return {
@@ -1030,9 +1030,9 @@ export class ChiaCloudWalletClient {
         nftCoinId: normalizedNFTData.coinId?.substring(0, 10) + '...',
         hasNftCoinId: !!normalizedNFTData.coinId
       });
-    //  const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
+      //  const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
       const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_any_offer/make-offer', {
- 
+
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
@@ -1044,7 +1044,7 @@ export class ChiaCloudWalletClient {
         offer_string: result.offer_string,
         message: result.message
       };
-      
+
       return { success: true, data: adaptedResponse };
     } catch (error) {
       return {
@@ -1081,26 +1081,26 @@ export class ChiaCloudWalletClient {
 
       // Validate CAT payments
       for (const catPayment of request.cat_payments) {
-          if (!catPayment.asset_id || !catPayment.puzzle_hash) {
-            throw new ChiaCloudWalletApiError('Each CAT payment must have asset_id and puzzle_hash');
-          }
-
-          if (typeof catPayment.amount !== 'number' || catPayment.amount <= 0) {
-            throw new ChiaCloudWalletApiError('Each CAT payment must have a positive amount');
-          }
-
-          // Validate hex string formats
-          const cleanAssetId = catPayment.asset_id.replace(/^0x/, '');
-          const cleanPuzzleHash = catPayment.puzzle_hash.replace(/^0x/, '');
-
-          if (!/^[0-9a-fA-F]{64}$/.test(cleanAssetId)) {
-            throw new ChiaCloudWalletApiError('Invalid asset_id format: must be a 64-character hex string');
-          }
-
-          if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
-            throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
-          }
+        if (!catPayment.asset_id || !catPayment.puzzle_hash) {
+          throw new ChiaCloudWalletApiError('Each CAT payment must have asset_id and puzzle_hash');
         }
+
+        if (typeof catPayment.amount !== 'number' || catPayment.amount <= 0) {
+          throw new ChiaCloudWalletApiError('Each CAT payment must have a positive amount');
+        }
+
+        // Validate hex string formats
+        const cleanAssetId = catPayment.asset_id.replace(/^0x/, '');
+        const cleanPuzzleHash = catPayment.puzzle_hash.replace(/^0x/, '');
+
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanAssetId)) {
+          throw new ChiaCloudWalletApiError('Invalid asset_id format: must be a 64-character hex string');
+        }
+
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
+          throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
+        }
+      }
 
       this.logInfo('Making signed NFT offer request', {
         publicKey: request.synthetic_public_key.substring(0, 10) + '...',
@@ -1110,12 +1110,12 @@ export class ChiaCloudWalletClient {
       // First create the unsigned offer
       const offerResult = await this.makeUnsignedNFTOffer(request);
       if (!offerResult.success) {
-        throw new Error(`Failed to create offer: ${offerResult.error}`);
+        throw new Error(`Failed to create offer: ${(offerResult as any).error}`);
       }
 
- 
+
       const unsignedOfferString = offerResult.data.offer_string;
- 
+
       if (!unsignedOfferString) {
         throw new Error('No offer string returned from API');
       }
@@ -1128,7 +1128,7 @@ export class ChiaCloudWalletClient {
       // Now sign the offer
       const signResult = await this.signOffer({ offer: unsignedOfferString });
       if (!signResult.success) {
-        throw new Error(`Failed to sign offer: ${signResult.error}`);
+        throw new Error(`Failed to sign offer: ${(signResult as any).error}`);
       }
 
       this.logInfo('NFT offer signed successfully', {
@@ -1176,7 +1176,7 @@ export class ChiaCloudWalletClient {
             // It's a Chia address, convert it
             const puzzleHashResult = ChiaCloudWalletClient.convertAddressToPuzzleHash(catPayment.deposit_address);
             if (!puzzleHashResult.success) {
-              throw new ChiaCloudWalletApiError(`Failed to convert CAT deposit address to puzzle hash: ${puzzleHashResult.error}`);
+              throw new ChiaCloudWalletApiError(`Failed to convert CAT deposit address to puzzle hash: ${(puzzleHashResult as any).error}`);
             }
             puzzleHash = puzzleHashResult.data;
           }
@@ -1434,8 +1434,8 @@ export class ChiaCloudWalletClient {
       if (!signedResult.success) {
         return {
           success: false,
-          error: `Failed to sign transaction: ${signedResult.error}`,
-          details: signedResult.details
+          error: `Failed to sign transaction: ${(signedResult as any).error}`,
+          details: (signedResult as any).details
         };
       }
 
@@ -1444,8 +1444,8 @@ export class ChiaCloudWalletClient {
       if (!broadcastResult.success) {
         return {
           success: false,
-          error: `Failed to broadcast transaction: ${broadcastResult.error}`,
-          details: broadcastResult.details
+          error: `Failed to broadcast transaction: ${(broadcastResult as any).error}`,
+          details: (broadcastResult as any).details
         };
       }
 
@@ -1539,7 +1539,7 @@ export class ChiaCloudWalletClient {
       if (!hydratedResult.success) {
         return {
           success: false,
-          error: `Failed to get enhanced balance: ${hydratedResult.error}`
+          error: `Failed to get enhanced balance: ${(hydratedResult as any).error}`
         };
       }
 
@@ -1767,7 +1767,7 @@ export class ChiaCloudWalletClient {
           const parentInfo = coin.parentCoinInfo || 'unknown';
           return {
             success: false,
-            error: `Failed to calculate coin ID for coin with parent ${parentInfo}: ${result.error}`
+            error: `Failed to calculate coin ID for coin with parent ${parentInfo}: ${(result as any).error}`
           };
         }
         results.push({ coin, coinId: result.data });

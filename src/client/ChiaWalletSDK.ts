@@ -421,7 +421,7 @@ export class ChiaWalletSDK {
       // Get wallet info using cached method
       const walletInfoResult = await this.getCachedPublicKey();
       if (!walletInfoResult.success) {
-        throw new Error(walletInfoResult.error);
+        throw new Error((walletInfoResult as any).error);
       }
 
       // Update wallet info in state
@@ -499,7 +499,7 @@ export class ChiaWalletSDK {
       const result = await this.client.getWalletBalanceEnhanced(this.state.address);
 
       if (!result.success) {
-        throw new Error(result.error);
+        throw new Error((result as any).error);
       }
 
       this.updateState({
@@ -611,14 +611,14 @@ export class ChiaWalletSDK {
 
         const signedOffer = await this.client.signOffer({ offer: result.data.unsigned_offer });
         if (!signedOffer.success) {
-          throw new Error(signedOffer.error);
+          throw new Error((signedOffer as any).error);
         }
 
         const broadcastResult = await this.client.broadcastOffer({ offer_string: signedOffer.data.signed_offer });
         if (!broadcastResult.success) {
-          throw new Error(broadcastResult.error);
+          throw new Error((broadcastResult as any).error);
         }
-      
+
 
         // Emit event for successful offer taking
         this.emit('transactionCompleted', {
