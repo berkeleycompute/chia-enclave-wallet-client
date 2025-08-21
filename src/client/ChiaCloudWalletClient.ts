@@ -67,6 +67,13 @@ export interface CoinSpend {
   solution: string;
 }
 
+// Interface for CoinSpend as returned by decode-offer API (camelCase format)
+export interface ApiCoinSpend {
+  coin: Coin;
+  puzzleReveal: string;
+  solution: string;
+}
+
 export interface Payment {
   address: string;
   amount: string | number;
@@ -147,6 +154,30 @@ export interface BroadcastOfferRequest {
 export interface BroadcastOfferResponse {
   message: string;
   success: boolean;
+}
+
+// New interfaces for decode offer functionality
+export interface DecodeOfferRequest {
+  offer_string: string;
+}
+
+export interface SpendBundle {
+  coinSpends: CoinSpend[];
+  aggregatedSignature: string;
+}
+
+// Interface for spend bundle as returned by decode-offer API (camelCase format)
+export interface ApiSpendBundle {
+  coinSpends: ApiCoinSpend[];
+  aggregatedSignature: string;
+}
+
+export interface DecodeOfferResponse {
+  success: boolean;
+  data: {
+    spend_bundle: ApiSpendBundle;
+    spend_bundle_hex: string;
+  };
 }
 
 export interface GetPublicKeyRequest {
@@ -482,6 +513,27 @@ export class ChiaCloudWalletClient {
    */
   private getEndpoint(testPath: string, prodPath: string): string {
     return this.environment === 'test' ? testPath : prodPath;
+  }
+
+  /**
+   * Convert API format CoinSpend to internal format
+   */
+  private convertApiCoinSpendToInternal(apiCoinSpend: ApiCoinSpend): CoinSpend {
+    return {
+      coin: apiCoinSpend.coin,
+      puzzle_reveal: apiCoinSpend.puzzleReveal,
+      solution: apiCoinSpend.solution
+    };
+  }
+
+  /**
+   * Convert API format SpendBundle to internal format
+   */
+  private convertApiSpendBundleToInternal(apiSpendBundle: ApiSpendBundle): SpendBundle {
+    return {
+      coinSpends: apiSpendBundle.coinSpends.map(coinSpend => this.convertApiCoinSpendToInternal(coinSpend)),
+      aggregatedSignature: apiSpendBundle.aggregatedSignature
+    };
   }
 
   /**
@@ -1192,7 +1244,41 @@ export class ChiaCloudWalletClient {
   }
 
   /**
-   * Broadcast an offer with error handling
+   * Decode an offer string to extract the spend bundle
+   */
+  async decodeOffer(request: DecodeOfferRequest): Promise<Result<DecodeOfferResponse>> {
+    try {
+      if (!request.offer_string || request.offer_string.trim() === '') {
+        throw new ChiaCloudWalletApiError('Offer string is required for decoding');
+      }
+
+      // Validate offer format (should start with "offer1")
+      if (!request.offer_string.startsWith('offer1')) {
+        throw new ChiaCloudWalletApiError('Invalid offer format: offer must start with "offer1"');
+      }
+
+      this.logInfo('Decoding offer', {
+        offerLength: request.offer_string.length,
+        offerPrefix: request.offer_string.substring(0, 20) + '...'
+      });
+
+      const result = await this.makeRequest<DecodeOfferResponse>('https://edge.silicon-dev.net/chia/offers_encoder_decoder/decode-offer', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, false);
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to decode offer',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Broadcast an offer with error handling (refactored to decode first, then broadcast spend bundle)
    */
   async broadcastOffer(request: BroadcastOfferRequest): Promise<Result<BroadcastOfferResponse>> {
     try {
@@ -1205,17 +1291,44 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Invalid offer format: offer must start with "offer1"');
       }
 
-      this.logInfo('Broadcasting offer', {
+      this.logInfo('Broadcasting offer - starting decode process', {
         offerLength: request.offer_string.length,
         offerPrefix: request.offer_string.substring(0, 20) + '...'
       });
 
-      const result = await this.makeRequest<BroadcastOfferResponse>('/wallet/offer/broadcast', {
-        method: 'POST',
-        body: JSON.stringify(request),
+      // Step 1: Decode the offer to get the spend bundle
+      const decodeResult = await this.decodeOffer({ offer_string: request.offer_string });
+      if (!decodeResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to decode offer: ${decodeResult.error}`);
+      }
+
+      const apiSpendBundle = decodeResult.data.data.spend_bundle;
+      
+      this.logInfo('Offer decoded successfully, converting format and broadcasting spend bundle', {
+        coinSpendsCount: apiSpendBundle.coinSpends.length,
+        signatureLength: apiSpendBundle.aggregatedSignature.length
       });
 
-      return { success: true, data: result };
+      // Convert API format to internal format
+      const internalSpendBundle = this.convertApiSpendBundleToInternal(apiSpendBundle);
+
+      // Step 2: Broadcast the spend bundle using the normal channel
+      const broadcastResult = await this.broadcastSpendBundle({
+        coinSpends: internalSpendBundle.coinSpends,
+        signature: internalSpendBundle.aggregatedSignature
+      });
+
+      if (!broadcastResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to broadcast spend bundle: ${broadcastResult.error}`);
+      }
+
+      // Convert the broadcast response to match the expected BroadcastOfferResponse format
+      const offerBroadcastResponse: BroadcastOfferResponse = {
+        success: true,
+        message: `Offer broadcast successful. Transaction ID: ${broadcastResult.data.transaction_id}`
+      };
+
+      return { success: true, data: offerBroadcastResponse };
     } catch (error) {
       return {
         success: false,
