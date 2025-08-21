@@ -124,6 +124,14 @@ All requested design changes have been implemented. The TakeOfferWidget now foll
 - ✅ **Clear Error Handling**: Stale coin errors will be shown in transaction-error state
 - ✅ **Updated Progress Text**: "Processing transaction..." for taking state
 
+### Offer Status Validation (2024-01-20T14:15:00Z)
+- ✅ **Added Offer Invalid State**: New 'offer-invalid' widget state for invalid offers
+- ✅ **Status Validation**: Checks offer status on mount - only accepts status 0 (pending) or 1 (active)
+- ✅ **Specific Error Messages**: Different messages for completed (status 2) vs cancelled (status 3) offers
+- ✅ **Date Completed Check**: Additional validation for offers with date_completed field
+- ✅ **Error Callback**: Calls onTakeOfferError when offer is invalid
+- ✅ **Clean UI**: Dedicated error state with warning icon and close button
+
 ## Implementation Notes 📋
 - Maintained existing component patterns and modal styles
 - Used consistent dark theme styling

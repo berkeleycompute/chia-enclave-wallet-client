@@ -15,7 +15,7 @@ import { injectModalStyles } from './modal-styles';
 const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
 
 // Widget state types
-type WidgetState = 'initial' | 'loading' | 'connection-error' | 'transaction-details' | 'transaction-success' | 'transaction-error';
+type WidgetState = 'initial' | 'loading' | 'connection-error' | 'transaction-details' | 'transaction-success' | 'transaction-error' | 'offer-invalid';
 
 interface SelectedCoin {
     coin: HydratedCoin;
@@ -227,24 +227,6 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
 
         const offer = dexieOfferData.offer;
 
-        // Status check - status 0 = pending/valid, status 1 = active, status 2 = completed, status 3 = cancelled
-        if (offer.status !== 0 && offer.status !== 1) {
-            let statusMessage = 'This offer is no longer valid.';
-            if (offer.status === 2) {
-                statusMessage = 'This offer has already been completed.';
-            } else if (offer.status === 3) {
-                statusMessage = 'This offer has been cancelled.';
-            }
-            setError(statusMessage);
-            return;
-        }
-
-        // Check if offer has been completed (additional safety check)
-        if (offer.date_completed) {
-            setError('This offer has already been completed.');
-            return;
-        }
-
         // Determine required wUSDC in mojos from output_coins first (matches wallet coin units)
         const wusdcOutputs = dexieOfferData.offer.output_coins[WUSDC_ASSET_ID];
         if (wusdcOutputs && wusdcOutputs.length > 0) {
@@ -381,7 +363,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
 
     // Handle taking the offer (from transaction details view)
     const handleTakeOffer = useCallback(async () => {
-        if (!dexieOfferData || !walletState.syntheticPublicKey || !selectedCoins.length) {
+        if (!dexieOfferData || !walletState?.syntheticPublicKey || !selectedCoins?.length) {
             setError('Missing required data to take offer');
             return;
         }
@@ -391,9 +373,9 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
             setError(null);
 
             // Use the exact coins that were shown to the user
-            const coinIds = selectedCoins.map((sc) => sc.coin.coinId).filter((id) => typeof id === 'string' && id.length > 0);
+            const coinIds = selectedCoins.map((sc) => sc.coin.coinId).filter((id) => typeof id === 'string' && id?.length > 0);
 
-            if (!coinIds.length) {
+            if (!coinIds?.length) {
                 throw new Error('No coin IDs found for selected coins');
             }
 
@@ -457,16 +439,35 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         handleBuyNow();
     }, [handleBuyNow]);
 
-    // Reset state when offer data changes
+    // Validate offer status and reset state when offer data changes
     useEffect(() => {
         if (dexieOfferData && currentOfferId.current !== dexieOfferData.offer.id) {
+            // Check offer status - only 0 (pending) and 1 (active) are valid
+            if (dexieOfferData.offer.status !== 0 && dexieOfferData.offer.status !== 1) {
+                let statusMessage = 'This offer is no longer valid.';
+                if (dexieOfferData.offer.status === 2) {
+                    statusMessage = 'This offer has already been completed.';
+                } else if (dexieOfferData.offer.status === 3) {
+                    statusMessage = 'This offer has been cancelled.';
+                } else if (dexieOfferData.offer.date_completed) {
+                    statusMessage = 'This offer has already been completed.';
+                }
+
+                setError(statusMessage);
+                setWidgetState('offer-invalid');
+                onTakeOfferError?.(statusMessage);
+                currentOfferId.current = dexieOfferData.offer.id;
+                return;
+            }
+
+            // Offer is valid, reset to initial state
             setWidgetState('initial');
             setError(null);
             setBalanceExpanded(false);
             hasInitialized.current = false;
             currentOfferId.current = dexieOfferData.offer.id;
         }
-    }, [dexieOfferData?.offer?.id]);
+    }, [dexieOfferData?.offer?.id, dexieOfferData?.offer?.status, dexieOfferData?.offer?.date_completed, onTakeOfferError]);
 
     // Analyze offer when in transaction details state
     useEffect(() => {
@@ -537,7 +538,6 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
     };
 
     const isBalanceLoading = coinsLoading || !isConnected;
-    const hasError = error || takeOfferError;
     const isProcessingOffer = progressState !== 'idle';
     const imageUrl = getNftImageUrl();
     const gpuTitle = getGpuTitle();
@@ -742,6 +742,41 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                                 className="btn btn-primary"
                             >
                                 Try again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Offer invalid state
+    if (widgetState === 'offer-invalid') {
+        return (
+            <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+                <div className="modal-content" style={{ maxWidth: '400px', width: '90%' }}>
+                    <div className="modal-header">
+                        <h3>Offer Not Available</h3>
+                        <button className="close-btn" onClick={onClose}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div className="modal-body">
+                        <div className="error-state">
+                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                            <h4 style={{ color: 'white', margin: '0 0 8px 0' }}>Offer no longer valid</h4>
+                            <p style={{ color: '#888', margin: '0 0 24px 0', fontSize: '14px' }}>
+                                {error || 'This offer is no longer available for purchase.'}
+                            </p>
+                            <button
+                                onClick={onClose}
+                                className="btn btn-secondary"
+                            >
+                                Close
                             </button>
                         </div>
                     </div>
