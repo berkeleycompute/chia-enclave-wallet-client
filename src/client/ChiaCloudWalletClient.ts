@@ -67,10 +67,10 @@ export interface CoinSpend {
   solution: string;
 }
 
-// Interface for CoinSpend as returned by decode-offer API (camelCase format)
+// Interface for CoinSpend as returned by decode-offer API (snake_case format)
 export interface ApiCoinSpend {
   coin: Coin;
-  puzzleReveal: string;
+  puzzle_reveal: string;
   solution: string;
 }
 
@@ -166,10 +166,10 @@ export interface SpendBundle {
   aggregatedSignature: string;
 }
 
-// Interface for spend bundle as returned by decode-offer API (camelCase format)
+// Interface for spend bundle as returned by decode-offer API (snake_case format)
 export interface ApiSpendBundle {
-  coinSpends: ApiCoinSpend[];
-  aggregatedSignature: string;
+  coin_spends: ApiCoinSpend[];
+  aggregated_signature: string;
 }
 
 export interface DecodeOfferResponse {
@@ -521,7 +521,7 @@ export class ChiaCloudWalletClient {
   private convertApiCoinSpendToInternal(apiCoinSpend: ApiCoinSpend): CoinSpend {
     return {
       coin: apiCoinSpend.coin,
-      puzzle_reveal: apiCoinSpend.puzzleReveal,
+      puzzle_reveal: apiCoinSpend.puzzle_reveal,
       solution: apiCoinSpend.solution
     };
   }
@@ -531,8 +531,8 @@ export class ChiaCloudWalletClient {
    */
   private convertApiSpendBundleToInternal(apiSpendBundle: ApiSpendBundle): SpendBundle {
     return {
-      coinSpends: apiSpendBundle.coinSpends.map(coinSpend => this.convertApiCoinSpendToInternal(coinSpend)),
-      aggregatedSignature: apiSpendBundle.aggregatedSignature
+      coinSpends: apiSpendBundle.coin_spends.map(coinSpend => this.convertApiCoinSpendToInternal(coinSpend)),
+      aggregatedSignature: apiSpendBundle.aggregated_signature
     };
   }
 
@@ -1305,8 +1305,8 @@ export class ChiaCloudWalletClient {
       const apiSpendBundle = decodeResult.data.data.spend_bundle;
       
       this.logInfo('Offer decoded successfully, converting format and broadcasting spend bundle', {
-        coinSpendsCount: apiSpendBundle.coinSpends.length,
-        signatureLength: apiSpendBundle.aggregatedSignature.length
+        coinSpendsCount: apiSpendBundle.coin_spends.length,
+        signatureLength: apiSpendBundle.aggregated_signature.length
       });
 
       // Convert API format to internal format
