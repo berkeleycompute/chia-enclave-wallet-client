@@ -155,12 +155,10 @@ export interface NFTMetadata {
 }
 
 export interface TakeOfferWidgetProps {
-  isOpen: boolean;
   onClose: () => void;
   dexieOfferData: DexieOfferData;
-  onOfferTaken?: (result: DexieOfferResult) => void;
-  onError?: (error: string) => void;
-  jwtToken?: string;
+  onTakeOfferSuccess?: (result: DexieOfferResult) => void;
+  onTakeOfferError?: (error: string) => void;
   nftMetadata?: NFTMetadata; // Optional metadata override
   imageUrl?: string; // Optional image URL override
 }

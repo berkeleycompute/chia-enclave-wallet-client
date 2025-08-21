@@ -8,7 +8,7 @@ import { TakeOfferWidget } from '../../src/components/TakeOfferWidget';
 import type { DexieOfferData, DexieOfferResult } from '../../src/components/types';
 
 // Hardcoded JWT token
-const HARDCODED_JWT = "eyJhbGciOiJIUzI1NiIsImtpZCI6ImxObjhvUFBNeklOWGY2TFMiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3JiZHp6b3Vld2Nvb3Z2aHh0YWJiLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJhZWU2MGM1MS03OTU4LTRhZGMtYTY0Zi0wMjRmZTI5MDY0YTMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzU1NjQxMjMwLCJpYXQiOjE3NTU2Mzc2MzAsImVtYWlsIjoiemFuKzZAc2lsaWNvbi5uZXQiLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoiemFuKzZAc2lsaWNvbi5uZXQiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJyZWNvdmVyeV9zZW50X2F0IjoxNzU1NjM3NTY5LCJzdWIiOiJhZWU2MGM1MS03OTU4LTRhZGMtYTY0Zi0wMjRmZTI5MDY0YTMifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJvdHAiLCJ0aW1lc3RhbXAiOjE3NTU2Mzc2MzB9XSwic2Vzc2lvbl9pZCI6ImYwZWEyMmMyLWE4NjEtNDdiMS05NGNkLWRkMTAxODExNGJmZiIsImlzX2Fub255bW91cyI6ZmFsc2V9._k5TEIb4sWsHAiudVGJT9cRsOfcwTydgEOg_7P8Zupw";
+const HARDCODED_JWT = "eyJhbGciOiJIUzI1NiIsImtpZCI6ImxObjhvUFBNeklOWGY2TFMiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3JiZHp6b3Vld2Nvb3Z2aHh0YWJiLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJhZWU2MGM1MS03OTU4LTRhZGMtYTY0Zi0wMjRmZTI5MDY0YTMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzU1Nzk5MjczLCJpYXQiOjE3NTU3OTU2NzMsImVtYWlsIjoiemFuKzZAc2lsaWNvbi5uZXQiLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoiemFuKzZAc2lsaWNvbi5uZXQiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJyZWNvdmVyeV9zZW50X2F0IjoxNzU1NjM3NTY5LCJzdWIiOiJhZWU2MGM1MS03OTU4LTRhZGMtYTY0Zi0wMjRmZTI5MDY0YTMifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJvdHAiLCJ0aW1lc3RhbXAiOjE3NTU2Mzc2MzB9XSwic2Vzc2lvbl9pZCI6ImYwZWEyMmMyLWE4NjEtNDdiMS05NGNkLWRkMTAxODExNGJmZiIsImlzX2Fub255bW91cyI6ZmFsc2V9.RDd0DrwpvfxAbB2gcZC1naOTZkz6eqzXfnfhuwRkcbc";
 
 // Root App with Providers
 function App() {
@@ -191,14 +191,12 @@ function App() {
           </div>
         )}
 
-        {dexieOfferData && (
+        {dexieOfferData && showTakeOfferWidget && (
           <TakeOfferWidget
-            isOpen={showTakeOfferWidget}
             onClose={() => setShowTakeOfferWidget(false)}
             dexieOfferData={dexieOfferData}
-            onOfferTaken={handleOfferTaken}
-            onError={handleOfferError}
-            jwtToken={HARDCODED_JWT}
+            onTakeOfferSuccess={handleOfferTaken}
+            onTakeOfferError={handleOfferError}
           />
         )}
 

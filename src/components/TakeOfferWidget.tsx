@@ -15,7 +15,7 @@ import { injectModalStyles } from './modal-styles';
 const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
 
 // Widget state types
-type WidgetState = 'initial' | 'loading' | 'connection-error' | 'transaction-details';
+type WidgetState = 'initial' | 'loading' | 'connection-error' | 'transaction-details' | 'transaction-success' | 'transaction-error';
 
 interface SelectedCoin {
     coin: HydratedCoin;
@@ -24,21 +24,21 @@ interface SelectedCoin {
 }
 
 export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
-    isOpen,
     onClose,
     dexieOfferData,
-    onOfferTaken,
-    onError,
-    jwtToken,
+    onTakeOfferSuccess,
+    onTakeOfferError,
     nftMetadata: providedMetadata,
     imageUrl: providedImageUrl
 }) => {
     // Wallet hooks
     const { hydratedCoins, isLoading: coinsLoading, refresh: refreshCoins } = useWalletCoins();
-    const { isConnected: hookIsConnected, connect: connectWallet } = useWalletConnection();
+    const { isConnected: hookIsConnected, connect: connectWallet, jwtToken } = useWalletConnection();
     const walletState = useWalletState();
     const { takeOffer, error: takeOfferError } = useTakeOffer();
     const walletClient = useUnifiedWalletClient();
+
+    console.log('🔍 Dexie Offer Data:', dexieOfferData);
 
     // Extract metadata URI from Dexie offer data
     const metadataUri = useMemo(() => {
@@ -82,7 +82,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
     const [isInitializing, setIsInitializing] = useState(false);
 
     // Progress states for take offer process
-    type TakeOfferProgressState = 'idle' | 'getting-fresh-coins' | 'taking' | 'retrying';
+    type TakeOfferProgressState = 'idle' | 'taking';
     const [progressState, setProgressState] = useState<TakeOfferProgressState>('idle');
 
     // Refs to track initialization state
@@ -163,6 +163,11 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
             'Unknown NFT';
     }, [nftMetadata, dexieOfferData]);
 
+    const providerName = nftMetadata?.attributes?.find(attr => attr.trait_type === 'provider_name')?.value || '';
+    const manufacturer = nftMetadata?.attributes?.find(attr => attr.trait_type === 'manufacturer')?.value || '';
+    const model = nftMetadata?.attributes?.find(attr => attr.trait_type === 'gpu_type')?.value || '';
+    const seriesNumber = typeof nftMetadata?.series_number === 'number' ? nftMetadata.series_number - 1 : '';
+
     // Get GPU title from metadata (Provider Manufacturer Model)
     const getGpuTitle = useCallback((): string => {
         if (!nftMetadata?.attributes) {
@@ -171,11 +176,6 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         }
 
         console.log('🏷️ NFT Metadata:', nftMetadata);
-
-        const providerName = nftMetadata.attributes.find(attr => attr.trait_type === 'provider_name')?.value || '';
-        const manufacturer = nftMetadata.attributes.find(attr => attr.trait_type === 'manufacturer')?.value || '';
-        const model = nftMetadata.attributes.find(attr => attr.trait_type === 'gpu_type')?.value || '';
-        const seriesNumber = nftMetadata.series_number || '';
 
         console.log('🏷️ GPU Title Debug:', {
             providerName,
@@ -211,8 +211,8 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         return '';
     }, [nftMetadata]);
 
-    // Format price using Intl.NumberFormat for USD
-    const formatPriceUSD = useCallback((price: number): string => {
+    // Format price using Intl.NumberFormat for wUSDC
+    const formatPriceWUSDC = useCallback((price: number): string => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
@@ -296,7 +296,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 selected.push({
                     coin,
                     amount: amountToUse,
-                    displayName: `${formatAmount(amountToUse)} wUSDC from ${formatCoinId(coin.coin.parentCoinInfo)}`,
+                    displayName: `${formatPriceWUSDC(amountToUse / 1000)} from ${formatCoinId(coin.coin.parentCoinInfo)}`,
                 });
 
                 remainingAmount -= amountToUse;
@@ -308,15 +308,18 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         }
     }, [hydratedCoins, requiredWUSDC]);
 
-    // Format amount for display (CATs typically use 3 decimal places on-chain)
-    const formatAmount = (mojos: number) => {
-        return (mojos / 1000).toFixed(3);
-    };
+
 
     // Format coin ID for display (hyphenated)
     const formatCoinId = (id: string) => {
         if (!id || id.length < 16) return id;
         return `${id.substring(0, 8)}-${id.substring(8, 16)}-${id.substring(id.length - 8)}`;
+    };
+
+    // Format coin ID for middle hyphenation (8-4 pattern with ellipsis)
+    const formatCoinIdMiddle = (id: string) => {
+        if (!id || id.length < 12) return id;
+        return `${id.substring(0, 7)}...${id.substring(8, 12)}`;
     };
 
     // Handle buy now button click
@@ -384,48 +387,17 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         }
 
         try {
-            // Set progress state to getting fresh coins
-            setProgressState('getting-fresh-coins');
+            setProgressState('taking');
             setError(null);
 
-            // Recalculate selection from fresh coins
-            const freshCoins = (hydratedCoins || []).filter((coin) => {
-                const driverInfo = coin.parentSpendInfo.driverInfo;
-                return driverInfo?.type === 'CAT' && driverInfo.assetId === WUSDC_ASSET_ID;
-            });
-
-            let coinsToUse = selectedCoins.map((sc) => sc.coin);
-
-            if (freshCoins.length) {
-                // Map by parentCoinInfo for quick lookup
-                const freshMap = new Set(freshCoins.map((c) => c.coin.parentCoinInfo));
-                const stillUnspent = selectedCoins.filter((sc) => freshMap.has(sc.coin.coin.parentCoinInfo));
-
-                if (stillUnspent.length !== selectedCoins.length) {
-                    // Fallback: re-run greedy selection on fresh coins
-                    const newlySelected: SelectedCoin[] = [];
-                    let remaining = requiredWUSDC;
-
-                    for (const c of freshCoins) {
-                        if (remaining <= 0) break;
-                        const amt = parseInt(c.coin.amount);
-                        const use = Math.min(amt, remaining);
-                        newlySelected.push({ coin: c, amount: use, displayName: '' });
-                        remaining -= use;
-                    }
-
-                    coinsToUse = newlySelected.map((ns) => ns.coin);
-                }
-            }
-
-            const coinIds = coinsToUse.map((c) => c.coinId).filter((id) => typeof id === 'string' && id.length > 0);
+            // Use the exact coins that were shown to the user
+            const coinIds = selectedCoins.map((sc) => sc.coin.coinId).filter((id) => typeof id === 'string' && id.length > 0);
 
             if (!coinIds.length) {
-                setError('No coinIds found for selected coins');
-                return;
+                throw new Error('No coin IDs found for selected coins');
             }
 
-            // Build the request body
+            // Build the request body with the exact coins shown to user
             const requestBody = {
                 offer_string: dexieOfferData.offer.offer,
                 synthetic_public_key: walletState.syntheticPublicKey,
@@ -434,59 +406,49 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 fee: 0,
             };
 
-            // Set progress state to taking offer
-            setProgressState('taking');
+            console.log('💰 Taking offer with selected coins:', {
+                coinIds,
+                selectedCoins: selectedCoins.map(sc => ({
+                    coinId: sc.coin.coinId,
+                    amount: sc.amount
+                }))
+            });
 
-            // Use the existing takeOffer hook
-            let result = await takeOffer(requestBody);
-
-            if (
-                !result.success &&
-                ((result as any).error?.toLowerCase().includes('already been spent') ||
-                    (result as any).error?.toLowerCase().includes('record not found'))
-            ) {
-                // Set progress state to retrying
-                setProgressState('retrying');
-
-                // Retry once with a fresh coin refresh and recomputed refs
-                await refreshCoins();
-                const latestFresh = (hydratedCoins || []).filter((c) => {
-                    const di = c.parentSpendInfo.driverInfo;
-                    return di?.type === 'CAT' && di.assetId === WUSDC_ASSET_ID;
-                });
-                const latestRefs = latestFresh.map((c) => c.coin.parentCoinInfo);
-                const retryBody = { ...requestBody, cat_coins: latestRefs };
-
-                result = await takeOffer(retryBody);
-            }
+            // Execute the transaction with no retries
+            const result = await takeOffer(requestBody);
 
             if (result.success) {
                 setProgressState('idle');
-                onOfferTaken?.({
+                setWidgetState('transaction-success');
+                onTakeOfferSuccess?.({
                     transactionId: result.data.transaction_id,
                     status: result.data.status,
                     offerData: dexieOfferData,
                 });
-                onClose(); // Close the dialog on success
             } else {
                 setProgressState('idle');
-                setError((result as any).error || 'Failed to take offer');
+                const errorMessage = (result as any).error || 'Failed to take offer';
+                setError(errorMessage);
+                setWidgetState('transaction-error');
+                onTakeOfferError?.(errorMessage);
             }
         } catch (err) {
             setProgressState('idle');
             const errorMessage = err instanceof Error ? err.message : 'Failed to take offer';
             setError(errorMessage);
+            setWidgetState('transaction-error');
+            onTakeOfferError?.(errorMessage);
         }
     }, [
         dexieOfferData,
         walletState.syntheticPublicKey,
         selectedCoins,
         takeOffer,
-        onOfferTaken,
+        onTakeOfferSuccess,
+        onTakeOfferError,
         refreshCoins,
         hydratedCoins,
         requiredWUSDC,
-        onClose,
     ]);
 
     // Handle retry connection
@@ -495,22 +457,16 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         handleBuyNow();
     }, [handleBuyNow]);
 
-    // Reset state when modal opens/closes
+    // Reset state when offer data changes
     useEffect(() => {
-        if (!isOpen) {
-            setWidgetState('initial');
-            setError(null);
-            setBalanceExpanded(false);
-            hasInitialized.current = false;
-            currentOfferId.current = null;
-        } else if (dexieOfferData && currentOfferId.current !== dexieOfferData.offer.id) {
+        if (dexieOfferData && currentOfferId.current !== dexieOfferData.offer.id) {
             setWidgetState('initial');
             setError(null);
             setBalanceExpanded(false);
             hasInitialized.current = false;
             currentOfferId.current = dexieOfferData.offer.id;
         }
-    }, [isOpen, dexieOfferData?.offer?.id]);
+    }, [dexieOfferData?.offer?.id]);
 
     // Analyze offer when in transaction details state
     useEffect(() => {
@@ -561,12 +517,8 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
     const ProgressIndicator: React.FC<{ state: TakeOfferProgressState }> = ({ state }) => {
         const getStateText = () => {
             switch (state) {
-                case 'getting-fresh-coins':
-                    return 'Getting fresh coins...';
                 case 'taking':
-                    return 'Taking offer...';
-                case 'retrying':
-                    return 'Retrying...';
+                    return 'Processing transaction...';
                 default:
                     return '';
             }
@@ -590,9 +542,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
     const imageUrl = getNftImageUrl();
     const gpuTitle = getGpuTitle();
     const locationDescription = getGpuLocationDescription();
-    const priceUSD = formatPriceUSD(dexieOfferData.offer.price);
-
-    if (!isOpen) return null;
+    const priceWUSDC = formatPriceWUSDC(dexieOfferData.offer.price);
 
     // Initial card state
     if (widgetState === 'initial') {
@@ -706,7 +656,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                                 fontSize: '16px',
                                 fontWeight: '600'
                             }}>
-                                {priceUSD} wUSDC
+                                {priceWUSDC} wUSDC
                             </span>
                         </div>
 
@@ -743,7 +693,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                                 borderRadius: '50%',
                                 background: 'white'
                             }}></span>
-                            {priceUSD}
+                            {priceWUSDC}
                         </button>
                     </div>
                 </div>
@@ -800,6 +750,171 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         );
     }
 
+    // Transaction success state
+    if (widgetState === 'transaction-success') {
+        return (
+            <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+                <div className="modal-content" style={{ maxWidth: '400px', width: '90%', padding: 0 }}>
+                    {/* NFT Image - same as initial state */}
+                    <div style={{
+                        position: 'relative',
+                        borderRadius: '16px 16px 0 0',
+                        overflow: 'hidden',
+                        background: '#333',
+                        minHeight: '200px',
+                        maxHeight: '500px'
+                    }}>
+                        {imageUrl ? (
+                            <img
+                                src={imageUrl}
+                                alt={gpuTitle}
+                                style={{
+                                    width: '100%',
+                                    height: 'auto',
+                                    display: 'block',
+                                    maxHeight: '500px',
+                                    objectFit: 'contain'
+                                }}
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    const parent = (e.target as HTMLImageElement).parentElement;
+                                    if (parent) {
+                                        parent.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 200px; font-size: 64px; color: #666;">🖼️</div>';
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '200px',
+                                fontSize: '64px',
+                                color: '#666'
+                            }}>
+                                🖼️
+                            </div>
+                        )}
+
+                        {/* Close button overlay */}
+                        <button
+                            className="close-btn"
+                            onClick={onClose}
+                            style={{
+                                position: 'absolute',
+                                top: '16px',
+                                right: '16px',
+                                background: 'rgba(0, 0, 0, 0.5)',
+                                backdropFilter: 'blur(4px)'
+                            }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Success Content */}
+                    <div style={{ padding: '24px' }}>
+                        {/* Success Status */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '12px'
+                        }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+                                <path d="M9 12l2 2 4-4"></path>
+                                <circle cx="12" cy="12" r="9"></circle>
+                            </svg>
+                            <span style={{
+                                color: '#22c55e',
+                                fontSize: '16px',
+                                fontWeight: '600'
+                            }}>
+                                Transaction complete
+                            </span>
+                        </div>
+
+                        {/* Success Message */}
+                        <div style={{
+                            color: 'white',
+                            fontSize: '14px',
+                            marginBottom: '24px',
+                            lineHeight: '1.4'
+                        }}>
+                            You've successfully purchased this NFT.
+                        </div>
+
+                        {/* Close Button */}
+                        <button
+                            onClick={onClose}
+                            style={{
+                                width: '100%',
+                                padding: '16px',
+                                background: '#000',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                (e.target as HTMLButtonElement).style.background = '#222';
+                            }}
+                            onMouseLeave={(e) => {
+                                (e.target as HTMLButtonElement).style.background = '#000';
+                            }}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Transaction error state
+    if (widgetState === 'transaction-error') {
+        return (
+            <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+                <div className="modal-content" style={{ maxWidth: '400px', width: '90%' }}>
+                    <div className="modal-header">
+                        <h3>Transaction Failed</h3>
+                        <button className="close-btn" onClick={onClose}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div className="modal-body">
+                        <div className="error-state">
+                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>❌</div>
+                            <h4 style={{ color: 'white', margin: '0 0 8px 0' }}>Transaction unsuccessful</h4>
+                            <p style={{ color: '#888', margin: '0 0 24px 0', fontSize: '14px' }}>
+                                {error || 'The transaction could not be completed. Please try again.'}
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setError(null);
+                                    setWidgetState('initial');
+                                }}
+                                className="btn btn-primary"
+                            >
+                                Try again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // Transaction details state
     return (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -811,7 +926,6 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                             <path d="m15 18-6-6 6-6" />
                         </svg>
                     </button>
-                    <h3>Transaction Details</h3>
                     <button className="close-btn" onClick={onClose}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -821,322 +935,221 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 </div>
 
                 <div className="modal-body">
-                    {/* GPU/NFT Info */}
+                    <h3 style={{ textAlign: 'left', paddingBottom: '16px', paddingTop: '16px' }}>Transaction Details</h3>
+
+                    {/* Wallet Balance Section - Flexbox Table Layout */}
                     <div className="card">
-                        <h4 style={{ margin: '0 0 16px 0', color: 'white', fontSize: '16px', fontWeight: '600' }}>
-                            GPU Details
-                        </h4>
 
-                        <div className="grid grid-2">
-                            <div className="info-item">
-                                <label>Name:</label>
-                                <div className="info-value description">
-                                    {gpuTitle}
-                                </div>
-                            </div>
-
-                            <div className="info-item">
-                                <label>Price:</label>
-                                <div className="info-value">
-                                    {} wUSDC
-                                </div>
-                            </div>
+                        {/* GPU Name */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 0',
+                            borderBottom: '1px solid #333'
+                        }}>
+                            <span style={{
+                                color: '#888',
+                                fontSize: '14px',
+                                fontWeight: '500'
+                            }}>
+                                NFT name
+                            </span>
+                            <span style={{
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '400',
+                                textAlign: 'right',
+                                maxWidth: '60%'
+                            }}>
+                                {dexieOfferData.offer.offered[0].name || ''}
+                            </span>
                         </div>
-                    </div>
 
-                    {/* Wallet Addresses */}
-                    <div className="card">
-                        <h4 style={{ margin: '0 0 16px 0', color: 'white', fontSize: '16px', fontWeight: '600' }}>
-                            Wallet Information
-                        </h4>
-
-                        <div className="grid grid-2">
-                            <div className="info-item">
-                                <label>Your Wallet:</label>
-                                <div className="info-value monospace">
-                                    {walletState.address ? formatCoinId(walletState.address) : 'Loading...'}
-                                </div>
-                            </div>
-
-                            <div className="info-item">
-                                <label>Seller Address:</label>
-                                <div className="info-value monospace">
-                                    {/* Extract seller address from offer data if available */}
-                                    {'Unknown'}
-                                </div>
-                            </div>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 0',
+                            borderBottom: '1px solid #333'
+                        }}>
+                            <span style={{
+                                color: '#888',
+                                fontSize: '14px',
+                                fontWeight: '500'
+                            }}>
+                                GPU model
+                            </span>
+                            <span style={{
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '400'
+                            }}>
+                                {`${manufacturer} ${model}`}
+                            </span>
                         </div>
-                    </div>
 
-                    {/* Progress Display */}
-                    <ProgressIndicator state={progressState} />
-
-                    {/* Error Display */}
-                    {hasError && (
-                        <div className="error-message">
-                            <span>⚠️</span>
-                            <span>{hasError}</span>
+                        {/* Your Wallet */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 0',
+                            borderBottom: '1px solid #333'
+                        }}>
+                            <span style={{
+                                color: '#888',
+                                fontSize: '14px',
+                                fontWeight: '500'
+                            }}>
+                                Paying with wallet
+                            </span>
+                            <span
+                                title={walletState.address || ''}
+                                style={{
+                                    color: 'white',
+                                    fontSize: '14px',
+                                    fontFamily: 'monospace',
+                                    fontWeight: '400',
+                                }}>
+                                {walletState.address ? formatCoinIdMiddle(walletState.address) : 'Loading...'}
+                            </span>
                         </div>
-                    )}
 
-                    {/* NFT Metadata Section */}
-                    {nftMetadata && (
-                        <div className="card">
-                            <h4 style={{ margin: '0 0 16px 0', color: 'white', fontSize: '16px', fontWeight: '600' }}>
-                                NFT Details
-                            </h4>
-
-                            <div className="grid grid-2">
-                                <div className="info-item">
-                                    <label>Name:</label>
-                                    <div className="info-value description">
-                                        {nftMetadata.name || 'Unnamed NFT'}
-                                    </div>
-                                </div>
-
-                                <div className="info-item">
-                                    <label>Collection:</label>
-                                    <div className="info-value description">
-                                        {nftMetadata.collection?.name || 'Unknown Collection'}
-                                    </div>
-                                </div>
-
-                                {nftMetadata.description && (
-                                    <div className="info-item" style={{ gridColumn: '1 / -1' }}>
-                                        <label>Description:</label>
-                                        <div className="info-value description">
-                                            {nftMetadata.description}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {nftMetadata.series_number && (
-                                    <div className="info-item">
-                                        <label>Edition:</label>
-                                        <div className="info-value">
-                                            #{nftMetadata.series_number}
-                                            {nftMetadata.series_total && ` of ${nftMetadata.series_total}`}
-                                        </div>
-                                    </div>
-                                )}
-                                {/* Provider Name */}
-                                {nftMetadata.attributes?.find(attr => attr.trait_type === 'provider_name') && (
-                                    <div className="info-item">
-                                        <label>Provider:</label>
-                                        <div className="info-value">
-                                            {nftMetadata.attributes.find(attr => attr.trait_type === 'provider_name')?.value}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* GPU UUID */}
-                                {nftMetadata.attributes?.find(attr => attr.trait_type === 'gpu_uuid') && (
-                                    <div className="info-item">
-                                        <label>GPU UUID:</label>
-                                        <div className="info-value monospace">
-                                            {nftMetadata.attributes.find(attr => attr.trait_type === 'gpu_uuid')?.value}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {nftMetadata.attributes && nftMetadata.attributes.length > 0 && (
-                                    <div className="info-item" style={{ gridColumn: '1 / -1' }}>
-                                        <label>Key Attributes:</label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginTop: '8px' }}>
-                                            {nftMetadata.attributes.slice(0, 6).map((attr, index) => (
-                                                <div key={index} className="attribute-item">
-                                                    <div className="attribute-name">{attr.trait_type}</div>
-                                                    <div className="attribute-value">{attr.value}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {metadataLoading && (
-                                <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
-                                    <div className="spinner" style={{ margin: '0 auto 8px' }}></div>
-                                    Loading NFT metadata...
-                                </div>
-                            )}
-
-                            {metadataError && (
-                                <div className="error-message">
-                                    <span>⚠️</span>
-                                    <span>Failed to load NFT metadata: {metadataError}</span>
-                                </div>
-                            )}
+                        {/* Required Balance */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 0',
+                            borderBottom: '1px solid #333'
+                        }}>
+                            <span style={{
+                                color: '#888',
+                                fontSize: '14px',
+                                fontWeight: '500'
+                            }}>
+                                Price
+                            </span>
+                            <span style={{
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '400'
+                            }}>
+                                {isBalanceLoading ? <LoadingSkeleton width="80px" /> : formatPriceWUSDC(requiredWUSDC / 1000)} wUSDC
+                            </span>
                         </div>
-                    )}
 
-                    {/* Offer Details */}
-                    <div className="card">
-                        <h4 style={{ margin: '0 0 16px 0', color: 'white', fontSize: '16px', fontWeight: '600' }}>
-                            Offer Details
-                        </h4>
-
-                        <div className="grid grid-2">
-                            <div className="info-item">
-                                <label>Offering:</label>
-                                <div className="info-value">
-                                    {dexieOfferData.offer.offered.map((asset, index) => (
-                                        <div key={index}>
-                                            {asset.amount} {asset.code} ({asset.name})
-                                            {asset.is_nft && nftMetadata && (
-                                                <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
-                                                    {nftMetadata.name}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="info-item">
-                                <label>Requesting:</label>
-                                <div className="info-value">
-                                    {dexieOfferData.offer.requested.map((asset, index) => (
-                                        <div key={index}>
-                                            {asset.amount} {asset.code} ({asset.name})
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="info-item">
-                                <label>Price:</label>
-                                <div className="info-value">
-                                    {priceUSD} wUSDC
-                                </div>
-                            </div>
-
-                            <div className="info-item">
-                                <label>Status:</label>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span
-                                            className={`status-badge ${dexieOfferData.offer.status === 0 || dexieOfferData.offer.status === 1
-                                                ? 'status-active'
-                                                : dexieOfferData.offer.status === 2
-                                                    ? 'status-completed'
-                                                    : 'status-cancelled'
-                                                }`}
-                                        >
-                                            {dexieOfferData.offer.status === 0
-                                                ? 'Pending'
-                                                : dexieOfferData.offer.status === 1
-                                                    ? 'Active'
-                                                    : dexieOfferData.offer.status === 2
-                                                        ? 'Completed'
-                                                        : dexieOfferData.offer.status === 3
-                                                            ? 'Cancelled'
-                                                            : 'Unknown'}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#666' }}>
-                                        Created: {new Date(dexieOfferData.offer.date_found).toLocaleString()}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Balance Section with Expandable Details */}
-                    <div className="card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h4 style={{ margin: '0', color: 'white', fontSize: '16px', fontWeight: '600' }}>
-                                Your Wallet Balance
-                            </h4>
-
-                            {!isBalanceLoading && hasSufficientBalance && selectedCoins.length > 0 && (
-                                <button
-                                    onClick={() => setBalanceExpanded(!balanceExpanded)}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#888',
-                                        cursor: 'pointer',
-                                        padding: '4px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        fontSize: '12px'
-                                    }}
-                                >
-                                    <span>{balanceExpanded ? 'Hide' : 'Show'} coins</span>
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
+                        {/* Available Balance with Expandable Caret */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 0',
+                            borderBottom: selectedCoins.length > 0 && !isBalanceLoading ? 'none' : '1px solid #333'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{
+                                    color: '#888',
+                                    fontSize: '14px',
+                                    fontWeight: '500'
+                                }}>
+                                    Available Balance
+                                </span>
+                                {!isBalanceLoading && hasSufficientBalance && selectedCoins.length > 0 && (
+                                    <button
+                                        onClick={() => setBalanceExpanded(!balanceExpanded)}
                                         style={{
-                                            transform: balanceExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                                            transition: 'transform 0.2s'
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#888',
+                                            cursor: 'pointer',
+                                            padding: '2px',
+                                            display: 'flex',
+                                            alignItems: 'center'
                                         }}
                                     >
-                                        <path d="m6 9 6 6 6-6" />
-                                    </svg>
-                                </button>
-                            )}
+                                        <svg
+                                            width="14"
+                                            height="14"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            style={{
+                                                transform: balanceExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                transition: 'transform 0.2s'
+                                            }}
+                                        >
+                                            <path d="m9 18 6-6-6-6" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                            <span style={{
+                                color: hasSufficientBalance ? '#22c55e' : '#ef4444',
+                                fontSize: '14px',
+                                fontWeight: '600'
+                            }}>
+                                {isBalanceLoading ? <LoadingSkeleton width="80px" /> : formatPriceWUSDC(availableWUSDC / 1000)} wUSDC
+                            </span>
                         </div>
 
-                        <div className="grid grid-2">
-                            <div className="info-item">
-                                <label>Required:</label>
-                                <div className="info-value">
-                                    {isBalanceLoading ? <LoadingSkeleton width="80px" /> : `${formatAmount(requiredWUSDC)} wUSDC`}
-                                </div>
-                            </div>
-
-                            <div className="info-item">
-                                <label>Available:</label>
-                                <div className="info-value" style={{
-                                    color: hasSufficientBalance ? '#22c55e' : '#ef4444'
-                                }}>
-                                    {isBalanceLoading ? <LoadingSkeleton width="80px" /> : `${formatAmount(availableWUSDC)} wUSDC`}
-                                </div>
-                            </div>
-                        </div>
-
+                        {/* Error Messages */}
                         {!isBalanceLoading && !hasSufficientBalance && availableWUSDC > 0 && (
-                            <div className="error-message">
+                            <div className="error-message" style={{ marginTop: '16px' }}>
                                 <span>⚠️</span>
-                                <span>You need {formatAmount(requiredWUSDC - availableWUSDC)} more wUSDC to take this offer.</span>
+                                <span>You need {formatPriceWUSDC((requiredWUSDC - availableWUSDC) / 1000)} more wUSDC to take this offer.</span>
                             </div>
                         )}
 
                         {!isBalanceLoading && availableWUSDC === 0 && (
-                            <div className="error-message">
-                                <span>❌</span>
+                            <div className="error-message" style={{ marginTop: '16px' }}>
                                 <span>You don't have any wUSDC tokens in your wallet.</span>
                             </div>
                         )}
 
-                        {/* Expandable coin details */}
+                        {/* Expandable Selected Coins */}
                         {balanceExpanded && !isBalanceLoading && hasSufficientBalance && selectedCoins.length > 0 && (
-                            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #333' }}>
-                                <h5 style={{ margin: '0 0 12px 0', color: '#888', fontSize: '14px', fontWeight: '500' }}>
+                            <div style={{
+                                paddingTop: '16px',
+                                borderTop: '1px solid #333',
+                                marginTop: '0'
+                            }}>
+                                <div style={{
+                                    color: '#888',
+                                    fontSize: '12px',
+                                    fontWeight: '500',
+                                    marginBottom: '12px'
+                                }}>
                                     Selected Coins ({selectedCoins.length})
-                                </h5>
-
-                                <div className="list">
-                                    {selectedCoins.map((coinInfo, index) => (
-                                        <div key={index} className="list-item" style={{ cursor: 'default', padding: '8px 12px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                                <span style={{ fontWeight: '500', color: 'white', fontSize: '14px' }}>
-                                                    {formatAmount(coinInfo.amount)} wUSDC
-                                                </span>
-                                                <span style={{ fontSize: '11px', color: '#666', fontFamily: 'monospace' }}>
-                                                    {/* Use actual coin ID instead of parent coin info */}
-                                                    {formatCoinId(coinInfo.coin.coinId || coinInfo.coin.coin.parentCoinInfo)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
                                 </div>
+
+                                {selectedCoins.map((coinInfo, index) => (
+                                    <div key={index} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '8px 0',
+                                        borderBottom: index < selectedCoins.length - 1 ? '1px solid #333' : 'none'
+                                    }}>
+                                        <span style={{
+                                            color: 'white',
+                                            fontSize: '11px',
+                                            fontFamily: 'monospace',
+                                            fontWeight: '400'
+                                        }}>
+                                            {coinInfo.coin.coinId || 'Unknown coin ID'}
+                                        </span>
+                                        <span style={{
+                                            color: 'white',
+                                            fontSize: '13px',
+                                            fontWeight: '400'
+                                        }}>
+                                            {formatPriceWUSDC(coinInfo.amount / 1000)}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -1146,37 +1159,20 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 {/* Footer */}
                 <div style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
+                    justifyContent: 'flex-end',
                     gap: '12px',
                     padding: '16px',
                     borderTop: '1px solid #333'
                 }}>
                     <button
                         type="button"
-                        onClick={() => setWidgetState('initial')}
-                        disabled={isProcessingOffer}
-                        className="btn btn-secondary"
-                    >
-                        Back
-                    </button>
-
-                    <button
-                        type="button"
                         onClick={handleTakeOffer}
                         disabled={!hasSufficientBalance || isProcessingOffer || !isConnected}
                         className="btn btn-primary"
                     >
-                        {progressState === 'getting-fresh-coins'
-                            ? 'Getting Fresh Coins...'
-                            : progressState === 'taking'
-                                ? 'Taking Offer...'
-                                : progressState === 'retrying'
-                                    ? 'Retrying...'
-                                    : !isConnected
-                                        ? 'Wallet Not Connected'
-                                        : !hasSufficientBalance
-                                            ? 'Insufficient Balance'
-                                            : 'Complete Purchase'}
+                        {progressState === 'taking'
+                            ? 'Processing...'
+                            : 'Complete purchase'}
                     </button>
                 </div>
             </div>
