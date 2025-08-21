@@ -1173,7 +1173,7 @@ export class ChiaCloudWalletClient {
         coin: normalizeCoin(coinSpend.coin)
       }));
 
-      const endpoint = this.getEndpoint('/wallet/transaction/broadcast', '/api/broadcast');
+      const endpoint = 'https://edge.silicon-dev.net/chia/chia_public_api/broadcast';
       const result = await this.makeRequest<BroadcastResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({
