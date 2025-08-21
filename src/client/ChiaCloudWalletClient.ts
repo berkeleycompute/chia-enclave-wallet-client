@@ -39,8 +39,22 @@ interface RawCoin {
   amount: string;
 }
 
+// Snake case coin interface for consistent API communication
+export interface CoinSnakeCase {
+  parent_coin_info: string;
+  puzzle_hash: string;
+  amount: string;
+}
+
+// Snake case coin spend interface for consistent API communication
+export interface CoinSpendSnakeCase {
+  coin: CoinSnakeCase;
+  puzzle_reveal: string;
+  solution: string;
+}
+
 // Type that can be either format
-type CoinInput = Coin | RawCoin | any;
+type CoinInput = Coin | RawCoin | CoinSnakeCase | any;
 
 /**
  * Utility function to normalize coin objects from snake_case to camelCase format
@@ -59,6 +73,54 @@ export function normalizeCoin(coin: CoinInput): Coin {
  */
 export function normalizeCoins(coins: CoinInput[]): Coin[] {
   return coins.map(normalizeCoin);
+}
+
+/**
+ * Utility function to convert coin from camelCase to snake_case format
+ */
+export function convertCoinToSnakeCase(coin: CoinInput): CoinSnakeCase {
+  const normalizedCoin = normalizeCoin(coin);
+  return {
+    parent_coin_info: normalizedCoin.parentCoinInfo,
+    puzzle_hash: normalizedCoin.puzzleHash,
+    amount: normalizedCoin.amount
+  };
+}
+
+/**
+ * Utility function to convert CoinSpend to snake_case format
+ */
+export function convertCoinSpendToSnakeCase(coinSpend: CoinSpend): CoinSpendSnakeCase {
+  return {
+    coin: convertCoinToSnakeCase(coinSpend.coin),
+    puzzle_reveal: coinSpend.puzzle_reveal,
+    solution: coinSpend.solution
+  };
+}
+
+/**
+ * Utility function to convert array of CoinSpends to snake_case format
+ */
+export function convertCoinSpendsToSnakeCase(coinSpends: CoinSpend[]): CoinSpendSnakeCase[] {
+  return coinSpends.map(convertCoinSpendToSnakeCase);
+}
+
+/**
+ * Utility function to convert ApiCoinSpend to CoinSpendSnakeCase format
+ */
+export function convertApiCoinSpendToSnakeCase(apiCoinSpend: ApiCoinSpend): CoinSpendSnakeCase {
+  return {
+    coin: convertCoinToSnakeCase(apiCoinSpend.coin),
+    puzzle_reveal: apiCoinSpend.puzzle_reveal,
+    solution: apiCoinSpend.solution
+  };
+}
+
+/**
+ * Utility function to convert array of ApiCoinSpends to snake_case format
+ */
+export function convertApiCoinSpendsToSnakeCase(apiCoinSpends: ApiCoinSpend[]): CoinSpendSnakeCase[] {
+  return apiCoinSpends.map(convertApiCoinSpendToSnakeCase);
 }
 
 export interface CoinSpend {
@@ -143,7 +205,7 @@ export interface TransactionPayload {
 }
 
 export interface BroadcastSpendBundleRequest {
-  coin_spends: CoinSpend[];
+  coin_spends: CoinSpendSnakeCase[];
   aggregated_signature: string;
 }
 
@@ -1219,10 +1281,10 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Signature is required for broadcasting');
       }
 
-      // Normalize all coins in the coin spends
+      // The coin_spends are already in snake_case format, but we need to ensure coins are properly normalized
       const normalizedCoinSpends = request.coin_spends.map(coinSpend => ({
         ...coinSpend,
-        coin: normalizeCoin(coinSpend.coin)
+        coin: convertCoinToSnakeCase(coinSpend.coin)
       }));
 
       const endpoint = 'https://edge.silicon-dev.net/chia/chia_public_api/broadcast';
@@ -1314,7 +1376,7 @@ export class ChiaCloudWalletClient {
 
       // Step 2: Broadcast the spend bundle using the normal channel
       const broadcastResult = await this.broadcastSpendBundle({
-        coin_spends: apiSpendBundle.coin_spends,
+        coin_spends: convertApiCoinSpendsToSnakeCase(apiSpendBundle.coin_spends),
         aggregated_signature: apiSpendBundle.aggregated_signature
       });
 
@@ -1350,7 +1412,7 @@ export class ChiaCloudWalletClient {
       const { coin_spends, aggregated_signature } = signedBundle.signed_spend_bundle;
 
       return await this.broadcastSpendBundle({
-        coin_spends: coin_spends,
+        coin_spends: convertCoinSpendsToSnakeCase(coin_spends),
         aggregated_signature: aggregated_signature
       });
     } catch (error) {
