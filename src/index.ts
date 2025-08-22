@@ -13,6 +13,8 @@ export { useNFTs } from './hooks/useNFTs';
 export { useChiaUtils } from './hooks/useChiaUtils';
 export { useChiaTransactions } from './hooks/useChiaTransactions';
 export { useHydratedCoins } from './hooks/useHydratedCoins';
+export { useMintNFT, useNFTMintMetadata } from './hooks/useMintNFT';
+export { useUploadFile } from './hooks/useUploadFile';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export {
   // Core wallet hooks
@@ -82,7 +84,17 @@ export type {
   DecodeOfferRequest,
   DecodeOfferResponse,
   ApiSpendBundle,
-  ApiCoinSpend
+  ApiCoinSpend,
+  
+  // NFT minting types
+  MintNFTRequest,
+  MintNFTResponse,
+  NFTMintMetadata,
+  NFTMint,
+  MintCoinInput,
+  
+  // File upload types
+  UploadFileResponse
 } from './client/ChiaCloudWalletClient';
 // Export SDK class and types
 export { ChiaWalletSDK } from './client/ChiaWalletSDK';
@@ -101,4 +113,19 @@ export type {
   DexieSelectedCoin,
   NFTMetadata,
 } from './components/types';
+
+// Export mint hook types
+export type {
+  SimpleMintConfig,
+  MintTransactionRecord,
+  UseMintNFTConfig,
+  UseMintNFTResult
+} from './hooks/useMintNFT';
+
+// Export upload hook types
+export type {
+  UseUploadFileConfig,
+  UseUploadFileResult,
+  UploadResult
+} from './hooks/useUploadFile'; 
 

@@ -420,6 +420,76 @@ export interface ParsedOfferData {
   error?: string;
 }
 
+// File upload interfaces
+export interface UploadFileRequest {
+  file: File;
+}
+
+export interface UploadFileResponse {
+  success: boolean;
+  hash: string;
+  url: string;
+  error: string | null;
+  details: string[];
+}
+
+// NFT minting interfaces
+export interface NFTMintMetadata {
+  edition_number: number;
+  edition_total: number;
+  data_uris: string[];
+  data_hash: string;
+  metadata_uris: string[];
+  metadata_hash: string;
+  license_uris: string[];
+  license_hash: string;
+}
+
+export interface NFTMint {
+  metadata: NFTMintMetadata;
+  p2_puzzle_hash: string;
+  royalty_puzzle_hash?: string | null;
+  royalty_basis_points: number;
+}
+
+// MintCoinInput interface for minting (matches Rust struct)
+export interface MintCoinInput {
+  parent_coin_info: string;
+  puzzle_hash: string;
+  amount: string;
+}
+
+export interface MintNFTRequest {
+  /// Mnemonic words for signing (alternative to synthetic_public_key)
+  mnemonic_words?: string | null;
+  /// Optional passphrase for mnemonic (defaults to empty string)  
+  mnemonic_passphrase?: string;
+  /// Synthetic public key (48 bytes hex) - optional when mnemonic is provided
+  synthetic_public_key?: string | null;
+  /// Coins to use for minting (user-provided, no automatic selection)
+  selected_coins: MintCoinInput[];
+  /// Optional: if provided, the service will fetch and use this coin id as the input coin,
+  /// avoiding any external coin lineage scans. Should be a 32-byte hex (0x-prefixed) coin id.
+  last_spendable_coin_id?: string | null;
+  /// Optional DID coin ID for DID-owned NFTs
+  did_id?: string | null;
+  /// NFT mints (array to support bulk minting like Sage)
+  mints: NFTMint[];
+  /// Transaction fee in mojos
+  fee?: number;
+}
+
+export interface MintNFTResponse {
+  success: boolean;
+  signed_spend_bundle?: {
+    coin_spends: CoinSpend[];
+    aggregated_signature: string;
+  };
+  transaction_id?: string;
+  message?: string;
+  error?: string;
+}
+
 export class ChiaCloudWalletApiError extends Error {
   constructor(
     message: string,
@@ -776,6 +846,94 @@ export class ChiaCloudWalletClient {
         error
       );
       this.logError(`Network error for ${endpoint}`, networkError);
+      throw networkError;
+    }
+  }
+
+  /**
+   * Make a file upload request with enhanced error handling
+   */
+  private async makeFileUploadRequest<T>(
+    endpoint: string,
+    formData: FormData,
+    requireAuth: boolean = false
+  ): Promise<T> {
+    const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
+      ? endpoint
+      : `${this.baseUrl}${endpoint}`; 
+    
+    try {
+      const headers: any = {
+        // Don't set Content-Type for FormData - let the browser set it with boundary
+        ...{}
+      };
+
+      if (requireAuth) {
+        if (!this.jwtToken) {
+          throw new ChiaCloudWalletApiError('JWT token is required for this request');
+        }
+        headers['Authorization'] = `Bearer ${this.jwtToken}`;
+      }
+
+      this.logInfo(`Making file upload request to ${endpoint}`);
+
+      // Add timeout and explicit redirect handling for robustness
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for file uploads
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+        redirect: 'follow',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new ChiaCloudWalletApiError(
+          `HTTP ${response.status}: ${response.statusText}`,
+          response.status,
+          errorText
+        );
+        this.logError(`File upload request failed for ${endpoint}`, error);
+        throw error;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        this.logInfo(`File upload request successful for ${endpoint}`);
+        return result;
+      } else {
+        const result = await response.text() as T;
+        this.logInfo(`File upload request successful for ${endpoint}`);
+        return result;
+      }
+    } catch (error) {
+      if (error instanceof ChiaCloudWalletApiError) {
+        throw error;
+      }
+      
+      // Handle timeout errors specifically
+      if (error instanceof Error && error.name === 'AbortError') {
+        const timeoutError = new ChiaCloudWalletApiError(
+          `File upload request timed out for ${endpoint}`,
+          408, // Request Timeout
+          error
+        );
+        this.logError(`File upload request timed out for ${endpoint}`, timeoutError);
+        throw timeoutError;
+      }
+      
+      const networkError = new ChiaCloudWalletApiError(
+        `Network error during file upload: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        undefined,
+        error
+      );
+      this.logError(`Network error for file upload to ${endpoint}`, networkError);
       throw networkError;
     }
   }
@@ -1264,6 +1422,210 @@ export class ChiaCloudWalletClient {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to parse offer',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Upload a file to IPFS for NFT creation
+   * @param file - The file to upload
+   */
+  async uploadFile(file: File): Promise<Result<UploadFileResponse>> {
+    try {
+      if (!file) {
+        throw new ChiaCloudWalletApiError('File is required for upload');
+      }
+
+      // Validate file size (optional, adjust as needed)
+      const maxFileSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxFileSize) {
+        throw new ChiaCloudWalletApiError(`File size too large: ${file.size} bytes (max: ${maxFileSize} bytes)`);
+      }
+
+      this.logInfo('Uploading file to IPFS', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      });
+
+      // Create FormData and append the file
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const endpoint = 'https://edge.silicon-dev.net/chia/make_unsigned_nft_mint/upload-file';
+      const result = await this.makeFileUploadRequest<UploadFileResponse>(endpoint, formData, false);
+
+      this.logInfo('File uploaded successfully', {
+        hash: result.hash,
+        url: result.url
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to upload file',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Mint an NFT with error handling
+   * @param request - The mint NFT request containing metadata and coin selection
+   */
+  async mintNFT(request: MintNFTRequest): Promise<Result<MintNFTResponse>> {
+    try {
+      // Validate that either mnemonic_words or synthetic_public_key is provided
+      if (!request.mnemonic_words && !request.synthetic_public_key) {
+        throw new ChiaCloudWalletApiError('Either mnemonic_words or synthetic_public_key is required');
+      }
+
+      if (!request.selected_coins || request.selected_coins.length === 0) {
+        throw new ChiaCloudWalletApiError('Selected coins are required');
+      }
+
+      if (!request.mints || request.mints.length === 0) {
+        throw new ChiaCloudWalletApiError('At least one mint is required');
+      }
+
+      // Validate synthetic public key format if provided (should be 96 hex characters)
+      if (request.synthetic_public_key) {
+        const cleanPublicKey = request.synthetic_public_key.replace(/^0x/, '');
+        if (!/^[0-9a-fA-F]{96}$/.test(cleanPublicKey)) {
+          throw new ChiaCloudWalletApiError('Invalid synthetic public key format: must be a 96-character hex string');
+        }
+      }
+
+      // Validate mnemonic if provided
+      if (request.mnemonic_words) {
+        const wordCount = request.mnemonic_words.trim().split(/\s+/).length;
+        if (wordCount !== 12 && wordCount !== 24) {
+          throw new ChiaCloudWalletApiError('Mnemonic must be 12 or 24 words');
+        }
+      }
+
+      // Validate last_spendable_coin_id if provided
+      if (request.last_spendable_coin_id) {
+        const cleanCoinId = request.last_spendable_coin_id.replace(/^0x/, '');
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanCoinId)) {
+          throw new ChiaCloudWalletApiError('Invalid last_spendable_coin_id format: must be a 64-character hex string');
+        }
+      }
+
+      // Validate each mint
+      for (const mint of request.mints) {
+        if (!mint.metadata) {
+          throw new ChiaCloudWalletApiError('Each mint must have metadata');
+        }
+
+        if (!mint.p2_puzzle_hash) {
+          throw new ChiaCloudWalletApiError('Each mint must have a p2_puzzle_hash');
+        }
+
+        // Validate metadata structure
+        const metadata = mint.metadata;
+        if (!metadata.data_uris || metadata.data_uris.length === 0) {
+          throw new ChiaCloudWalletApiError('Each mint must have at least one data_uri');
+        }
+
+        if (!metadata.metadata_uris || metadata.metadata_uris.length === 0) {
+          throw new ChiaCloudWalletApiError('Each mint must have at least one metadata_uri');
+        }
+
+        if (!metadata.data_hash || !metadata.metadata_hash) {
+          throw new ChiaCloudWalletApiError('Each mint must have data_hash and metadata_hash');
+        }
+
+        // Validate hash formats (should be 64 hex characters)
+        const cleanDataHash = metadata.data_hash.replace(/^0x/, '');
+        const cleanMetadataHash = metadata.metadata_hash.replace(/^0x/, '');
+        const cleanLicenseHash = metadata.license_hash.replace(/^0x/, '');
+
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanDataHash)) {
+          throw new ChiaCloudWalletApiError('Invalid data_hash format: must be a 64-character hex string');
+        }
+
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanMetadataHash)) {
+          throw new ChiaCloudWalletApiError('Invalid metadata_hash format: must be a 64-character hex string');
+        }
+
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanLicenseHash)) {
+          throw new ChiaCloudWalletApiError('Invalid license_hash format: must be a 64-character hex string');
+        }
+
+        // Validate puzzle hash format
+        const cleanPuzzleHash = mint.p2_puzzle_hash.replace(/^0x/, '');
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
+          throw new ChiaCloudWalletApiError('Invalid p2_puzzle_hash format: must be a 64-character hex string');
+        }
+
+        // Validate royalty puzzle hash if provided
+        if (mint.royalty_puzzle_hash) {
+          const cleanRoyaltyHash = mint.royalty_puzzle_hash.replace(/^0x/, '');
+          if (!/^[0-9a-fA-F]{64}$/.test(cleanRoyaltyHash)) {
+            throw new ChiaCloudWalletApiError('Invalid royalty_puzzle_hash format: must be a 64-character hex string');
+          }
+        }
+
+        // Validate royalty basis points (should be 0-10000)
+        if (mint.royalty_basis_points < 0 || mint.royalty_basis_points > 10000) {
+          throw new ChiaCloudWalletApiError('Royalty basis points must be between 0 and 10000 (0-100%)');
+        }
+      }
+
+      // Validate selected coins
+      for (const coin of request.selected_coins) {
+        if (!coin.parent_coin_info || !coin.puzzle_hash || !coin.amount) {
+          throw new ChiaCloudWalletApiError('Each selected coin must have parent_coin_info, puzzle_hash, and amount');
+        }
+
+        // Validate hex formats
+        const cleanParentInfo = coin.parent_coin_info.replace(/^0x/, '');
+        const cleanPuzzleHash = coin.puzzle_hash.replace(/^0x/, '');
+
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanParentInfo)) {
+          throw new ChiaCloudWalletApiError('Invalid parent_coin_info format: must be a 64-character hex string');
+        }
+
+        if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
+          throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
+        }
+
+        // Validate amount is positive
+        const amount = typeof coin.amount === 'string' ? parseInt(coin.amount) : coin.amount;
+        if (amount <= 0) {
+          throw new ChiaCloudWalletApiError('Each selected coin must have a positive amount');
+        }
+      }
+
+      this.logInfo('Minting NFT', {
+        publicKey: request.synthetic_public_key ? request.synthetic_public_key.substring(0, 10) + '...' : 'using mnemonic',
+        hasMnemonic: !!request.mnemonic_words,
+        mintsCount: request.mints.length,
+        selectedCoinsCount: request.selected_coins.length,
+        fee: request.fee || 'default',
+        lastSpendableCoinId: request.last_spendable_coin_id ? request.last_spendable_coin_id.substring(0, 10) + '...' : 'not specified'
+      });
+
+      const endpoint = 'https://edge.silicon-dev.net/chia/offers_encoder_decoder/encode-offer';
+      const result = await this.makeRequest<MintNFTResponse>(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, false);
+
+      this.logInfo('NFT minted successfully', {
+        success: result.success,
+        transactionId: result.transaction_id,
+        message: result.message
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mint NFT',
         details: error
       };
     }
