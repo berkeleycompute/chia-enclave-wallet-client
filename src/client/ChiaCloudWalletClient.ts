@@ -76,13 +76,21 @@ export function normalizeCoins(coins: CoinInput[]): Coin[] {
 }
 
 /**
+ * Utility function to ensure hex string has 0x prefix
+ */
+function ensureHexPrefix(hexString: string): string {
+  if (!hexString) return hexString;
+  return hexString.startsWith('0x') ? hexString : `0x${hexString}`;
+}
+
+/**
  * Utility function to convert coin from camelCase to snake_case format
  */
 export function convertCoinToSnakeCase(coin: CoinInput): CoinSnakeCase {
   const normalizedCoin = normalizeCoin(coin);
   return {
-    parent_coin_info: normalizedCoin.parentCoinInfo,
-    puzzle_hash: normalizedCoin.puzzleHash,
+    parent_coin_info: ensureHexPrefix(normalizedCoin.parentCoinInfo),
+    puzzle_hash: ensureHexPrefix(normalizedCoin.puzzleHash),
     amount: typeof normalizedCoin.amount === 'string' ? parseInt(normalizedCoin.amount) : normalizedCoin.amount
   };
 }
@@ -93,8 +101,8 @@ export function convertCoinToSnakeCase(coin: CoinInput): CoinSnakeCase {
 export function convertCoinSpendToSnakeCase(coinSpend: CoinSpend): CoinSpendSnakeCase {
   return {
     coin: convertCoinToSnakeCase(coinSpend.coin),
-    puzzle_reveal: coinSpend.puzzle_reveal,
-    solution: coinSpend.solution
+    puzzle_reveal: ensureHexPrefix(coinSpend.puzzle_reveal),
+    solution: ensureHexPrefix(coinSpend.solution)
   };
 }
 
@@ -111,8 +119,8 @@ export function convertCoinSpendsToSnakeCase(coinSpends: CoinSpend[]): CoinSpend
 export function convertApiCoinSpendToSnakeCase(apiCoinSpend: ApiCoinSpend): CoinSpendSnakeCase {
   return {
     coin: convertCoinToSnakeCase(apiCoinSpend.coin),
-    puzzle_reveal: apiCoinSpend.puzzle_reveal,
-    solution: apiCoinSpend.solution
+    puzzle_reveal: ensureHexPrefix(apiCoinSpend.puzzle_reveal),
+    solution: ensureHexPrefix(apiCoinSpend.solution)
   };
 }
 
@@ -1120,10 +1128,10 @@ export class ChiaCloudWalletClient {
 
       // Filter for DID coins and transform to DIDInfo format
       const didCoins: DIDInfo[] = [];
-      
+
       for (const hydratedCoin of result.data.data) {
         const driverInfo = hydratedCoin.parentSpendInfo?.driverInfo;
-        
+
         // Check if this is a DID coin
         if (driverInfo?.type === 'DID') {
           const didInfo: DIDInfo = {
@@ -1140,7 +1148,7 @@ export class ChiaCloudWalletClient {
             currentOwner: driverInfo.info?.currentOwner || null,
             launcherId: driverInfo.info?.launcherId || undefined
           };
-          
+
           didCoins.push(didInfo);
         }
       }
@@ -1150,12 +1158,12 @@ export class ChiaCloudWalletClient {
         count: didCoins.length
       });
 
-      return { 
-        success: true, 
-        data: { 
-          success: true, 
-          data: didCoins 
-        } 
+      return {
+        success: true,
+        data: {
+          success: true,
+          data: didCoins
+        }
       };
     } catch (error) {
       return {
@@ -1747,7 +1755,7 @@ export class ChiaCloudWalletClient {
         method: 'POST',
         body: JSON.stringify({
           coin_spends: normalizedCoinSpends,
-          aggregated_signature: request.aggregated_signature
+          aggregated_signature: ensureHexPrefix(request.aggregated_signature)
         }),
       });
       return { success: true, data: result };
@@ -1820,7 +1828,7 @@ export class ChiaCloudWalletClient {
       }
 
       const apiSpendBundle = decodeResult.data.data.spend_bundle;
-      
+
       this.logInfo('Offer decoded successfully, converting format and broadcasting spend bundle', {
         coinSpendsCount: apiSpendBundle.coin_spends.length,
         signatureLength: apiSpendBundle.aggregated_signature.length
