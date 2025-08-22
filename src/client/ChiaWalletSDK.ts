@@ -8,7 +8,8 @@ import {
   type SignOfferResponse,
   type SimpleMakeUnsignedNFTOfferRequest,
   ParsedOfferData,
-  TakeOfferResponse
+  TakeOfferResponse,
+  type DIDInfo
 } from './ChiaCloudWalletClient';
 
 // Event types for reactivity
@@ -17,6 +18,7 @@ export type WalletEventType =
   | 'balanceChanged'
   | 'coinsChanged'
   | 'walletInfoChanged'
+  | 'didsChanged'
   | 'transactionCompleted'
   | 'error';
 
@@ -45,6 +47,7 @@ export interface WalletState {
   xchCoins: HydratedCoin[];
   catCoins: HydratedCoin[];
   nftCoins: HydratedCoin[];
+  didCoins: DIDInfo[];
 
   // Loading states
   loading: {
@@ -52,6 +55,7 @@ export interface WalletState {
     balance: boolean;
     coins: boolean;
     walletInfo: boolean;
+    dids: boolean;
   };
 
   // Errors
@@ -60,6 +64,7 @@ export interface WalletState {
     balance: string | null;
     coins: string | null;
     walletInfo: string | null;
+    dids: string | null;
   };
 
   // Timestamps
@@ -67,6 +72,7 @@ export interface WalletState {
     balance: number;
     coins: number;
     walletInfo: number;
+    dids: number;
   };
 }
 
@@ -136,22 +142,26 @@ export class ChiaWalletSDK {
       xchCoins: [],
       catCoins: [],
       nftCoins: [],
+      didCoins: [],
       loading: {
         connection: false,
         balance: false,
         coins: false,
-        walletInfo: false
+        walletInfo: false,
+        dids: false
       },
       errors: {
         connection: null,
         balance: null,
         coins: null,
-        walletInfo: null
+        walletInfo: null,
+        dids: null
       },
       lastUpdate: {
         balance: 0,
         coins: 0,
-        walletInfo: 0
+        walletInfo: 0,
+        dids: 0
       }
     };
   }
@@ -439,6 +449,7 @@ export class ChiaWalletSDK {
 
       // Load initial balance and coins
       await this.refreshBalance();
+      await this.refreshDIDs();
 
       return true;
     } catch (error) {
@@ -473,6 +484,7 @@ export class ChiaWalletSDK {
       xchCoins: [],
       catCoins: [],
       nftCoins: [],
+      didCoins: [],
       errors: {
         connection: null,
         balance: null,
@@ -528,6 +540,86 @@ export class ChiaWalletSDK {
       this.emit('error', { type: 'balance', message: errorMessage });
       return false;
     }
+  }
+
+  /**
+   * Refresh DIDs
+   */
+  async refreshDIDs(): Promise<boolean> {
+    if (!this.state.address) {
+      return false;
+    }
+
+    this.updateState({
+      loading: { ...this.state.loading, dids: true },
+      errors: { ...this.state.errors, dids: null }
+    });
+
+    try {
+      const result = await this.client.getDIDs(this.state.address);
+
+      if (!result.success) {
+        throw new Error((result as any).error);
+      }
+
+      this.updateState({
+        didCoins: result.data.data,
+        loading: { ...this.state.loading, dids: false },
+        lastUpdate: {
+          ...this.state.lastUpdate,
+          dids: Date.now()
+        }
+      }, ['didCoins']);
+
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to refresh DIDs';
+      this.updateState({
+        loading: { ...this.state.loading, dids: false },
+        errors: { ...this.state.errors, dids: errorMessage }
+      });
+
+      this.emit('error', { type: 'dids', message: errorMessage });
+      return false;
+    }
+  }
+
+  /**
+   * Get DIDs (with caching)
+   */
+  async getDIDs(): Promise<Result<{ data: DIDInfo[] }>> {
+    if (!this.state.address) {
+      return {
+        success: false,
+        error: 'Wallet address not available'
+      };
+    }
+
+    // Return cached data if fresh
+    if (!this.isDataStale('dids')) {
+      return {
+        success: true,
+        data: {
+          data: this.state.didCoins
+        }
+      };
+    }
+
+    // Refresh and return updated data
+    const refreshSuccess = await this.refreshDIDs();
+    if (!refreshSuccess) {
+      return {
+        success: false,
+        error: this.state.errors.dids || 'Failed to fetch DIDs'
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        data: this.state.didCoins
+      }
+    };
   }
 
   /**
@@ -670,7 +762,7 @@ export class ChiaWalletSDK {
   /**
    * Check if data is stale and needs refresh
    */
-  isDataStale(type: 'balance' | 'coins' | 'walletInfo' = 'balance', maxAgeMs: number = 60000): boolean {
+  isDataStale(type: 'balance' | 'coins' | 'walletInfo' | 'dids' = 'balance', maxAgeMs: number = 60000): boolean {
     const lastUpdate = this.state.lastUpdate[type];
     return Date.now() - lastUpdate > maxAgeMs;
   }

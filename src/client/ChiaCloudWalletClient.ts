@@ -256,9 +256,10 @@ export interface UnspentCoinsResponse {
 // New interfaces for hydrated coins
 export interface DriverInfo {
   assetId?: string;
-  type?: 'CAT' | 'NFT';
+  type?: 'CAT' | 'NFT' | 'DID';
   coin?: Coin;
   info?: {
+    // NFT-specific info
     currentOwner?: string | null;
     launcherId?: string;
     metadata?: {
@@ -270,14 +271,21 @@ export interface DriverInfo {
       licenseUris?: string[];
       metadataHash?: string;
       metadataUris?: string[];
-    };
+    } | string; // DID metadata is a string, NFT metadata is an object
     metadataUpdaterPuzzleHash?: string;
     p2PuzzleHash?: string;
     royaltyPuzzleHash?: string;
     royaltyTenThousandths?: number | null;
+    // DID-specific info
+    recoveryListHash?: string | null;
+    numVerificationsRequired?: string;
   };
   proof?: {
     lineageProof?: any | null;
+    // DID-specific proof
+    parent_parent_coin_info?: string;
+    parent_inner_puzzle_hash?: string;
+    parent_amount?: string;
   };
 }
 
@@ -294,6 +302,7 @@ export interface HydratedCoin {
   coin: Coin;
   coinId: string;
   createdHeight: string;
+  spentHeight: string | null;
   parentSpendInfo: ParentSpendInfo;
 }
 
@@ -418,6 +427,27 @@ export interface ParsedOfferData {
     }[];
   };
   error?: string;
+}
+
+// DID interfaces
+export interface DIDInfo {
+  did_id: string;
+  coin: Coin;
+  coinId: string;
+  createdHeight: string;
+  spentHeight: string | null;
+  parentSpendInfo: ParentSpendInfo;
+  // DID-specific metadata
+  recoveryListHash?: string | null;
+  numVerificationsRequired?: string;
+  metadata?: string;
+  currentOwner?: string | null;
+  launcherId?: string;
+}
+
+export interface GetDIDsResponse {
+  success: boolean;
+  data: DIDInfo[];
 }
 
 // File upload interfaces
@@ -1068,6 +1098,69 @@ export class ChiaCloudWalletClient {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to send XCH',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Get DIDs for a specific address
+   * @param address - The wallet address (not public key)
+   */
+  async getDIDs(address: string): Promise<Result<GetDIDsResponse>> {
+    try {
+      const result = await this.getUnspentHydratedCoins(address);
+      if (!result.success) {
+        return {
+          success: false,
+          error: `Failed to get DIDs: ${(result as any).error}`,
+          details: result
+        };
+      }
+
+      // Filter for DID coins and transform to DIDInfo format
+      const didCoins: DIDInfo[] = [];
+      
+      for (const hydratedCoin of result.data.data) {
+        const driverInfo = hydratedCoin.parentSpendInfo?.driverInfo;
+        
+        // Check if this is a DID coin
+        if (driverInfo?.type === 'DID') {
+          const didInfo: DIDInfo = {
+            did_id: hydratedCoin.coinId, // Use coinId as did_id for now
+            coin: hydratedCoin.coin,
+            coinId: hydratedCoin.coinId,
+            createdHeight: hydratedCoin.createdHeight,
+            spentHeight: hydratedCoin.spentHeight,
+            parentSpendInfo: hydratedCoin.parentSpendInfo,
+            // Extract DID-specific info from driverInfo
+            recoveryListHash: driverInfo.info?.recoveryListHash || null,
+            numVerificationsRequired: driverInfo.info?.numVerificationsRequired || '1',
+            metadata: typeof driverInfo.info?.metadata === 'string' ? driverInfo.info.metadata : undefined,
+            currentOwner: driverInfo.info?.currentOwner || null,
+            launcherId: driverInfo.info?.launcherId || undefined
+          };
+          
+          didCoins.push(didInfo);
+        }
+      }
+
+      this.logInfo('DIDs retrieved', {
+        address: address.substring(0, 16) + '...',
+        count: didCoins.length
+      });
+
+      return { 
+        success: true, 
+        data: { 
+          success: true, 
+          data: didCoins 
+        } 
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get DIDs',
         details: error
       };
     }
