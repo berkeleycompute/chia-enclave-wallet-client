@@ -1,6 +1,15 @@
 // Export client classes
 export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
 export { UnifiedWalletClient } from './client/UnifiedWalletClient';
+export { 
+  ChiaNFTMintService, 
+  getChiaNFTMintService, 
+  configureChiaNFTMintService,
+  mintChiaNFT,
+  mintChiaNFTFromEVM,
+  getChiaNFTMintStatus,
+  getChiaNFTMintingStats
+} from './client/ChiaNFTMintService';
 
 // Export providers
 export { ChiaWalletSDKProvider } from './providers/ChiaWalletSDKProvider';
@@ -14,6 +23,7 @@ export { useChiaUtils } from './hooks/useChiaUtils';
 export { useChiaTransactions } from './hooks/useChiaTransactions';
 export { useHydratedCoins } from './hooks/useHydratedCoins';
 export { useMintNFT, useNFTMintMetadata } from './hooks/useMintNFT';
+export { useChiaNFTMint, useChiaNFTMetadata } from './hooks/useChiaNFTMint';
 export { useUploadFile } from './hooks/useUploadFile';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export {
@@ -52,6 +62,13 @@ export { MakeOfferModal } from './components/MakeOfferModal';
 export { ActiveOffersModal } from './components/ActiveOffersModal';
 export { NFTDetailsModal } from './components/NFTDetailsModal';
 export { TakeOfferWidget } from './components/TakeOfferWidget';
+
+// Export example components
+export { 
+  ChiaNFTMintExample, 
+  SimpleChiaNFTMintExample,
+  StreamlinedChiaNFTMintForm
+} from './examples/ChiaNFTMintExample';
 
 // Export dialog hooks from GlobalDialogProvider
 export {
@@ -121,6 +138,22 @@ export type {
   UseMintNFTConfig,
   UseMintNFTResult
 } from './hooks/useMintNFT';
+
+// Export Chia NFT mint hook types
+export type {
+  ChiaNFTMintConfig,
+  ChiaNFTMintRecord,
+  UseChiaNFTMintConfig,
+  UseChiaNFTMintResult
+} from './hooks/useChiaNFTMint';
+
+// Export Chia NFT mint service types
+export type {
+  ChiaNFTMintRequest,
+  ChiaNFTMintResponse,
+  ChiaNFTMintStatus,
+  ChiaNFTMintServiceConfig
+} from './client/ChiaNFTMintService';
 
 // Export upload hook types
 export type {
