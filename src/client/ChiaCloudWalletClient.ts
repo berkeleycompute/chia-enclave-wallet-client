@@ -43,7 +43,7 @@ interface RawCoin {
 export interface CoinSnakeCase {
   parent_coin_info: string;
   puzzle_hash: string;
-  amount: string;
+  amount: number;
 }
 
 // Snake case coin spend interface for consistent API communication
@@ -83,7 +83,7 @@ export function convertCoinToSnakeCase(coin: CoinInput): CoinSnakeCase {
   return {
     parent_coin_info: normalizedCoin.parentCoinInfo,
     puzzle_hash: normalizedCoin.puzzleHash,
-    amount: normalizedCoin.amount
+    amount: typeof normalizedCoin.amount === 'string' ? parseInt(normalizedCoin.amount) : normalizedCoin.amount
   };
 }
 
