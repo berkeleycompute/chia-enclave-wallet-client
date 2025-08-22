@@ -1005,7 +1005,7 @@ export class ChiaCloudWalletClient {
     console.log(`🔑 [${timestamp}] getPublicKey() called from: ${stack}`);
 
     try {
-      const endpoint = this.getEndpoint('/public-key', '/api/enclave/public-key');
+      const endpoint = 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1/api/enclave/public-key';
       const result = await this.makeRequest<PublicKeyResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
