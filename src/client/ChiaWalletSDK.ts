@@ -489,7 +489,8 @@ export class ChiaWalletSDK {
         connection: null,
         balance: null,
         coins: null,
-        walletInfo: null
+        walletInfo: null,
+        dids: null
       }
     }, ['isConnected']);
   }
