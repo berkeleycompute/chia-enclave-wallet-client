@@ -35,6 +35,7 @@ export interface ChiaNFTMintConfig {
   // Advanced options
   mnemonicWords?: string;
   mnemonicPassphrase?: string;
+  lastSpendableCoinId?: string; // Optional coin ID for lineage optimization
 }
 
 // Mint transaction record for tracking
@@ -454,6 +455,26 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
       }
       console.log('✅ Got wallet address:', currentAddress);
 
+      // Auto-populate lastSpendableCoinId from DID coin if DID is selected but lastSpendableCoinId not provided
+      if (mintConfig.didId && !mintConfig.lastSpendableCoinId) {
+        try {
+          console.log('🔍 Looking up DID coin for lastSpendableCoinId:', mintConfig.didId);
+          const didsResult = await client.getDIDs(currentAddress);
+          if (didsResult.success && didsResult.data && didsResult.data.data) {
+            const selectedDid = didsResult.data.data.find(did => did.did_id === mintConfig.didId);
+            if (selectedDid && selectedDid.coinId) {
+              mintConfig.lastSpendableCoinId = selectedDid.coinId;
+              console.log('✅ Auto-populated lastSpendableCoinId from DID coin:', selectedDid.coinId);
+            } else {
+              console.log('⚠️ Could not find DID or DID coinId for:', mintConfig.didId);
+            }
+          }
+        } catch (error) {
+          console.log('⚠️ Failed to auto-populate lastSpendableCoinId from DID:', error);
+          // Continue without it - not critical for minting
+        }
+      }
+
       // Update status to minting
       updateMintRecord(mintId, { status: 'minting' });
 
@@ -533,6 +554,7 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
         
         // Transaction data
         selected_coins: selectedCoins,
+        last_spendable_coin_id: mintConfig.lastSpendableCoinId || null,
         did_id: mintConfig.didId || null,
         
         // Mints
