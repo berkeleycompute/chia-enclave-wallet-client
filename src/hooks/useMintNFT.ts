@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { 
-  ChiaCloudWalletClient, 
-  type MintNFTRequest, 
+import {
+  ChiaCloudWalletClient,
+  type MintNFTRequest,
   type MintNFTResponse,
   type NFTMintMetadata,
   type NFTMint,
@@ -22,17 +22,17 @@ export interface SimpleMintConfig {
   metadataHash: string;
   licenseUris?: string[];
   licenseHash: string;
-  
+
   // Minting options  
   recipientAddress?: string; // Will convert to puzzle hash
   royaltyAddress?: string | null; // Will convert to puzzle hash if provided
   royaltyPercentage?: number; // 0-100, will convert to basis points
-  
+
   // Transaction options
   selectedCoins?: MintCoinInput[];
   feeXCH?: number; // Fee in XCH, will convert to mojos
   didId?: string | null;
-  
+
   // Advanced options
   mnemonicWords?: string; // Alternative to using synthetic_public_key
   mnemonicPassphrase?: string; // Optional passphrase for mnemonic
@@ -72,22 +72,22 @@ export interface UseMintNFTResult {
   lastMintId: string | null;
   lastTransactionId: string | null;
   mintHistory: MintTransactionRecord[];
-  
+
   // Actions
-  mintNFT: (config: SimpleMintConfig) => Promise<{ success: boolean; mintId?: string; transactionId?: string; error?: string }>;
-  mintAndBroadcast: (config: SimpleMintConfig) => Promise<{ success: boolean; mintId?: string; transactionId?: string; error?: string }>;
+  mintNFT: (config: SimpleMintConfig) => Promise<{ success: boolean; mintId?: string; transactionId?: string; nftId?: string; error?: string }>;
+  mintAndBroadcast: (config: SimpleMintConfig) => Promise<{ success: boolean; mintId?: string; transactionId?: string; nftId?: string; error?: string }>;
   cancelMint: () => void;
   reset: () => void;
-  
+
   // Validation
   validateMintConfig: (config: SimpleMintConfig) => { isValid: boolean; error?: string };
   estimateMintFee: () => number; // Returns fee in mojos
-  
+
   // History management
   getMintById: (mintId: string) => MintTransactionRecord | null;
   getPendingMints: () => MintTransactionRecord[];
   clearMintHistory: () => void;
-  
+
   // Utilities
   convertAddressToPuzzleHash: (address: string) => { success: boolean; puzzleHash?: string; error?: string };
   createMintMetadata: (config: SimpleMintConfig) => NFTMintMetadata;
@@ -123,7 +123,7 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
 
   // Internal client reference
   const internalClient = useRef<ChiaCloudWalletClient | null>(null);
-  
+
   // State
   const [isMinting, setIsMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
@@ -217,18 +217,18 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
   // Load mint history from storage
   const loadMintHistory = useCallback(() => {
     if (!autoSave) return;
-    
+
     try {
       const stored = localStorage.getItem(MINT_HISTORY_STORAGE_KEY);
       if (stored) {
         const parsedHistory: MintTransactionRecord[] = JSON.parse(stored);
-        
+
         // Filter out old mints (older than 30 days)
         const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
         const recentMints = parsedHistory
           .filter(mint => mint.timestamp > thirtyDaysAgo)
           .slice(0, 100); // Limit to 100 recent mints
-        
+
         setMintHistory(recentMints);
       }
     } catch (err) {
@@ -239,7 +239,7 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
   // Save mint history to storage
   const saveMintHistory = useCallback((history: MintTransactionRecord[]) => {
     if (!autoSave) return;
-    
+
     try {
       localStorage.setItem(MINT_HISTORY_STORAGE_KEY, JSON.stringify(history));
     } catch (err) {
@@ -296,7 +296,7 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
 
     // Validate hash formats (should be 64 hex characters)
     const hexPattern = /^(0x)?[0-9a-fA-F]{64}$/;
-    
+
     if (!hexPattern.test(config.dataHash)) {
       return { isValid: false, error: 'Invalid data hash format: must be a 64-character hex string' };
     }
@@ -393,16 +393,26 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
   // Update mint record
   const updateMintRecord = useCallback((mintId: string, updates: Partial<MintTransactionRecord>) => {
     setMintHistory(prev => {
-      const updated = prev.map(record => 
-        record.id === mintId ? { ...record, ...updates } : record
-      );
+      const updated = prev.map(record => {
+        if (record.id === mintId) {
+          const updatedRecord = { ...record, ...updates };
+          // If we're updating the ID, we need to handle it specially
+          if (updates.id && updates.id !== mintId) {
+            // Create a new record with the new ID
+            const newRecord = { ...updatedRecord, id: updates.id };
+            return newRecord;
+          }
+          return updatedRecord;
+        }
+        return record;
+      });
       saveMintHistory(updated);
       return updated;
     });
   }, [saveMintHistory]);
 
   // Main mint NFT function
-  const mintNFT = useCallback(async (mintConfig: SimpleMintConfig): Promise<{ success: boolean; mintId?: string; transactionId?: string; error?: string }> => {
+  const mintNFT = useCallback(async (mintConfig: SimpleMintConfig): Promise<{ success: boolean; mintId?: string; transactionId?: string; nftId?: string; error?: string }> => {
     const client = getClient();
     if (!client) {
       return { success: false, error: 'No client available' };
@@ -492,7 +502,7 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
           puzzle_hash: hydratedCoin.coin.puzzleHash,
           amount: typeof hydratedCoin.coin.amount === 'string' ? parseInt(hydratedCoin.coin.amount) : hydratedCoin.coin.amount
         }));
-        
+
         // Select coins for minting (basic selection - just use the first few coins)
         const feeAmount = mintConfig.feeXCH ? formatXCHToMojos(mintConfig.feeXCH) : estimateMintFee();
         const mintCost = 1; // NFT minting typically costs 1 mojo
@@ -520,12 +530,12 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
         mnemonic_words: mintConfig.mnemonicWords || null,
         mnemonic_passphrase: mintConfig.mnemonicPassphrase || '',
         synthetic_public_key: mintConfig.mnemonicWords ? null : syntheticPublicKey,
-        
+
         // Transaction data
         selected_coins: selectedCoins,
         last_spendable_coin_id: mintConfig.lastSpendableCoinId || null,
         did_id: mintConfig.didId || null,
-        
+
         // Mints
         mints: [{
           metadata: createMintMetadata(mintConfig),
@@ -533,23 +543,38 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
           royalty_puzzle_hash: royaltyPuzzleHash,
           royalty_basis_points: royaltyBasisPoints
         }],
-        
+
         // Fee (optional, server will use default if not provided)
         fee: mintConfig.feeXCH ? formatXCHToMojos(mintConfig.feeXCH) : undefined
       };
 
       // Execute mint
       const result = await client.mintNFT(mintRequest);
-      
+
       if (!result.success) {
         throw new Error(result.error);
       }
 
-      const transactionId = result.data.transaction_id || mintId;
+      // Extract both launcher_id and transaction_id from the result
+      const launcherId = result.data.launcher_id || 
+                         (result.data as any).nft_ids?.[0] || 
+                         (result.data as any).nft_id || 
+                         'unknown';
+      const transactionId = result.data.transaction_id || launcherId || mintId;
       setLastTransactionId(transactionId);
+      
+      console.log('✅ Extracted NFT data:', { 
+        launcherId, 
+        transactionId,
+        fullResultData: result.data 
+      });
 
-      // Update mint record
+      // Use launcher_id as the mint ID
+      setLastMintId(launcherId); // Set the launcher_id as the mint ID
+
+      // Update mint record with launcher_id as the primary ID
       updateMintRecord(mintId, {
+        id: launcherId, // Update the record ID to use launcher_id
         status: 'confirmed',
         transactionId,
         blockchainStatus: result.data.message
@@ -558,10 +583,10 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
       setIsMinting(false);
 
       if (onMintSuccess) {
-        onMintSuccess(mintId, transactionId);
+        onMintSuccess(launcherId, transactionId); // Use launcher_id as mint ID
       }
 
-      return { success: true, mintId, transactionId };
+      return { success: true, mintId: launcherId, transactionId, nftId: launcherId };
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to mint NFT';
@@ -581,12 +606,12 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
       return { success: false, mintId, error: errorMessage };
     }
   }, [
-    getClient, 
-    validateMintConfig, 
-    getSyntheticPublicKey, 
-    getAddress, 
-    convertAddressToPuzzleHash, 
-    createMintMetadata, 
+    getClient,
+    validateMintConfig,
+    getSyntheticPublicKey,
+    getAddress,
+    convertAddressToPuzzleHash,
+    createMintMetadata,
     estimateMintFee,
     addMintRecord,
     updateMintRecord,
@@ -596,9 +621,9 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
   ]);
 
   // Mint and broadcast (convenience method)
-  const mintAndBroadcast = useCallback(async (mintConfig: SimpleMintConfig): Promise<{ success: boolean; mintId?: string; transactionId?: string; error?: string }> => {
+  const mintAndBroadcast = useCallback(async (mintConfig: SimpleMintConfig): Promise<{ success: boolean; mintId?: string; transactionId?: string; nftId?: string; error?: string }> => {
     const mintResult = await mintNFT(mintConfig);
-    
+
     if (!mintResult.success) {
       return mintResult;
     }
@@ -654,22 +679,22 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
     lastMintId,
     lastTransactionId,
     mintHistory,
-    
+
     // Actions
     mintNFT,
     mintAndBroadcast,
     cancelMint,
     reset,
-    
+
     // Validation
     validateMintConfig,
     estimateMintFee,
-    
+
     // History management
     getMintById,
     getPendingMints,
     clearMintHistory,
-    
+
     // Utilities
     convertAddressToPuzzleHash,
     createMintMetadata
@@ -679,35 +704,35 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
 // Helper hook for NFT metadata creation
 export function useNFTMintMetadata() {
   const [metadata, setMetadata] = useState<Partial<SimpleMintConfig>>({});
-  
+
   const updateMetadata = useCallback((updates: Partial<SimpleMintConfig>) => {
     setMetadata(prev => ({ ...prev, ...updates }));
   }, []);
-  
+
   const resetMetadata = useCallback(() => {
     setMetadata({});
   }, []);
-  
+
   const validateMetadata = useCallback((meta: Partial<SimpleMintConfig>): { isValid: boolean; error?: string } => {
     if (!meta.dataUris || meta.dataUris.length === 0) {
       return { isValid: false, error: 'At least one data URI is required' };
     }
-    
+
     if (!meta.dataHash) {
       return { isValid: false, error: 'Data hash is required' };
     }
-    
+
     if (!meta.metadataUris || meta.metadataUris.length === 0) {
       return { isValid: false, error: 'At least one metadata URI is required' };
     }
-    
+
     if (!meta.metadataHash) {
       return { isValid: false, error: 'Metadata hash is required' };
     }
-    
+
     return { isValid: true };
   }, []);
-  
+
   return {
     metadata,
     updateMetadata,
