@@ -1,6 +1,6 @@
 {
   "name": "chia-enclave-wallet-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "React library for Chia wallet integration with hooks and components",
   "main": "dist/index.js",
