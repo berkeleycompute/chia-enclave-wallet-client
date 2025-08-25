@@ -693,25 +693,30 @@ export class ChiaWalletSDK {
    */
   async takeOffer(request: { offer_string: string; synthetic_public_key: string; xch_coins: string[]; cat_coins: string[]; fee: number } | string): Promise<Result<TakeOfferResponse>> {
     try {
+      console.log('🎯 ChiaWalletSDK.takeOffer() called');
       const fullRequest = typeof request === 'string'
         ? { offer_string: request, synthetic_public_key: this.state.syntheticPublicKey || '', xch_coins: [], cat_coins: [], fee: 0 }
         : request;
 
+      console.log('🎯 Calling client.takeOffer()...');
       const result = await this.client.takeOffer(fullRequest);
 
       if (result.success) {
-        console.log('takeOffer result', result);
+        console.log('🎯 takeOffer result', result);
 
+        console.log('🎯 Calling client.signOffer()...');
         const signedOffer = await this.client.signOffer({ offer: result.data.unsigned_offer });
         if (!signedOffer.success) {
           throw new Error((signedOffer as any).error);
         }
 
+        console.log('🎯 Calling client.broadcastOffer()...');
         const broadcastResult = await this.client.broadcastOffer({ offer_string: signedOffer.data.signed_offer });
         if (!broadcastResult.success) {
           throw new Error((broadcastResult as any).error);
         }
 
+        console.log('🎯 All steps completed successfully');
 
         // Emit event for successful offer taking
         this.emit('transactionCompleted', {
@@ -726,6 +731,7 @@ export class ChiaWalletSDK {
 
       return result;
     } catch (error) {
+      console.log('🎯 Error in takeOffer:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to take offer';
       this.emit('error', { type: 'takeOffer', message: errorMessage });
       return {

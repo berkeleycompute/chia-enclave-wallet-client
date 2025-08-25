@@ -1,9 +1,9 @@
 // Export client classes
 export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
 export { UnifiedWalletClient } from './client/UnifiedWalletClient';
-export { 
-  ChiaNFTMintService, 
-  getChiaNFTMintService, 
+export {
+  ChiaNFTMintService,
+  getChiaNFTMintService,
   configureChiaNFTMintService,
   mintChiaNFT,
   mintChiaNFTFromEVM,
@@ -64,8 +64,8 @@ export { NFTDetailsModal } from './components/NFTDetailsModal';
 export { TakeOfferWidget } from './components/TakeOfferWidget';
 
 // Export example components
-export { 
-  ChiaNFTMintExample, 
+export {
+  ChiaNFTMintExample,
   SimpleChiaNFTMintExample,
   StreamlinedChiaNFTMintForm
 } from './examples/ChiaNFTMintExample';
@@ -96,20 +96,20 @@ export type {
   ParsedOfferData,
   BroadcastOfferRequest,
   BroadcastOfferResponse,
-  
+
   // Decode offer types
   DecodeOfferRequest,
   DecodeOfferResponse,
   ApiSpendBundle,
   ApiCoinSpend,
-  
+
   // NFT minting types
   MintNFTRequest,
   MintNFTResponse,
   NFTMintMetadata,
   NFTMint,
   MintCoinInput,
-  
+
   // File upload types
   UploadFileResponse
 } from './client/ChiaCloudWalletClient';
@@ -160,5 +160,5 @@ export type {
   UseUploadFileConfig,
   UseUploadFileResult,
   UploadResult
-} from './hooks/useUploadFile'; 
+} from './hooks/useUploadFile';
 

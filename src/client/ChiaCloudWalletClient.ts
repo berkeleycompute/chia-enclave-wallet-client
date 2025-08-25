@@ -78,7 +78,7 @@ export function normalizeCoins(coins: CoinInput[]): Coin[] {
 /**
  * Utility function to ensure hex string has 0x prefix
  */
-function ensureHexPrefix(hexString: string): string {
+export function ensureHexPrefix(hexString: string): string {
   console.log('!!!!!!!!!!!! ensureing hex prefix on string:', hexString);
   if (!hexString) return hexString;
   return hexString.startsWith('0x') ? hexString : `0x${hexString}`;
@@ -88,12 +88,15 @@ function ensureHexPrefix(hexString: string): string {
  * Utility function to convert coin from camelCase to snake_case format
  */
 export function convertCoinToSnakeCase(coin: CoinInput): CoinSnakeCase {
+  console.log('🪙 convertCoinToSnakeCase called with:', coin);
   const normalizedCoin = normalizeCoin(coin);
-  return {
+  const result = {
     parent_coin_info: ensureHexPrefix(normalizedCoin.parentCoinInfo),
     puzzle_hash: ensureHexPrefix(normalizedCoin.puzzleHash),
     amount: typeof normalizedCoin.amount === 'string' ? parseInt(normalizedCoin.amount) : normalizedCoin.amount
   };
+  console.log('🪙 convertCoinToSnakeCase result:', result);
+  return result;
 }
 
 /**
@@ -899,8 +902,8 @@ export class ChiaCloudWalletClient {
   ): Promise<T> {
     const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
       ? endpoint
-      : `${this.baseUrl}${endpoint}`; 
-    
+      : `${this.baseUrl}${endpoint}`;
+
     try {
       const headers: any = {
         // Don't set Content-Type for FormData - let the browser set it with boundary
@@ -919,7 +922,7 @@ export class ChiaCloudWalletClient {
       // Add timeout and explicit redirect handling for robustness
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for file uploads
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers,
@@ -927,7 +930,7 @@ export class ChiaCloudWalletClient {
         redirect: 'follow',
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -955,7 +958,7 @@ export class ChiaCloudWalletClient {
       if (error instanceof ChiaCloudWalletApiError) {
         throw error;
       }
-      
+
       // Handle timeout errors specifically
       if (error instanceof Error && error.name === 'AbortError') {
         const timeoutError = new ChiaCloudWalletApiError(
@@ -966,7 +969,7 @@ export class ChiaCloudWalletClient {
         this.logError(`File upload request timed out for ${endpoint}`, timeoutError);
         throw timeoutError;
       }
-      
+
       const networkError = new ChiaCloudWalletApiError(
         `Network error during file upload: ${error instanceof Error ? error.message : 'Unknown error'}`,
         undefined,
@@ -1738,6 +1741,12 @@ export class ChiaCloudWalletClient {
    */
   async broadcastSpendBundle(request: BroadcastSpendBundleRequest): Promise<Result<BroadcastResponse>> {
     try {
+      console.log('🚀 broadcastSpendBundle called with:', {
+        coinSpendsCount: request.coin_spends?.length,
+        signatureLength: request.aggregated_signature?.length,
+        signaturePrefix: request.aggregated_signature?.substring(0, 10)
+      });
+
       if (!request.coin_spends || request.coin_spends.length === 0) {
         throw new ChiaCloudWalletApiError('Coin spends are required for broadcasting');
       }
@@ -1746,17 +1755,33 @@ export class ChiaCloudWalletClient {
       }
 
       // The coin_spends are already in snake_case format, but we need to ensure coins are properly normalized
-      const normalizedCoinSpends = request.coin_spends.map(coinSpend => ({
-        ...coinSpend,
-        coin: convertCoinToSnakeCase(coinSpend.coin)
-      }));
+      const normalizedCoinSpends = request.coin_spends.map(coinSpend => {
+        console.log('🔧 Processing coin spend:', {
+          coinId: coinSpend.coin.parent_coin_info,
+          puzzleHash: coinSpend.coin.puzzle_hash,
+          puzzleReveal: coinSpend.puzzle_reveal?.substring(0, 10),
+          solution: coinSpend.solution?.substring(0, 10)
+        });
+
+        return {
+          ...coinSpend,
+          coin: convertCoinToSnakeCase(coinSpend.coin)
+        };
+      });
+
+      const processedSignature = ensureHexPrefix(request.aggregated_signature);
+      console.log('🔐 Signature processing:', {
+        original: request.aggregated_signature.substring(0, 10),
+        processed: processedSignature.substring(0, 10),
+        hasPrefix: processedSignature.startsWith('0x')
+      });
 
       const endpoint = 'https://edge.silicon-dev.net/chia/chia_public_api/broadcast';
       const result = await this.makeRequest<BroadcastResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           coin_spends: normalizedCoinSpends,
-          aggregated_signature: ensureHexPrefix(request.aggregated_signature)
+          aggregated_signature: processedSignature
         }),
       });
       return { success: true, data: result };
