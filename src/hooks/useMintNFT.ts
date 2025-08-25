@@ -476,11 +476,21 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
           throw new Error('No unspent coins available for minting');
         }
 
+        // Filter for XCH coins only (exclude CAT, NFT, DID coins)
+        const xchCoins = coinsResult.data.data.filter(hydratedCoin => {
+          const driverType = hydratedCoin.parentSpendInfo?.driverInfo?.type;
+          return !driverType || (driverType !== 'CAT' && driverType !== 'NFT' && driverType !== 'DID');
+        });
+
+        if (xchCoins.length === 0) {
+          throw new Error('No XCH coins available for minting. Cannot use CAT, NFT, or DID coins for minting.');
+        }
+
         // Convert hydrated coins to CoinInput format
-        const availableCoins = coinsResult.data.data.map(hydratedCoin => ({
+        const availableCoins = xchCoins.map(hydratedCoin => ({
           parent_coin_info: hydratedCoin.coin.parentCoinInfo,
           puzzle_hash: hydratedCoin.coin.puzzleHash,
-          amount: hydratedCoin.coin.amount
+          amount: typeof hydratedCoin.coin.amount === 'string' ? parseInt(hydratedCoin.coin.amount) : hydratedCoin.coin.amount
         }));
         
         // Select coins for minting (basic selection - just use the first few coins)
@@ -493,7 +503,7 @@ export function useMintNFT(config: UseMintNFTConfig = {}): UseMintNFTResult {
 
         for (const coin of availableCoins) {
           coinsToUse.push(coin);
-          totalSelected += parseInt(coin.amount);
+          totalSelected += coin.amount;
           if (totalSelected >= totalNeeded) break;
         }
 

@@ -900,6 +900,12 @@ body {
   /* Coins view specific styles */
 }
 
+.nft-mint-view {
+  /* NFT mint view specific styles */
+  max-width: 800px;
+  margin: 0 auto;
+}
+
 .coins-header {
   display: flex;
   justify-content: space-between;

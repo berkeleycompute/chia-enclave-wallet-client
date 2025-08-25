@@ -1,5 +1,21 @@
 // Export client classes
-export { ChiaCloudWalletClient } from './client/ChiaCloudWalletClient';
+export { 
+  ChiaCloudWalletClient,
+  // Export buffer conversion utilities (for signSpendBundle - no 0x prefix)
+  bufferToHexWithoutPrefix,
+  bufferToHexWithPrefix,
+  convertCoinBufferToSnakeCase,
+  convertCoinSpendBufferToSnakeCase,
+  convertCoinSpendBuffersToSnakeCase,
+  // Export string to buffer conversion utilities
+  hexStringToBuffer,
+  convertCoinSpendToBuffer,
+  convertCoinSpendsToBuffer,
+  // Export string conversion utilities without 0x prefix (for signSpendBundle specifically)
+  convertCoinToSnakeCaseWithoutPrefix,
+  convertCoinSpendToSnakeCaseWithoutPrefix,
+  convertCoinSpendsToSnakeCaseWithoutPrefix
+} from './client/ChiaCloudWalletClient';
 export { UnifiedWalletClient } from './client/UnifiedWalletClient';
 export {
   ChiaNFTMintService,
@@ -111,7 +127,14 @@ export type {
   MintCoinInput,
 
   // File upload types
-  UploadFileResponse
+  UploadFileResponse,
+  
+  // Buffer-based spend bundle types
+  CoinSpendBuffer,
+  CoinBuffer,
+  
+  // Signing response types
+  SignSpendBundleApiResponse
 } from './client/ChiaCloudWalletClient';
 // Export SDK class and types
 export { ChiaWalletSDK } from './client/ChiaWalletSDK';
@@ -161,4 +184,16 @@ export type {
   UseUploadFileResult,
   UploadResult
 } from './hooks/useUploadFile';
+
+// Export DID hooks and types
+export { useDIDs, useFirstDID } from './hooks/useDIDs';
+export type {
+  UseDIDsConfig,
+  UseDIDsResult
+} from './hooks/useDIDs';
+export type { DIDInfo } from './client/ChiaCloudWalletClient';
+
+
+export { NFTMintDebugger } from './examples/NFTMintDebugger';
+export { NFTMintWithSigningExample } from './examples/NFTMintWithSigningExample'; 
 
