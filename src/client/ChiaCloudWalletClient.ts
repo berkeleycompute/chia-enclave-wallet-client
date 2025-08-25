@@ -86,7 +86,8 @@ export function normalizeCoins(coins: CoinInput[]): Coin[] {
 /**
  * Utility function to ensure hex string has 0x prefix
  */
-function ensureHexPrefix(hexString: string): string {
+export function ensureHexPrefix(hexString: string): string {
+  console.log('!!!!!!!!!!!! ensureing hex prefix on string:', hexString);
   if (!hexString) return hexString;
   return hexString.startsWith('0x') ? hexString : `0x${hexString}`;
 }
@@ -95,12 +96,15 @@ function ensureHexPrefix(hexString: string): string {
  * Utility function to convert coin from camelCase to snake_case format
  */
 export function convertCoinToSnakeCase(coin: CoinInput): CoinSnakeCase {
+  console.log('🪙 convertCoinToSnakeCase called with:', coin);
   const normalizedCoin = normalizeCoin(coin);
-  return {
+  const result = {
     parent_coin_info: ensureHexPrefix(normalizedCoin.parentCoinInfo),
     puzzle_hash: ensureHexPrefix(normalizedCoin.puzzleHash),
     amount: typeof normalizedCoin.amount === 'string' ? parseInt(normalizedCoin.amount) : normalizedCoin.amount
   };
+  console.log('🪙 convertCoinToSnakeCase result:', result);
+  return result;
 }
 
 /**
@@ -2179,6 +2183,12 @@ export class ChiaCloudWalletClient {
    */
   async broadcastSpendBundle(request: BroadcastSpendBundleRequest): Promise<Result<BroadcastResponse>> {
     try {
+      console.log('🚀 broadcastSpendBundle called with:', {
+        coinSpendsCount: request.coin_spends?.length,
+        signatureLength: request.aggregated_signature?.length,
+        signaturePrefix: request.aggregated_signature?.substring(0, 10)
+      });
+
       if (!request.coin_spends || request.coin_spends.length === 0) {
         throw new ChiaCloudWalletApiError('Coin spends are required for broadcasting');
       }
@@ -2211,7 +2221,7 @@ export class ChiaCloudWalletClient {
         method: 'POST',
         body: JSON.stringify({
           coin_spends: normalizedCoinSpends,
-          aggregated_signature: ensureHexPrefix(request.aggregated_signature)
+          aggregated_signature: request.aggregated_signature
         }),
       });
       return { success: true, data: result };

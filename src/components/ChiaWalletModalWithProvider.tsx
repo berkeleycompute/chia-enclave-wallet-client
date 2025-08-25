@@ -7,6 +7,7 @@ import { ChiaWalletModal, ChiaWalletModalProps } from './ChiaWalletModal';
  * Use this component instead of ChiaWalletModal directly to get access to dialog hooks
  */
 export const ChiaWalletModalWithProvider: React.FC<ChiaWalletModalProps> = (props) => {
+  console.log('!!!!!!!!!!!! ChiaWalletModalWithProvider');
   return (
     <DialogProvider>
       <ChiaWalletModal {...props} />
