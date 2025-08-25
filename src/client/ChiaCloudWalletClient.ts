@@ -702,6 +702,8 @@ export interface MintNFTResponse {
     coin_spends: CoinSpend[];
     aggregated_signature: string;
   };
+  last_spendable_coin_id?: string;
+  launcher_id?: string;
   transaction_id?: string;
   message?: string;
   error?: string;
@@ -2122,8 +2124,12 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError(`Failed to sign and broadcast mint: ${broadcastResult.error}`);
       }
 
+      // Extract launcher_id from the first coin spend (NFT launcher coin)
+      const launcherId = unsignedResult.data.launcher_id;
+
       this.logInfo('NFT minted successfully with synthetic key', {
         transactionId: broadcastResult.data.transaction_id,
+        launcherId: launcherId,
         status: broadcastResult.data.status
       });
 
@@ -2132,8 +2138,9 @@ export class ChiaCloudWalletClient {
         success: true,
         data: {
           success: true,
+          launcher_id: launcherId,
           transaction_id: broadcastResult.data.transaction_id,
-          message: `NFT minted successfully. Transaction ID: ${broadcastResult.data.transaction_id}`
+          message: `NFT minted successfully. Launcher ID: ${launcherId}, Transaction ID: ${broadcastResult.data.transaction_id}`
         }
       };
     } catch (error) {

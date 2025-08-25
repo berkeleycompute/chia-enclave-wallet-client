@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useUnifiedWalletClient } from '../hooks/useChiaWalletSDK';
 import { useChiaNFTMint, type ChiaNFTMintConfig } from '../hooks/useChiaNFTMint';
+import { bech32m } from 'bech32';
 
 /**
  * Debug component to test NFT minting step by step
@@ -13,6 +14,7 @@ export function NFTMintDebugger() {
     isMinting,
     mintError,
     lastNFTId,
+    lastTransactionId,
     mintNFT,
     validateMintConfig
   } = useChiaNFTMint({
@@ -34,8 +36,45 @@ export function NFTMintDebugger() {
 
   const [debugLog, setDebugLog] = useState<string>('Debug Log:\n==========\n');
 
-  // Sample minimal valid configuration
-  const testConfig: ChiaNFTMintConfig = {
+  // Utility function to encode launcher ID as NFT address
+  const encodeLauncherIdAsNftAddress = (launcherId: string): string => {
+    try {
+      if (!launcherId || launcherId === 'unknown') {
+        console.warn('Invalid launcher ID provided for NFT address encoding:', launcherId);
+        return '';
+      }
+      
+      // Remove '0x' prefix if present and ensure lowercase
+      const cleanLauncherId = launcherId.replace(/^0x/, '').toLowerCase();
+      
+      // Validate hex string format (should be 64 characters)
+      if (!/^[0-9a-f]{64}$/.test(cleanLauncherId)) {
+        console.error('Invalid launcher ID format - expected 64 hex characters, got:', cleanLauncherId);
+        return '';
+      }
+      
+      // Convert hex string to Uint8Array
+      const bytes = new Uint8Array(cleanLauncherId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+      
+      if (bytes.length !== 32) {
+        console.error('Invalid launcher ID length - expected 32 bytes, got:', bytes.length);
+        return '';
+      }
+      
+      // Use bech32m.toWords to convert to 5-bit words, then encode with 'nft' prefix
+      const words = bech32m.toWords(bytes);
+      const nftAddress = bech32m.encode("nft", words);
+      
+      console.log('✅ Successfully encoded NFT address:', { launcherId: cleanLauncherId, nftAddress });
+      return nftAddress;
+    } catch (error) {
+      console.error('❌ Error encoding launcher ID as NFT address:', error, 'launcher ID:', launcherId);
+      return '';
+    }
+  };
+
+  // Sample minimal valid configuration with fee
+  const [testConfig, setTestConfig] = useState<ChiaNFTMintConfig>({
     name: 'Test NFT Debug',
     description: 'A test NFT for debugging minting issues',
     imageUrl: 'https://via.placeholder.com/512x512.png?text=TEST+NFT',
@@ -44,8 +83,9 @@ export function NFTMintDebugger() {
     metadataHash: 'fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321',
     editionNumber: 1,
     editionTotal: 1,
-    royaltyPercentage: 0
-  };
+    royaltyPercentage: 0,
+    feeXCH: 0.000001 // Default fee
+  });
 
   const handleValidateConfig = () => {
     console.log('🔍 Testing config validation...');
@@ -80,7 +120,9 @@ export function NFTMintDebugger() {
   };
 
   const handleCheckWalletData = async () => {
-    if (!sdk.client) {
+    // Get the actual client (same way as NFTMintWithSigningExample)
+    const client = (sdk as any).sdk?.client || null;
+    if (!client) {
       setDebugLog(prev => prev + `\n❌ No client available`);
       return;
     }
@@ -90,7 +132,7 @@ export function NFTMintDebugger() {
       setDebugLog(prev => prev + `\n🔍 Checking wallet data...`);
 
       // Test public key
-      const publicKeyResult = await sdk.client.getPublicKey();
+      const publicKeyResult = await client.getPublicKey();
       console.log('🔑 Public key result:', publicKeyResult);
       setDebugLog(prev => prev + `\n🔑 Public key: ${publicKeyResult.success ? 'SUCCESS' : 'FAILED - ' + publicKeyResult.error}`);
 
@@ -99,7 +141,7 @@ export function NFTMintDebugger() {
         setDebugLog(prev => prev + `\n📍 Address: ${address}`);
 
         // Test coins
-        const coinsResult = await sdk.client.getUnspentHydratedCoins(address);
+        const coinsResult = await client.getUnspentHydratedCoins(address);
         console.log('🪙 Coins result:', coinsResult);
         setDebugLog(prev => prev + `\n🪙 Coins: ${coinsResult.success ? coinsResult.data.data.length + ' available' : 'FAILED - ' + coinsResult.error}`);
       }
@@ -143,6 +185,63 @@ export function NFTMintDebugger() {
         <pre style={{ fontSize: '12px', overflow: 'auto' }}>
           {JSON.stringify(testConfig, null, 2)}
         </pre>
+      </div>
+
+      {/* Fee Configuration */}
+      <div style={{ 
+        marginBottom: '20px', 
+        padding: '10px', 
+        backgroundColor: '#fff3cd',
+        borderRadius: '8px',
+        border: '1px solid #ffeaa7'
+      }}>
+        <h3>Fee Configuration</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+          <label style={{ fontWeight: '500', minWidth: '120px' }}>
+            Transaction Fee (XCH):
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.000001"
+            value={testConfig.feeXCH || 0.000001}
+            onChange={(e) => setTestConfig(prev => ({
+              ...prev, 
+              feeXCH: parseFloat(e.target.value) || 0.000001
+            }))}
+            style={{
+              width: '150px',
+              padding: '5px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              fontFamily: 'monospace'
+            }}
+          />
+          <button
+            onClick={() => setTestConfig(prev => ({ ...prev, feeXCH: 0.000001 }))}
+            style={{
+              padding: '5px 10px',
+              fontSize: '12px',
+              backgroundColor: '#ffc107',
+              color: '#212529',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Reset to Default
+          </button>
+        </div>
+        <div style={{
+          fontSize: '12px',
+          color: '#856404',
+          fontFamily: 'monospace'
+        }}>
+          💰 Fee in mojos: {((testConfig.feeXCH || 0.000001) * 1_000_000_000_000).toLocaleString()}
+          <br />
+          💡 Default: 0.000001 XCH (1,000,000 mojos)
+        </div>
       </div>
 
       {/* Action Buttons */}
@@ -232,7 +331,50 @@ export function NFTMintDebugger() {
           color: '#155724',
           borderRadius: '5px'
         }}>
-          <strong>✅ Success!</strong> NFT ID: {lastNFTId}
+          <strong>✅ Success!</strong>
+          <br />
+          <strong>Launcher ID:</strong> {lastNFTId}
+          <br />
+          <strong>NFT Address:</strong> {encodeLauncherIdAsNftAddress(lastNFTId)}
+          <br />
+          <strong>Transaction ID:</strong> {lastTransactionId || 'N/A'}
+          <div style={{ marginTop: '8px' }}>
+            {encodeLauncherIdAsNftAddress(lastNFTId) && (
+              <button
+                onClick={() => navigator.clipboard.writeText(encodeLauncherIdAsNftAddress(lastNFTId))}
+                style={{
+                  marginRight: '8px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+                title="Copy NFT address to clipboard"
+              >
+                📋 Copy Address
+              </button>
+            )}
+            {lastTransactionId && (
+              <button
+                onClick={() => navigator.clipboard.writeText(lastTransactionId)}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+                title="Copy transaction ID to clipboard"
+              >
+                📋 Copy TX ID
+              </button>
+            )}
+          </div>
         </div>
       )}
 

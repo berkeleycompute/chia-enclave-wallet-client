@@ -8,6 +8,44 @@ import {
   convertCoinSpendsToBuffer
 } from '../client/ChiaCloudWalletClient';
 import { useChiaNFTMint, type ChiaNFTMintConfig } from '../hooks/useChiaNFTMint';
+import { bech32m } from 'bech32';
+
+// Utility function to encode launcher ID as NFT address
+const encodeLauncherIdAsNftAddress = (launcherId: string): string => {
+  try {
+    if (!launcherId || launcherId === 'unknown') {
+      console.warn('Invalid launcher ID provided for NFT address encoding:', launcherId);
+      return '';
+    }
+    
+    // Remove '0x' prefix if present and ensure lowercase
+    const cleanLauncherId = launcherId.replace(/^0x/, '').toLowerCase();
+    
+    // Validate hex string format (should be 64 characters)
+    if (!/^[0-9a-f]{64}$/.test(cleanLauncherId)) {
+      console.error('Invalid launcher ID format - expected 64 hex characters, got:', cleanLauncherId);
+      return '';
+    }
+    
+    // Convert hex string to Uint8Array
+    const bytes = new Uint8Array(cleanLauncherId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+    
+    if (bytes.length !== 32) {
+      console.error('Invalid launcher ID length - expected 32 bytes, got:', bytes.length);
+      return '';
+    }
+    
+    // Use bech32m.toWords to convert to 5-bit words, then encode with 'nft' prefix
+    const words = bech32m.toWords(bytes);
+    const nftAddress = bech32m.encode("nft", words);
+    
+    console.log('✅ Successfully encoded NFT address:', { launcherId: cleanLauncherId, nftAddress });
+    return nftAddress;
+  } catch (error) {
+    console.error('❌ Error encoding launcher ID as NFT address:', error, 'launcher ID:', launcherId);
+    return '';
+  }
+};
 
 /**
  * Advanced NFT Minting Example demonstrating:
@@ -24,6 +62,7 @@ export function NFTMintWithSigningExample() {
     isMinting,
     mintError,
     lastNFTId,
+    lastTransactionId,
     mintNFT: mintNFTSimple
   } = useChiaNFTMint({
     sdk: sdk as any,
@@ -52,8 +91,8 @@ export function NFTMintWithSigningExample() {
     setStatusState({ type, message });
   };
 
-  // Sample NFT configuration
-  const sampleNFTConfig: ChiaNFTMintConfig = {
+  // Sample NFT configuration with fee
+  const [sampleNFTConfig, setSampleNFTConfig] = useState<ChiaNFTMintConfig>({
     name: 'Test NFT with Signing',
     description: 'An NFT demonstrating the signing and broadcasting flow',
     imageUrl: 'https://via.placeholder.com/512x512.png?text=NFT',
@@ -62,8 +101,9 @@ export function NFTMintWithSigningExample() {
     metadataHash: 'fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321',
     editionNumber: 1,
     editionTotal: 1,
-    royaltyPercentage: 0
-  };
+    royaltyPercentage: 0,
+    feeXCH: 0.000001 // Default fee
+  });
 
   // Get the actual client
   const getClient = () => (sdk as any).sdk?.client || null;
@@ -111,9 +151,9 @@ export function NFTMintWithSigningExample() {
       amount: typeof hydratedCoin.coin.amount === 'string' ? parseInt(hydratedCoin.coin.amount) : hydratedCoin.coin.amount
     }));
 
-    const feeAmount = 1000000; // 0.000001 XCH
-    const mintCost = 1;
-    const totalNeeded = mintCost + feeAmount;
+          const feeAmount = config.feeXCH ? Math.floor(config.feeXCH * 1_000_000_000_000) : 1000000; // Convert XCH to mojos or use default
+      const mintCost = 1;
+      const totalNeeded = mintCost + feeAmount;
 
     let totalSelected = 0;
     const selectedCoins = [];
@@ -333,6 +373,54 @@ export function NFTMintWithSigningExample() {
         </div>
       </div>
 
+      {/* Fee Configuration */}
+      <div style={{ 
+        marginBottom: '20px',
+        padding: '15px',
+        border: '1px solid #e0e0e0',
+        borderRadius: '8px',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <h4 style={{ margin: '0 0 10px 0' }}>Transaction Settings:</h4>
+        <div style={{ marginBottom: '10px' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '5px', 
+            fontWeight: '500',
+            fontSize: '14px'
+          }}>
+            Transaction Fee (XCH):
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.000001"
+            value={sampleNFTConfig.feeXCH || 0.000001}
+            onChange={(e) => setSampleNFTConfig(prev => ({
+              ...prev, 
+              feeXCH: parseFloat(e.target.value) || 0.000001
+            }))}
+            style={{
+              width: '150px',
+              padding: '8px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+            title="Fee amount in XCH. Higher fees may result in faster confirmation."
+          />
+          <div style={{
+            marginTop: '4px',
+            fontSize: '12px',
+            color: '#666'
+          }}>
+            💰 {((sampleNFTConfig.feeXCH || 0.000001) * 1_000_000_000_000).toLocaleString()} mojos
+            <br />
+            💡 Recommended: 0.000001 XCH (default)
+          </div>
+        </div>
+      </div>
+
       {!isManualFlow ? (
         /* Automatic Flow */
         <div>
@@ -498,7 +586,55 @@ export function NFTMintWithSigningExample() {
         }}>
           <strong>🎉 Last Minted NFT</strong>
           <br />
-          <span style={{ fontSize: '14px' }}>NFT ID: {lastNFTId}</span>
+          <span style={{ fontSize: '14px' }}>
+            <strong>Launcher ID:</strong> {lastNFTId}
+          </span>
+          <br />
+          <span style={{ fontSize: '14px' }}>
+            <strong>NFT Address:</strong> {encodeLauncherIdAsNftAddress(lastNFTId)}
+          </span>
+          <br />
+          <span style={{ fontSize: '14px' }}>
+            <strong>Transaction ID:</strong> {lastTransactionId || 'N/A'}
+          </span>
+          <br />
+          <div style={{ marginTop: '8px' }}>
+            {encodeLauncherIdAsNftAddress(lastNFTId) && (
+              <button
+                onClick={() => navigator.clipboard.writeText(encodeLauncherIdAsNftAddress(lastNFTId))}
+                style={{
+                  marginRight: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  backgroundColor: '#155724',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy NFT address to clipboard"
+              >
+                📋 Copy Address
+              </button>
+            )}
+            {lastTransactionId && (
+              <button
+                onClick={() => navigator.clipboard.writeText(lastTransactionId)}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy transaction ID to clipboard"
+              >
+                📋 Copy TX ID
+              </button>
+            )}
+          </div>
         </div>
       )}
 
