@@ -39,7 +39,7 @@ export { useChiaUtils } from './hooks/useChiaUtils';
 export { useChiaTransactions } from './hooks/useChiaTransactions';
 export { useHydratedCoins } from './hooks/useHydratedCoins';
 export { useMintNFT, useNFTMintMetadata } from './hooks/useMintNFT';
-export { useChiaNFTMint, useChiaNFTMetadata } from './hooks/useChiaNFTMint';
+export { useChiaNFTMint, useChiaNFTMetadata, encodeLauncherIdAsNftAddress } from './hooks/useChiaNFTMint';
 export { useUploadFile } from './hooks/useUploadFile';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export {
