@@ -79,6 +79,7 @@ export function normalizeCoins(coins: CoinInput[]): Coin[] {
  * Utility function to ensure hex string has 0x prefix
  */
 function ensureHexPrefix(hexString: string): string {
+  console.log('!!!!!!!!!!!! ensureing hex prefix on string:', hexString);
   if (!hexString) return hexString;
   return hexString.startsWith('0x') ? hexString : `0x${hexString}`;
 }
