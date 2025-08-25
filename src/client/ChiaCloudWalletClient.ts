@@ -1827,6 +1827,7 @@ export class ChiaCloudWalletClient {
   async createUnsignedNFTMint(request: MintNFTRequest): Promise<Result<{
     coin_spends: CoinSpend[];
     unsigned_spend_bundle?: any; // For compatibility with different response formats
+    launcher_id?: string; // NFT launcher ID for tracking and display
   }>> {
     try {
       // Validation is the same as mintNFT...
@@ -1859,18 +1860,39 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Failed to create unsigned NFT mint');
       }
 
+      // Extract launcher_id from the response - it should be available from the unsigned mint response
+      let launcherId: string | undefined;
+      
+      // Try to find launcher_id in various possible locations in the response
+      if (result.launcher_id) {
+        launcherId = result.launcher_id;
+      } else if (result.data && result.data.launcher_id) {
+        launcherId = result.data.launcher_id;
+      } else if (result.unsigned_spend_bundle && result.unsigned_spend_bundle.launcher_id) {
+        launcherId = result.unsigned_spend_bundle.launcher_id;
+      }
+
+      console.log('🔧 Extracted launcher_id from unsigned mint response:', launcherId);
+
       // Handle Rust endpoint response format
       if (result.unsigned_spend_bundle) {
         return {
           success: true,
           data: {
             coin_spends: result.unsigned_spend_bundle.coin_spends,
-            unsigned_spend_bundle: result.unsigned_spend_bundle
+            unsigned_spend_bundle: result.unsigned_spend_bundle,
+            launcher_id: launcherId
           }
         };
       } else if (result.coin_spends) {
         // Direct coin_spends format
-        return { success: true, data: result };
+        return { 
+          success: true, 
+          data: {
+            ...result,
+            launcher_id: launcherId
+          }
+        };
       } else {
         throw new Error('Unexpected response format: missing coin_spends');
       }

@@ -113,7 +113,7 @@ function generateMintId(): string {
 
 function formatXCHToMojos(xchAmount: number): number {
   const result = ChiaCloudWalletClient.xchToMojos(xchAmount);
-  return result.success ? parseInt(result.data) : 1000000; // Default 0.000001 XCH
+  return result.success ? parseInt(result.data) : 1000; // Default 1000 mojos = 0.000000001 XCH
 }
 
 /**
@@ -426,7 +426,7 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
 
   // Estimate mint fee
   const estimateMintFee = useCallback((): number => {
-    return 1000000; // 0.000001 XCH in mojos
+    return 1000; // 1000 mojos = 0.000000001 XCH (reasonable default)
   }, []);
 
   // Add mint record to history
