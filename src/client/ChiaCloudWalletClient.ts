@@ -1381,7 +1381,7 @@ export class ChiaCloudWalletClient {
         // Check if this is a DID coin
         if (driverInfo?.type === 'DID') {
           const didInfo: DIDInfo = {
-            did_id: hydratedCoin.coinId, // Use coinId as did_id for now
+            did_id: driverInfo.info?.launcherId || hydratedCoin.coinId, // Use launcher ID (DID ID) instead of coin ID
             coin: hydratedCoin.coin,
             coinId: hydratedCoin.coinId,
             createdHeight: hydratedCoin.createdHeight,
