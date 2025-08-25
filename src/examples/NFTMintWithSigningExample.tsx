@@ -85,6 +85,13 @@ export function NFTMintWithSigningExample() {
   const [isManualFlow, setIsManualFlow] = useState(false);
   const [unsignedSpendBundle, setUnsignedSpendBundle] = useState<{
     coin_spends: CoinSpendBuffer[];
+    launcher_id?: string;
+  } | null>(null);
+  
+  const [manualMintResult, setManualMintResult] = useState<{
+    launcher_id?: string;
+    transaction_id?: string;
+    nft_address?: string;
   } | null>(null);
 
   const setStatus = (type: typeof status.type, message: string) => {
@@ -102,7 +109,7 @@ export function NFTMintWithSigningExample() {
     editionNumber: 1,
     editionTotal: 1,
     royaltyPercentage: 0,
-    feeXCH: 0.000001 // Default fee
+    feeXCH: 0.000000001 // Default fee: 1000 mojos (reasonable minimum)
   });
 
   // Get the actual client
@@ -151,7 +158,7 @@ export function NFTMintWithSigningExample() {
       amount: typeof hydratedCoin.coin.amount === 'string' ? parseInt(hydratedCoin.coin.amount) : hydratedCoin.coin.amount
     }));
 
-          const feeAmount = config.feeXCH ? Math.floor(config.feeXCH * 1_000_000_000_000) : 1000000; // Convert XCH to mojos or use default
+          const feeAmount = config.feeXCH ? Math.floor(config.feeXCH * 1_000_000_000_000) : 1000; // Convert XCH to mojos or use default (1000 mojos = 0.000000001 XCH)
       const mintCost = 1;
       const totalNeeded = mintCost + feeAmount;
 
@@ -228,12 +235,20 @@ export function NFTMintWithSigningExample() {
         throw new Error(result.error);
       }
 
-      // Extract coin_spends from the response and convert to Buffer format
+      // Extract coin_spends and launcher_id from the response and convert to Buffer format
+      const launcherId = result.data.launcher_id;
+      console.log('✅ CreateUnsigned result - Launcher ID:', launcherId);
+      
       setUnsignedSpendBundle({
-        coin_spends: convertCoinSpendsToBuffer(result.data.coin_spends)
+        coin_spends: convertCoinSpendsToBuffer(result.data.coin_spends),
+        launcher_id: launcherId
       });
 
-      setStatus('success', 'Unsigned spend bundle created successfully! You can now sign and broadcast it.');
+      const statusMessage = launcherId 
+        ? `Unsigned spend bundle created successfully! Launcher ID: ${launcherId}. You can now sign and broadcast it.`
+        : 'Unsigned spend bundle created successfully! You can now sign and broadcast it.';
+        
+      setStatus('success', statusMessage);
     } catch (error) {
       setStatus('error', `Failed to create unsigned spend bundle: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -271,7 +286,25 @@ export function NFTMintWithSigningExample() {
         throw new Error(result.error);
       }
 
-      setStatus('success', `NFT minted successfully! Transaction ID: ${result.data.transaction_id}`);
+      // Preserve the launcher_id from the unsigned bundle and combine with transaction result
+      const launcherId = unsignedSpendBundle.launcher_id;
+      const transactionId = result.data.transaction_id;
+      const nftAddress = launcherId ? encodeLauncherIdAsNftAddress(launcherId) : '';
+      
+      console.log('✅ SignAndBroadcast completed - Launcher ID:', launcherId, 'Transaction ID:', transactionId);
+
+      // Store the complete mint result
+      setManualMintResult({
+        launcher_id: launcherId,
+        transaction_id: transactionId,
+        nft_address: nftAddress
+      });
+
+      const statusMessage = launcherId 
+        ? `NFT minted successfully! Launcher ID: ${launcherId}, Transaction ID: ${transactionId}`
+        : `NFT minted successfully! Transaction ID: ${transactionId}`;
+        
+      setStatus('success', statusMessage);
       setUnsignedSpendBundle(null); // Clear the unsigned bundle
     } catch (error) {
       setStatus('error', `Failed to sign and broadcast: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -282,6 +315,7 @@ export function NFTMintWithSigningExample() {
   const handleReset = () => {
     setStatus('idle', '');
     setUnsignedSpendBundle(null);
+    setManualMintResult(null);
   };
 
   const isLoading = status.type === 'loading' || isMinting;
@@ -389,17 +423,21 @@ export function NFTMintWithSigningExample() {
             fontWeight: '500',
             fontSize: '14px'
           }}>
-            Transaction Fee (XCH):
+            Transaction Fee (mojos):
           </label>
           <input
             type="number"
-            min="0"
-            step="0.000001"
-            value={sampleNFTConfig.feeXCH || 0.000001}
-            onChange={(e) => setSampleNFTConfig(prev => ({
-              ...prev, 
-              feeXCH: parseFloat(e.target.value) || 0.000001
-            }))}
+            min="1"
+            value={sampleNFTConfig.feeXCH ? Math.round(sampleNFTConfig.feeXCH * 1_000_000_000_000) : 1000}
+            onChange={(e) => {
+              const mojos = parseInt(e.target.value);
+              if (mojos >= 1) {
+                setSampleNFTConfig(prev => ({
+                  ...prev, 
+                  feeXCH: mojos / 1_000_000_000_000
+                }));
+              }
+            }}
             style={{
               width: '150px',
               padding: '8px',
@@ -407,16 +445,26 @@ export function NFTMintWithSigningExample() {
               borderRadius: '4px',
               fontSize: '14px'
             }}
-            title="Fee amount in XCH. Higher fees may result in faster confirmation."
+            placeholder="1000"
           />
           <div style={{
             marginTop: '4px',
             fontSize: '12px',
-            color: '#666'
+            color: sampleNFTConfig.feeXCH && sampleNFTConfig.feeXCH * 1_000_000_000_000 >= 1 ? '#666' : '#d32f2f'
           }}>
-            💰 {((sampleNFTConfig.feeXCH || 0.000001) * 1_000_000_000_000).toLocaleString()} mojos
-            <br />
-            💡 Recommended: 0.000001 XCH (default)
+            {sampleNFTConfig.feeXCH && sampleNFTConfig.feeXCH * 1_000_000_000_000 >= 1 ? (
+              <>
+                ✅ {(sampleNFTConfig.feeXCH).toFixed(12)} XCH
+                <br />
+                💡 Mínimo: 1 mojo, Recomendado: 1000 mojos
+              </>
+            ) : (
+              <>
+                ❌ El fee debe ser mínimo 1 mojo
+                <br />
+                💡 Ingresa un número mayor o igual a 1
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -509,7 +557,7 @@ export function NFTMintWithSigningExample() {
           </div>
 
           {/* Unsigned Bundle Info */}
-          {unsignedSpendBundle && (
+                      {unsignedSpendBundle && (
             <div style={{
               padding: '10px',
               backgroundColor: '#fff3e0',
@@ -523,6 +571,14 @@ export function NFTMintWithSigningExample() {
               Ready for Signing: Yes
               <br />
               Coin Spends: {unsignedSpendBundle.coin_spends.length}
+              {unsignedSpendBundle.launcher_id && (
+                <>
+                  <br />
+                  <strong>Launcher ID:</strong> {unsignedSpendBundle.launcher_id}
+                  <br />
+                  <strong>NFT Address:</strong> {unsignedSpendBundle.launcher_id ? encodeLauncherIdAsNftAddress(unsignedSpendBundle.launcher_id) : 'N/A'}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -574,8 +630,77 @@ export function NFTMintWithSigningExample() {
         </div>
       )}
 
-      {/* Last Minted NFT */}
-      {lastNFTId && (
+      {/* Manual Flow Result */}
+      {manualMintResult && manualMintResult.launcher_id && (
+        <div style={{
+          marginTop: '20px',
+          padding: '12px',
+          backgroundColor: '#d4edda',
+          border: '1px solid #c3e6cb',
+          borderRadius: '8px',
+          color: '#155724'
+        }}>
+          <strong>🎉 Manual Flow NFT Minted Successfully!</strong>
+          <br />
+          <span style={{ fontSize: '14px' }}>
+            <strong>Launcher ID:</strong> {manualMintResult.launcher_id}
+          </span>
+          <br />
+          <span style={{ fontSize: '14px' }}>
+            <strong>NFT Address:</strong> {manualMintResult.nft_address || (manualMintResult.launcher_id ? encodeLauncherIdAsNftAddress(manualMintResult.launcher_id) : 'N/A')}
+          </span>
+          <br />
+          <span style={{ fontSize: '14px' }}>
+            <strong>Transaction ID:</strong> {manualMintResult.transaction_id || 'N/A'}
+          </span>
+          <br />
+          <div style={{ marginTop: '8px' }}>
+            {(manualMintResult.nft_address || (manualMintResult.launcher_id && encodeLauncherIdAsNftAddress(manualMintResult.launcher_id))) && (
+              <button
+                onClick={() => {
+                  const addressToCopy = manualMintResult.nft_address || (manualMintResult.launcher_id ? encodeLauncherIdAsNftAddress(manualMintResult.launcher_id) : '');
+                  if (addressToCopy) navigator.clipboard.writeText(addressToCopy);
+                }}
+                style={{
+                  marginRight: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  backgroundColor: '#155724',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy NFT address to clipboard"
+              >
+                📋 Copy Address
+              </button>
+            )}
+            {manualMintResult.transaction_id && (
+              <button
+                onClick={() => {
+                  if (manualMintResult.transaction_id) navigator.clipboard.writeText(manualMintResult.transaction_id);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy transaction ID to clipboard"
+              >
+                📋 Copy TX ID
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Last Minted NFT (Automatic Flow) */}
+      {lastNFTId && !manualMintResult && (
         <div style={{
           marginTop: '20px',
           padding: '12px',

@@ -366,15 +366,19 @@ export function ChiaNFTMintExample() {
                 <input
                   type="number"
                   min="0"
-                  step="0.000001"
-                  value={formData.feeXCH || 0.000001}
-                  onChange={(e) => handleInputChange('feeXCH', parseFloat(e.target.value))}
+                  max="1"
+                  step="0.000000001"
+                  value={formData.feeXCH || 0.000000001}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    handleInputChange('feeXCH', isNaN(value) ? 0.000000001 : Math.max(0.000000001, value));
+                  }}
                   style={{ width: '100%', padding: '5px', marginTop: '5px' }}
-                  title="Default fee is 0.000001 XCH (1000000 mojos). Higher fees may result in faster confirmation."
+                  title="Default fee is 0.000000001 XCH (1000 mojos). Higher fees may result in faster confirmation."
                 />
               </label>
               <small style={{ color: '#666', fontSize: '12px' }}>
-                Recommended: 0.000001 XCH. Higher fees may result in faster confirmation.
+                Recommended: 0.000000001 XCH (1000 mojos). Higher fees may result in faster confirmation.
               </small>
             </div>
           </div>
@@ -1245,9 +1249,13 @@ export function StreamlinedChiaNFTMintForm() {
           <input
             type="number"
             min="0"
-            step="0.000001"
+            max="1"
+            step="0.000000001"
             value={formState.feeXCH}
-            onChange={(e) => handleInputChange('feeXCH', parseFloat(e.target.value) || 0.000001)}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              handleInputChange('feeXCH', isNaN(value) ? 0.000000001 : Math.max(0.000000001, value));
+            }}
             style={{
               width: '100%',
               padding: '12px',
