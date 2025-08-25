@@ -2,6 +2,15 @@ import React, { useState, useRef } from 'react';
 import { useChiaNFTMint, type ChiaNFTMintConfig } from '../hooks/useChiaNFTMint';
 import { useUploadFile } from '../hooks/useUploadFile';
 import { useUnifiedWalletClient } from '../hooks/useChiaWalletSDK';
+import { useDIDs } from '../hooks/useDIDs';
+
+// Utility function to compute SHA256 hash of file content
+const computeFileSHA256 = async (file: File): Promise<string> => {
+  const arrayBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
 
 /**
  * Example component demonstrating how to use the Chia NFT minting hook
@@ -510,6 +519,17 @@ export function StreamlinedChiaNFTMintForm() {
   const isConnected = sdk.isConnected;
   const address = sdk.address;
   
+  // DID management hook
+  const { 
+    dids, 
+    isLoading: didsLoading, 
+    error: didsError,
+    refresh: refreshDIDs 
+  } = useDIDs({ 
+    autoLoad: true,
+    enableLogging: true 
+  });
+  
   // NFT Minting hook
   const {
     isMinting,
@@ -517,7 +537,6 @@ export function StreamlinedChiaNFTMintForm() {
     mintError,
     lastNFTId,
     mintNFT,
-    validateMintConfig,
     reset: resetMint
   } = useChiaNFTMint({
     sdk: sdk as any,
@@ -531,7 +550,6 @@ export function StreamlinedChiaNFTMintForm() {
   const {
     isUploading,
     uploadError,
-    lastUploadResult,
     uploadFile,
     reset: resetUpload,
     validateFile
@@ -560,7 +578,8 @@ export function StreamlinedChiaNFTMintForm() {
     metadataUrl: '',
     metadataHash: '',
     useFile: true, // Toggle between file upload and URL
-    attributes: {} as Record<string, string>
+    attributes: {} as Record<string, string>,
+    selectedDidId: '' as string // Selected DID ID for minting
   });
 
   const [isDragOver, setIsDragOver] = useState(false);
@@ -598,6 +617,11 @@ export function StreamlinedChiaNFTMintForm() {
     reader.readAsDataURL(file);
 
     try {
+      setUploadStatus('Computing SHA256 hash...');
+      
+      // Compute SHA256 hash of the file content
+      const sha256Hash = await computeFileSHA256(file);
+      
       setUploadStatus('Uploading image...');
       
       // Upload the image file
@@ -607,9 +631,9 @@ export function StreamlinedChiaNFTMintForm() {
         setFormState(prev => ({
           ...prev,
           imageUrl: uploadResult.url || '',
-          imageHash: uploadResult.hash || ''
+          imageHash: sha256Hash // Use computed SHA256 hash instead of IPFS hash
         }));
-        setUploadStatus(`Image uploaded successfully! Hash: ${uploadResult.hash?.substring(0, 8)}...`);
+        setUploadStatus(`Image uploaded successfully! SHA256: ${sha256Hash.substring(0, 8)}...`);
       } else {
         throw new Error(uploadResult.error || 'Upload failed');
       }
@@ -679,6 +703,9 @@ export function StreamlinedChiaNFTMintForm() {
       type: 'application/json'
     });
 
+    // Compute SHA256 hash of metadata file content
+    const metadataHash = await computeFileSHA256(metadataFile);
+    
     // Upload metadata file
     const uploadResult = await uploadFile(metadataFile);
     
@@ -688,7 +715,7 @@ export function StreamlinedChiaNFTMintForm() {
 
     return {
       url: uploadResult.url || '',
-      hash: uploadResult.hash || ''
+      hash: metadataHash // Use computed SHA256 hash instead of IPFS hash
     };
   };
 
@@ -754,13 +781,18 @@ export function StreamlinedChiaNFTMintForm() {
         metadataHash: metadataResult.hash,
         editionNumber: 1,
         editionTotal: 1,
-        attributes: formState.attributes
+        attributes: formState.attributes,
+        didId: formState.selectedDidId || null // Include selected DID if available
       };
 
       setUploadStatus('Minting NFT...');
+      console.log('🚀 Starting NFT mint with config:', mintConfig);
+      
       const result = await mintNFT(mintConfig);
+      console.log('📝 Mint result:', result);
       
       if (result.success) {
+        console.log('✅ NFT minted successfully!', result);
         // Reset form on success
         setFormState({
           name: '',
@@ -771,10 +803,14 @@ export function StreamlinedChiaNFTMintForm() {
           metadataUrl: '',
           metadataHash: '',
           useFile: true,
-          attributes: {}
+          attributes: {},
+          selectedDidId: ''
         });
         setPreviewUrl('');
         setUploadStatus('NFT minted successfully!');
+      } else {
+        console.error('❌ NFT minting failed:', result.error);
+        throw new Error(result.error || 'NFT minting failed');
       }
     } catch (error) {
       console.error('Mint error:', error);
@@ -795,7 +831,8 @@ export function StreamlinedChiaNFTMintForm() {
       metadataUrl: '',
       metadataHash: '',
       useFile: true,
-      attributes: {}
+      attributes: {},
+      selectedDidId: ''
     });
     setPreviewUrl('');
     setUploadStatus('');
@@ -917,6 +954,136 @@ export function StreamlinedChiaNFTMintForm() {
             onFocus={(e) => e.target.style.borderColor = '#2196f3'}
             onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
           />
+        </div>
+
+        {/* DID Selection */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '8px', 
+            fontWeight: '500',
+            color: '#333'
+          }}>
+            DID Selection (Optional)
+          </label>
+          
+          {didsLoading ? (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#f0f8ff',
+              border: '1px solid #bee5eb',
+              borderRadius: '8px',
+              color: '#0c5460'
+            }}>
+              <span>🔄 Loading DIDs...</span>
+            </div>
+          ) : didsError ? (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#f8d7da',
+              border: '1px solid #f5c6cb',
+              borderRadius: '8px',
+              color: '#721c24'
+            }}>
+              <span>❌ Error loading DIDs: {didsError}</span>
+              <button
+                type="button"
+                onClick={refreshDIDs}
+                style={{
+                  marginLeft: '10px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : dids.length === 0 ? (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffeaa7',
+              borderRadius: '8px',
+              color: '#856404'
+            }}>
+              <div style={{ marginBottom: '8px' }}>
+                <strong>💡 No DIDs found</strong>
+              </div>
+              <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+                You don't have any DIDs in your wallet. DIDs allow you to have verified ownership of your NFTs.
+              </div>
+              <button
+                type="button"
+                onClick={refreshDIDs}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '14px',
+                  backgroundColor: '#ffc107',
+                  color: '#212529',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔄 Refresh DIDs
+              </button>
+            </div>
+          ) : (
+            <>
+              <select
+                value={formState.selectedDidId}
+                onChange={(e) => handleInputChange('selectedDidId', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  backgroundColor: 'white',
+                  transition: 'border-color 0.3s',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+                onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+              >
+                <option value="">🔓 No DID (Regular NFT)</option>
+                {dids.map((did, index) => (
+                  <option key={did.did_id} value={did.did_id}>
+                    🆔 DID #{index + 1} ({did.did_id.substring(0, 16)}...{did.did_id.substring(did.did_id.length - 4)})
+                    {did.metadata && ` - ${did.metadata.substring(0, 30)}${did.metadata.length > 30 ? '...' : ''}`}
+                  </option>
+                ))}
+              </select>
+              
+              {formState.selectedDidId && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: '#e8f5e8',
+                  border: '1px solid #c3e6c3',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}>
+                  <strong>✅ DID-Owned NFT:</strong> This NFT will be owned by your selected DID, providing verified ownership on the blockchain.
+                </div>
+              )}
+              
+              <div style={{
+                marginTop: '8px',
+                fontSize: '12px',
+                color: '#666',
+                lineHeight: '1.4'
+              }}>
+                <strong>💡 About DIDs:</strong> Decentralized Identifiers provide cryptographic proof of ownership. 
+                NFTs minted with a DID are permanently associated with that identity on the blockchain.
+              </div>
+            </>
+          )}
         </div>
 
         {/* Image Upload/URL Toggle */}
@@ -1257,6 +1424,7 @@ export function StreamlinedChiaNFTMintForm() {
           <li>Metadata is automatically created and uploaded to IPFS</li>
           <li>Add custom attributes to make your NFT unique</li>
           <li>Write detailed descriptions to attract collectors</li>
+          <li>Select a DID for verified ownership (optional but recommended)</li>
           <li>Make sure your wallet has enough XCH for minting fees</li>
         </ul>
       </div>

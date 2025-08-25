@@ -140,8 +140,9 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
 
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
-    // Prefer SDK client if available
-    if (sdk?.client) return sdk.client;
+    // Prefer SDK client if available (handle both raw SDK and UnifiedWalletClient)
+    if (sdk?.client) return sdk.client; // Raw ChiaWalletSDK
+    if ((sdk as any)?.sdk?.client) return (sdk as any).sdk.client; // UnifiedWalletClient.sdk.client
     if (externalClient) return externalClient;
 
     if (!internalClient.current && (jwtToken || baseUrl)) {
@@ -161,8 +162,15 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
   const getAddress = useCallback(async (): Promise<string | null> => {
     if (sdk) {
       try {
-        const result = await sdk.getWalletInfo();
-        return result.success ? result.data.address : null;
+        // Handle UnifiedWalletClient
+        if ((sdk as any).address) {
+          return (sdk as any).address;
+        }
+        // Handle raw ChiaWalletSDK
+        if ((sdk as any).getWalletInfo) {
+          const result = await (sdk as any).getWalletInfo();
+          return result.success ? result.data.address : null;
+        }
       } catch (error) {
         console.warn('Failed to get wallet address from SDK:', error);
       }
@@ -185,8 +193,15 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
   const getSyntheticPublicKey = useCallback(async (): Promise<string | null> => {
     if (sdk) {
       try {
-        const result = await sdk.getWalletInfo();
-        return result.success ? result.data.synthetic_public_key : null;
+        // Handle UnifiedWalletClient
+        if ((sdk as any).syntheticPublicKey) {
+          return (sdk as any).syntheticPublicKey;
+        }
+        // Handle raw ChiaWalletSDK
+        if ((sdk as any).getWalletInfo) {
+          const result = await (sdk as any).getWalletInfo();
+          return result.success ? result.data.synthetic_public_key : null;
+        }
       } catch (error) {
         console.warn('Failed to get synthetic public key from SDK:', error);
       }
@@ -396,10 +411,13 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
     }
 
     // Validate configuration
+    console.log('✅ Validating mint config:', mintConfig);
     const validation = validateMintConfig(mintConfig);
     if (!validation.isValid) {
+      console.error('❌ Validation failed:', validation.error);
       return { success: false, error: validation.error };
     }
+    console.log('✅ Config validation passed');
 
     const mintId = generateMintId();
     setLastMintId(mintId);
@@ -422,15 +440,19 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
 
     try {
       // Get required data
+      console.log('🔑 Getting synthetic public key...');
       const syntheticPublicKey = await getSyntheticPublicKey();
       if (!syntheticPublicKey) {
         throw new Error('Failed to get synthetic public key');
       }
+      console.log('✅ Got synthetic public key:', syntheticPublicKey.substring(0, 10) + '...');
 
+      console.log('📍 Getting wallet address...');
       const currentAddress = await getAddress();
       if (!currentAddress) {
         throw new Error('Failed to get wallet address');
       }
+      console.log('✅ Got wallet address:', currentAddress);
 
       // Update status to minting
       updateMintRecord(mintId, { status: 'minting' });
@@ -456,34 +478,51 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
       const royaltyBasisPoints = mintConfig.royaltyPercentage ? Math.round(mintConfig.royaltyPercentage * 100) : 0;
 
       // Get unspent coins for minting
+      console.log('🪙 Getting unspent coins...');
       const coinsResult = await client.getUnspentHydratedCoins(currentAddress);
       if (!coinsResult.success || !coinsResult.data.data || coinsResult.data.data.length === 0) {
+        console.error('❌ No unspent coins available:', coinsResult);
         throw new Error('No unspent coins available for minting');
       }
 
+      // Filter for XCH coins only (exclude CAT, NFT, DID coins)
+      const xchCoins = coinsResult.data.data.filter(hydratedCoin => {
+        const driverType = hydratedCoin.parentSpendInfo?.driverInfo?.type;
+        return !driverType || (driverType !== 'CAT' && driverType !== 'NFT' && driverType !== 'DID');
+      });
+
+      console.log('✅ Got coins:', coinsResult.data.data.length, 'total,', xchCoins.length, 'XCH coins available');
+
+      if (xchCoins.length === 0) {
+        throw new Error('No XCH coins available for minting. Cannot use CAT, NFT, or DID coins for minting.');
+      }
+
       // Select coins for minting
-      const availableCoins = coinsResult.data.data.map(hydratedCoin => ({
+      const availableCoins = xchCoins.map(hydratedCoin => ({
         parent_coin_info: hydratedCoin.coin.parentCoinInfo,
         puzzle_hash: hydratedCoin.coin.puzzleHash,
-        amount: hydratedCoin.coin.amount
+        amount: typeof hydratedCoin.coin.amount === 'string' ? parseInt(hydratedCoin.coin.amount) : hydratedCoin.coin.amount
       }));
 
       const feeAmount = mintConfig.feeXCH ? formatXCHToMojos(mintConfig.feeXCH) : estimateMintFee();
       const mintCost = 1; // NFT minting typically costs 1 mojo
       const totalNeeded = mintCost + feeAmount;
+      console.log('💰 Fee calculation:', { feeAmount, mintCost, totalNeeded });
 
       let totalSelected = 0;
       const selectedCoins = [];
 
       for (const coin of availableCoins) {
         selectedCoins.push(coin);
-        totalSelected += parseInt(coin.amount);
+        totalSelected += coin.amount;
         if (totalSelected >= totalNeeded) break;
       }
 
       if (totalSelected < totalNeeded) {
+        console.error('❌ Insufficient balance:', { totalSelected, totalNeeded });
         throw new Error(`Insufficient balance for minting. Need ${totalNeeded} mojos, have ${totalSelected} mojos`);
       }
+      console.log('✅ Selected coins:', selectedCoins.length, 'total value:', totalSelected);
 
       // Create mint request
       const mintRequest = {
@@ -518,11 +557,19 @@ export function useChiaNFTMint(config: UseChiaNFTMintConfig = {}): UseChiaNFTMin
       };
 
       // Execute mint
+      console.log('🚀 Executing mint with request:', {
+        ...mintRequest,
+        synthetic_public_key: mintRequest.synthetic_public_key ? mintRequest.synthetic_public_key.substring(0, 10) + '...' : null
+      });
+      
       const result = await client.mintNFT(mintRequest);
+      console.log('📋 Mint API result:', result);
       
       if (!result.success) {
+        console.error('❌ Mint API failed:', result.error);
         throw new Error(result.error);
       }
+      console.log('✅ Mint API succeeded:', result.data);
 
       // Extract NFT ID from the result - this depends on the actual API response structure
       const nftId = (result.data as any).nft_ids?.[0] || 

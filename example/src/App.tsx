@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import './App.css';
 
 // Import the providers and components from your library
@@ -33,6 +33,9 @@ import { UnifiedWalletClient } from '../../src/client/UnifiedWalletClient';
 // Import Spacescan client and hook
 import { useSpacescanBalance } from '../../src/client/SpacescanClient';
 
+// Import NFT minting components
+import { StreamlinedChiaNFTMintForm } from '../../src/examples/ChiaNFTMintExample';
+
 // Navigation component
 const Navigation: React.FC<{
     currentView: string;
@@ -43,6 +46,7 @@ const Navigation: React.FC<{
         { id: 'components', label: '🧩 Components', description: 'Test wallet components' },
         { id: 'dialogs', label: '💬 Dialogs', description: 'Test individual dialogs' },
         { id: 'coins', label: '🪙 Coins', description: 'View hydrated coins details' },
+        { id: 'nft-mint', label: '🎨 NFT Mint', description: 'Mint your own NFTs' },
     ];
 
     return (
@@ -652,14 +656,12 @@ const DialogsView: React.FC<{
                 </div>
             )}
 
-            {exampleDexieData && (
+            {exampleDexieData && isTakeOfferWidgetOpen && (
                 <TakeOfferWidget
-                    isOpen={isTakeOfferWidgetOpen}
                     onClose={() => setIsTakeOfferWidgetOpen(false)}
                     dexieOfferData={exampleDexieData}
-                    onOfferTaken={handleOfferTaken}
-                    onError={handleTakeOfferError}
-                    jwtToken="your-jwt-token-here"
+                    onTakeOfferSuccess={handleOfferTaken}
+                    onTakeOfferError={handleTakeOfferError}
                 />
             )}
 
@@ -902,6 +904,43 @@ const CoinsView: React.FC<{
     );
 };
 
+// NFT Mint View - Mint NFTs using the streamlined form
+const NFTMintView: React.FC<{
+    walletClient: UnifiedWalletClient
+}> = () => {
+    return (
+        <div className="view nft-mint-view">
+            <div style={{ 
+                background: 'rgba(255, 255, 255, 0.95)', 
+                borderRadius: '15px', 
+                padding: '30px',
+                marginBottom: '20px',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}>
+                <h2 style={{ 
+                    textAlign: 'center',
+                    marginBottom: '10px',
+                    color: '#333',
+                    fontSize: '2rem'
+                }}>
+                    🎨 NFT Minting Studio
+                </h2>
+                <p style={{
+                    textAlign: 'center',
+                    color: '#666',
+                    fontSize: '1.1rem',
+                    marginBottom: '30px'
+                }}>
+                    Create and mint your unique NFTs on the Chia blockchain with our streamlined minting form.
+                </p>
+                
+                <StreamlinedChiaNFTMintForm />
+            </div>
+        </div>
+    );
+};
+
 // Main Example App - Updated to use unified client
 const ExampleApp: React.FC = () => {
     const [currentView, setCurrentView] = useState('main');
@@ -924,6 +963,8 @@ const ExampleApp: React.FC = () => {
                 return <DialogsView walletClient={walletClient} />;
             case 'coins':
                 return <CoinsView walletClient={walletClient} />;
+            case 'nft-mint':
+                return <NFTMintView walletClient={walletClient} />;
             default:
                 return <MainView walletClient={walletClient} />;
         }
