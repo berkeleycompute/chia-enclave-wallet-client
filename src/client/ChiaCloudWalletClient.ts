@@ -79,7 +79,6 @@ export function normalizeCoins(coins: CoinInput[]): Coin[] {
  * Utility function to ensure hex string has 0x prefix
  */
 export function ensureHexPrefix(hexString: string): string {
-  console.log('!!!!!!!!!!!! ensureing hex prefix on string:', hexString);
   if (!hexString) return hexString;
   return hexString.startsWith('0x') ? hexString : `0x${hexString}`;
 }
@@ -88,14 +87,12 @@ export function ensureHexPrefix(hexString: string): string {
  * Utility function to convert coin from camelCase to snake_case format
  */
 export function convertCoinToSnakeCase(coin: CoinInput): CoinSnakeCase {
-  console.log('🪙 convertCoinToSnakeCase called with:', coin);
   const normalizedCoin = normalizeCoin(coin);
   const result = {
     parent_coin_info: ensureHexPrefix(normalizedCoin.parentCoinInfo),
     puzzle_hash: ensureHexPrefix(normalizedCoin.puzzleHash),
     amount: typeof normalizedCoin.amount === 'string' ? parseInt(normalizedCoin.amount) : normalizedCoin.amount
   };
-  console.log('🪙 convertCoinToSnakeCase result:', result);
   return result;
 }
 
@@ -579,7 +576,7 @@ export class ChiaCloudWalletClient {
     try {
       // @ts-ignore - import.meta.env is available in Vite environments
       const viteEnv = (import.meta.env.VITE_ENV as string);
-      console.log('!!!!!!!!!!!! Vite Env:', viteEnv);
+      console.log('Vite Env:', viteEnv);
       if (typeof viteEnv === 'string') {
         if (viteEnv === 'prod') return 'production';
         if (viteEnv === 'dev') return 'development';
@@ -605,7 +602,7 @@ export class ChiaCloudWalletClient {
    * Get the base URL for the current environment
    */
   private getBaseUrlForEnvironment(): string {
-    console.log('!!!!!!!!!!!! Environment:', this.environment);
+    console.log('Environment:', this.environment);
     switch (this.environment) {
       case 'development':
         return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1';
@@ -1006,7 +1003,6 @@ export class ChiaCloudWalletClient {
     // Debug logging to track calls
     const timestamp = new Date().toISOString();
     const stack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
-    console.log(`🔑 [${timestamp}] getPublicKey() called from: ${stack}`);
 
     try {
       const endpoint = 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1/api/enclave/public-key';
@@ -1014,10 +1010,9 @@ export class ChiaCloudWalletClient {
         method: 'POST',
         body: JSON.stringify({}),
       });
-      console.log(`✅ [${timestamp}] getPublicKey() successful`);
       return { success: true, data: result };
     } catch (error) {
-      console.log(`❌ [${timestamp}] getPublicKey() failed:`, error);
+      console.error(`❌ [${timestamp}] getPublicKey() failed:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get public key',
@@ -1189,24 +1184,8 @@ export class ChiaCloudWalletClient {
         method: 'GET',
       }, false);
 
-      // Debug logging to track the response structure
-      console.log('🔍 Raw hydrated coins response:', {
-        success: result.success,
-        dataType: typeof result.data,
-        isArray: Array.isArray(result.data),
-        dataLength: Array.isArray(result.data) ? result.data.length : 'N/A'
-      });
-
       // Normalize the response to handle different formats between environments
       const normalizedCoins = await this.normalizeHydratedCoinsResponse(result);
-
-      console.log('✅ Normalized hydrated coins:', {
-        count: normalizedCoins.length,
-        firstCoin: normalizedCoins[0] ? {
-          coinId: normalizedCoins[0].coinId?.substring(0, 10) + '...',
-          driverType: normalizedCoins[0].parentSpendInfo?.driverInfo?.type
-        } : null
-      });
 
       // Return consistent format with normalized data
       const normalizedResponse: UnspentHydratedCoinsResponse = {
@@ -1741,11 +1720,6 @@ export class ChiaCloudWalletClient {
    */
   async broadcastSpendBundle(request: BroadcastSpendBundleRequest): Promise<Result<BroadcastResponse>> {
     try {
-      console.log('🚀 broadcastSpendBundle called with:', {
-        coinSpendsCount: request.coin_spends?.length,
-        signatureLength: request.aggregated_signature?.length,
-        signaturePrefix: request.aggregated_signature?.substring(0, 10)
-      });
 
       if (!request.coin_spends || request.coin_spends.length === 0) {
         throw new ChiaCloudWalletApiError('Coin spends are required for broadcasting');
@@ -1756,13 +1730,6 @@ export class ChiaCloudWalletClient {
 
       // The coin_spends are already in snake_case format, but we need to ensure coins are properly normalized
       const normalizedCoinSpends = request.coin_spends.map(coinSpend => {
-        console.log('🔧 Processing coin spend:', {
-          coinId: coinSpend.coin.parent_coin_info,
-          puzzleHash: coinSpend.coin.puzzle_hash,
-          puzzleReveal: coinSpend.puzzle_reveal?.substring(0, 10),
-          solution: coinSpend.solution?.substring(0, 10)
-        });
-
         return {
           ...coinSpend,
           coin: convertCoinToSnakeCase(coinSpend.coin)
@@ -1770,11 +1737,6 @@ export class ChiaCloudWalletClient {
       });
 
       const processedSignature = ensureHexPrefix(request.aggregated_signature);
-      console.log('🔐 Signature processing:', {
-        original: request.aggregated_signature.substring(0, 10),
-        processed: processedSignature.substring(0, 10),
-        hasPrefix: processedSignature.startsWith('0x')
-      });
 
       const endpoint = 'https://edge.silicon-dev.net/chia/chia_public_api/broadcast';
       const result = await this.makeRequest<BroadcastResponse>(endpoint, {

@@ -12,26 +12,26 @@ export interface ChiaNFTMintRequest {
   imageHash: string;
   metadataUrl: string;
   metadataHash: string;
-  
+
   // Optional fields
   collectionName?: string;
   collectionId?: string;
   editionNumber?: number;
   editionTotal?: number;
-  
+
   // NFT attributes (converted from EVM NFT)
   attributes?: Array<{
     trait_type: string;
     value: string | null;
   }>;
-  
+
   // Chia-specific options
   targetAddress?: string; // Address to receive the NFT
   royaltyAddress?: string;
   royaltyPercentage?: number; // 0-100
   didId?: string | null;
   feeXCH?: number;
-  
+
   // License information
   licenseUris?: string[];
   licenseHash?: string;
@@ -110,7 +110,7 @@ export class ChiaNFTMintService {
   async mintNFT(request: ChiaNFTMintRequest): Promise<ChiaNFTMintResponse> {
     try {
       const response = await this.makeRequest('/nft/mint', 'POST', request);
-      
+
       if (this.config.enableLogging) {
         console.log('Mint NFT response:', response);
       }
@@ -118,7 +118,7 @@ export class ChiaNFTMintService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to mint NFT';
-      
+
       if (this.config.enableLogging) {
         console.error('Mint NFT error:', error);
       }
@@ -156,7 +156,7 @@ export class ChiaNFTMintService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to mint NFT from EVM';
-      
+
       if (this.config.enableLogging) {
         console.error('Mint from EVM error:', error);
       }
@@ -184,7 +184,7 @@ export class ChiaNFTMintService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get NFT status';
-      
+
       if (this.config.enableLogging) {
         console.error('Get NFT status error:', error);
       }
@@ -219,7 +219,7 @@ export class ChiaNFTMintService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get minting stats';
-      
+
       if (this.config.enableLogging) {
         console.error('Get minting stats error:', error);
       }
@@ -266,7 +266,7 @@ export class ChiaNFTMintService {
 
     // Validate hash formats
     const hexPattern = /^(0x)?[0-9a-fA-F]{64}$/;
-    
+
     if (!hexPattern.test(request.imageHash)) {
       return { isValid: false, error: 'Invalid image hash format: must be a 64-character hex string' };
     }
@@ -379,7 +379,7 @@ export class ChiaNFTMintService {
       }
 
       const response = await fetch(url, requestInit);
-      
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -390,11 +390,11 @@ export class ChiaNFTMintService {
       return result;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`Request timeout after ${this.config.timeout}ms`);
       }
-      
+
       throw error;
     }
   }

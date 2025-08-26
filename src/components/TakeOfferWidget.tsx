@@ -112,17 +112,6 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
 
     // Get NFT image URL
     const getNftImageUrl = useCallback((): string | null => {
-        console.log('🖼️ NFT Image Debug:', {
-            providedImageUrl,
-            nftOffered: dexieOfferData.offer.offered.find(item => item.is_nft),
-            hasNftData: !!dexieOfferData.offer.offered.find(item => item.is_nft)?.nft_data,
-            dataUris: dexieOfferData.offer.offered.find(item => item.is_nft)?.nft_data?.data_uris,
-            metadataUris: dexieOfferData.offer.offered.find(item => item.is_nft)?.nft_data?.metadata_uris,
-            nftMetadata,
-            providedMetadata,
-            metadataLoading,
-            metadataError
-        });
 
         // First priority: Use provided imageUrl prop if available
         if (providedImageUrl) {

@@ -8,12 +8,12 @@ import { sharedModalStyles } from './modal-styles';
 
 // ThirdWeb fallback components for when package is not installed
 const FallbackConnectButton: React.FC<any> = (props) => (
-  <button 
-    style={{ 
-      padding: '12px 24px', 
-      background: '#0052ff', 
-      color: 'white', 
-      border: 'none', 
+  <button
+    style={{
+      padding: '12px 24px',
+      background: '#0052ff',
+      color: 'white',
+      border: 'none',
       borderRadius: '8px',
       cursor: 'pointer',
       fontSize: '14px',
@@ -26,12 +26,12 @@ const FallbackConnectButton: React.FC<any> = (props) => (
 );
 
 const FallbackTransactionButton: React.FC<any> = ({ children, ...props }) => (
-  <button 
-    style={{ 
-      padding: '8px 16px', 
-      background: '#6366f1', 
-      color: 'white', 
-      border: 'none', 
+  <button
+    style={{
+      padding: '8px 16px',
+      background: '#6366f1',
+      color: 'white',
+      border: 'none',
       borderRadius: '6px',
       cursor: 'pointer',
       fontSize: '14px'
@@ -61,8 +61,8 @@ const ConnectButton = FallbackConnectButton;
 const useActiveAccount = (): MockAccount | null => null;
 const useActiveWallet = () => null;
 const useWalletBalance = (config: any): { data: MockBalance | null } => ({ data: null });
-const useSendTransaction = () => ({ mutate: (config: any) => {}, isPending: false });
-const useDisconnect = () => ({ disconnect: async (wallet: any) => {} });
+const useSendTransaction = () => ({ mutate: (config: any) => { }, isPending: false });
+const useDisconnect = () => ({ disconnect: async (wallet: any) => { } });
 const TransactionButton = FallbackTransactionButton;
 
 // Mock client and chain
@@ -92,7 +92,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
   const [showChiaModal, setShowChiaModal] = useState(false);
-  
+
   // ThirdWeb hooks
   const activeAccount = useActiveAccount();
   const activeWallet = useActiveWallet();
@@ -149,7 +149,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                   {chiaConnected ? '✅ Connected' : '❌ Disconnected'}
                 </div>
               </div>
-              
+
               {chiaConnected && walletClient ? (
                 <div className="wallet-info">
                   <div className="info-row">
@@ -164,9 +164,9 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                     <span className="label">Coins:</span>
                     <span className="value">{walletClient.coinCount}</span>
                   </div>
-                  
+
                   <div className="action-buttons">
-                    <button 
+                    <button
                       onClick={() => setShowChiaModal(true)}
                       className="primary-button"
                     >
@@ -178,7 +178,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                 <div className="not-connected">
                   <p>Connect your Chia wallet to manage XCH, CAT tokens, and NFTs</p>
                   <div className="action-buttons">
-                    <button 
+                    <button
                       onClick={() => setShowChiaModal(true)}
                       className="primary-button"
                     >
@@ -203,13 +203,13 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                   {baseConnected ? '✅ Connected' : '❌ Disconnected'}
                 </div>
               </div>
-              
+
               {baseConnected && activeAccount ? (
                 <div className="wallet-info">
                   <div className="info-row">
                     <span className="label">Address:</span>
                     <span className="value">
-                      {activeAccount?.address ? 
+                      {activeAccount?.address ?
                         `${activeAccount.address.slice(0, 10)}...${activeAccount.address.slice(-8)}` :
                         'Connected'
                       }
@@ -225,11 +225,11 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                       <span className="value">{balance.displayValue} {balance.symbol}</span>
                     </div>
                   )}
-                  
+
                   <div className="base-actions">
                     <h4>💸 Transaction Actions</h4>
                     <div className="action-buttons">
-                      <button 
+                      <button
                         onClick={() => {
                           if (activeAccount?.address) {
                             sendTransaction({
@@ -246,7 +246,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                       >
                         {isSending ? 'Sending...' : 'Send 0.001 ETH (Demo)'}
                       </button>
-                      
+
                       <TransactionButton
                         transaction={{
                           to: "0x0000000000000000000000000000000000000000",
@@ -265,7 +265,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                       </TransactionButton>
                     </div>
                   </div>
-                  
+
                   <div className="thirdweb-connect-container">
                     <ConnectButton
                       client={client}
@@ -329,7 +329,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                       {chiaConnected ? 'Connected' : 'Disconnected'}
                     </div>
                   </div>
-                  
+
                   {chiaConnected && walletClient ? (
                     <div className="portfolio-details">
                       <div className="balance-display">
@@ -346,7 +346,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                           <span className="stat-value">{walletClient.formatAddress()}</span>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => setShowChiaModal(true)}
                         className="card-action-button"
                       >
@@ -356,7 +356,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                   ) : (
                     <div className="not-connected-card">
                       <p>Connect to view your Chia portfolio</p>
-                      <button 
+                      <button
                         onClick={() => setShowChiaModal(true)}
                         className="card-action-button secondary"
                       >
@@ -373,7 +373,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                       {baseConnected ? 'Connected' : 'Disconnected'}
                     </div>
                   </div>
-                  
+
                   {baseConnected && activeAccount ? (
                     <div className="portfolio-details">
                       <div className="balance-display">
@@ -384,7 +384,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                         <div className="stat">
                           <span className="stat-label">Address:</span>
                           <span className="stat-value">
-                            {activeAccount?.address ? 
+                            {activeAccount?.address ?
                               `${activeAccount.address.slice(0, 8)}...${activeAccount.address.slice(-6)}` :
                               'Connected'
                             }
@@ -431,14 +431,14 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
                   <h4>🚀 Cross-Chain Features</h4>
                   <p>Both wallets connected! You can now manage your multi-chain portfolio.</p>
                   <div className="feature-buttons">
-                    <button 
+                    <button
                       onClick={() => setActiveTab('chia')}
                       className="feature-button"
                     >
                       <RiLeafFill style={{ color: '#00ff88' }} />
                       Chia Features
                     </button>
-                    <button 
+                    <button
                       onClick={() => setActiveTab('base')}
                       className="feature-button"
                     >
@@ -458,7 +458,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
 
   return (
     <>
-      <div 
+      <div
         style={{
           position: 'fixed',
           top: 0,
@@ -474,7 +474,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
         onClick={handleOverlayClick}
         className="unified-wallet-modal-overlay"
       >
-        <div 
+        <div
           style={{
             maxWidth: '800px',
             width: '90%',
@@ -487,7 +487,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
           {/* Modal Header */}
           <div className="modal-header">
             <h2>🔗 Unified Wallet</h2>
-            <button 
+            <button
               onClick={onClose}
               className="close-button"
               aria-label="Close modal"

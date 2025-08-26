@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { PiHandCoins } from "react-icons/pi";
-import { 
-  useWalletConnection, 
-  useWalletBalance, 
+import {
+  useWalletConnection,
+  useWalletBalance,
   useWalletCoins,
   // useSendTransaction,
   useUnifiedWalletClient
 } from '../hooks/useChiaWalletSDK';
 import { SentTransaction } from './types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
-import { 
-  useSpacescanNFTs, 
-  useSpacescanBalance, 
+import {
+  useSpacescanNFTs,
+  useSpacescanBalance,
   useSpacescanXCHTransactions,
   useSpacescanNFTTransactions,
   useSpacescanTokenTransactions,
@@ -59,26 +59,26 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // Use provided client or fall back to hooks
   const hookWalletClient = useUnifiedWalletClient();
   const actualWalletClient = walletClient || hookWalletClient;
-  
+
   // Extract values for easier access
   const { walletState } = actualWalletClient;
-  
+
   // Still need hooks for connection methods and balance operations
   const hookConnection = useWalletConnection();
   const hookBalance = useWalletBalance();
-  
+
   // Extract connection methods (always use hooks for these)
-  const { 
+  const {
     connect,
     disconnect,
-    setJwtToken 
+    setJwtToken
   } = hookConnection;
-  
-  const { 
+
+  const {
     isLoading: balanceLoading,
-    refresh: refreshBalance 
+    refresh: refreshBalance
   } = hookBalance;
-  
+
   // Extract values from unified wallet state
   const {
     isConnected,
@@ -88,29 +88,29 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     isConnecting = false,
   } = walletState;
 
-  const { 
-    hydratedCoins, 
+  const {
+    hydratedCoins,
     isLoading: coinsLoading,
-    error: coinsError 
+    error: coinsError
   } = useWalletCoins();
-  
+
   // Use Spacescan for NFTs and balance
-  const { 
-    nfts: spacescanNfts, 
-        loading: _nftsLoading,
+  const {
+    nfts: spacescanNfts,
+    loading: _nftsLoading,
     error: _nftsError,
     count: _nftCount,
     refetch: _refetchNfts
   } = useSpacescanNFTs(address);
-  
+
   // Use Spacescan for balance display
   const spacescanBalance = useSpacescanBalance(address);
-  
+
   // Use Spacescan for transaction history (last 100 transactions)
   const spacescanXchTransactions = useSpacescanXCHTransactions(address, 100, 0);
   const spacescanNftTransactions = useSpacescanNFTTransactions(address, 100, 0);
   const spacescanTokenTransactions = useSpacescanTokenTransactions(address, 100, 0);
-  
+
   // Use Spacescan NFTs as the primary NFT source
   const nftCoins = spacescanNfts;
 
@@ -120,7 +120,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     if ('nft_id' in nft) {
       return nft.metadata || null;
     }
-    
+
     // Handle legacy HydratedCoin format
     const driverInfo = (nft as HydratedCoin).parentSpendInfo.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
@@ -149,13 +149,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       }
       return `NFT ${nft.nft_id.substring(0, 8)}...${nft.nft_id.substring(nft.nft_id.length - 8)}`;
     }
-    
+
     // Handle legacy HydratedCoin format
     const metadata = getNftMetadata(nft);
     if (metadata?.name) {
       return metadata.name;
     }
-    
+
     const driverInfo = (nft as HydratedCoin).parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const onChainMetadata = driverInfo.info?.metadata;
@@ -182,13 +182,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       }
       return `Collection ${nft.nft_id.substring(0, 8)}...${nft.nft_id.substring(nft.nft_id.length - 8)}`;
     }
-    
+
     // Handle legacy HydratedCoin format
     const metadata = getNftMetadata(nft);
     if (metadata?.collection?.name) {
       return metadata.collection.name;
     }
-    
+
     const driverInfo = (nft as HydratedCoin).parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const launcherId = driverInfo.info?.launcherId || 'Unknown';
@@ -209,7 +209,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       }
       return undefined;
     }
-    
+
     // Handle legacy HydratedCoin format
     const metadata = getNftMetadata(nft);
     if (metadata?.series_number && metadata?.series_total) {
@@ -224,7 +224,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
       return `https://edge.silicon-dev.net/spacescan/mintgarden/nfts/${nft.nft_id}/thumbnail`
     }
-    
+
     // Handle legacy HydratedCoin format
     const metadata = getNftMetadata(nft);
     if (metadata?.data_uris && metadata.data_uris.length > 0) {
@@ -385,15 +385,15 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     if (onWalletUpdate && isConnected && !spacescanBalance.loading) {
       const prevData = prevWalletDataRef.current;
       const currentData = walletData;
-      
+
       // Only call onWalletUpdate if the data has actually changed
-      if (!prevData || 
-          prevData.connected !== currentData.connected ||
-          prevData.address !== currentData.address ||
-          prevData.balance !== currentData.balance ||
-          prevData.coinCount !== currentData.coinCount ||
-          prevData.formattedBalance !== currentData.formattedBalance) {
-        
+      if (!prevData ||
+        prevData.connected !== currentData.connected ||
+        prevData.address !== currentData.address ||
+        prevData.balance !== currentData.balance ||
+        prevData.coinCount !== currentData.coinCount ||
+        prevData.formattedBalance !== currentData.formattedBalance) {
+
         prevWalletDataRef.current = currentData;
         onWalletUpdate(currentData);
       }
@@ -419,7 +419,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       // Configure fetch to properly handle redirects and timeouts
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
+
       const response = await fetch(metadataUri, {
         method: 'GET',
         redirect: 'follow', // Explicitly follow redirects (default but being explicit)
@@ -431,15 +431,15 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           'User-Agent': 'Chia-Wallet-Client/1.0'
         }
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         // More detailed error information
         const errorText = await response.text().catch(() => 'Unknown error');
         throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
       }
-      
+
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         return await response.json();
@@ -854,7 +854,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                     </div>
                     <div className="wallet-badge">
                       <svg width="13" height="12" viewBox="0 0 13 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10.5149 2.74281V1.02852C10.5149 0.876967 10.4547 0.731624 10.3476 0.624458C10.2404 0.517298 10.095 0.457092 9.9435 0.457092H2.51493C2.21182 0.457092 1.92113 0.577498 1.70681 0.791829C1.49248 1.00616 1.37207 1.29685 1.37207 1.59995M1.37207 1.59995C1.37207 1.90305 1.49248 2.19374 1.70681 2.40807C1.92113 2.6224 2.21182 2.74281 2.51493 2.74281H11.0864C11.2379 2.74281 11.3833 2.80301 11.4904 2.91017C11.5976 3.01734 11.6578 3.16268 11.6578 3.31424V5.59995M1.37207 1.59995V9.59995C1.37207 9.90304 1.49248 10.1937 1.70681 10.4081C1.92113 10.6224 2.21182 10.7428 2.51493 10.7428H11.0864C11.2379 10.7428 11.3833 10.6826 11.4904 10.5754C11.5976 10.4683 11.6578 10.3229 11.6578 10.1714V7.88566M11.6578 5.59995H9.9435C9.64041 5.59995 9.34973 5.72035 9.13538 5.93469C8.92104 6.14903 8.80064 6.43972 8.80064 6.74281C8.80064 7.04589 8.92104 7.33658 9.13538 7.55092C9.34973 7.76526 9.64041 7.88566 9.9435 7.88566H11.6578M11.6578 5.59995C11.8093 5.59995 11.9547 5.66018 12.0618 5.76732C12.169 5.87446 12.2292 6.01984 12.2292 6.17138V7.31424C12.2292 7.46578 12.169 7.61115 12.0618 7.71829C11.9547 7.82544 11.8093 7.88566 11.6578 7.88566" stroke="#3E67C1" strokeWidth="0.857143" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10.5149 2.74281V1.02852C10.5149 0.876967 10.4547 0.731624 10.3476 0.624458C10.2404 0.517298 10.095 0.457092 9.9435 0.457092H2.51493C2.21182 0.457092 1.92113 0.577498 1.70681 0.791829C1.49248 1.00616 1.37207 1.29685 1.37207 1.59995M1.37207 1.59995C1.37207 1.90305 1.49248 2.19374 1.70681 2.40807C1.92113 2.6224 2.21182 2.74281 2.51493 2.74281H11.0864C11.2379 2.74281 11.3833 2.80301 11.4904 2.91017C11.5976 3.01734 11.6578 3.16268 11.6578 3.31424V5.59995M1.37207 1.59995V9.59995C1.37207 9.90304 1.49248 10.1937 1.70681 10.4081C1.92113 10.6224 2.21182 10.7428 2.51493 10.7428H11.0864C11.2379 10.7428 11.3833 10.6826 11.4904 10.5754C11.5976 10.4683 11.6578 10.3229 11.6578 10.1714V7.88566M11.6578 5.59995H9.9435C9.64041 5.59995 9.34973 5.72035 9.13538 5.93469C8.92104 6.14903 8.80064 6.43972 8.80064 6.74281C8.80064 7.04589 8.92104 7.33658 9.13538 7.55092C9.34973 7.76526 9.64041 7.88566 9.9435 7.88566H11.6578M11.6578 5.59995C11.8093 5.59995 11.9547 5.66018 12.0618 5.76732C12.169 5.87446 12.2292 6.01984 12.2292 6.17138V7.31424C12.2292 7.46578 12.169 7.61115 12.0618 7.71829C11.9547 7.82544 11.8093 7.88566 11.6578 7.88566" stroke="#3E67C1" strokeWidth="0.857143" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   </div>
@@ -866,11 +866,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       <div className="copy-icon" onClick={() => copyToClipboard(address || 'xch1g9u...y4ua')}>
                         {copySuccess ? (
                           <svg width="15" height="16" viewBox="0 0 15 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12.25 4.75L5.5 11.5L2.75 8.75" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M12.25 4.75L5.5 11.5L2.75 8.75" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         ) : (
                           <svg width="15" height="16" viewBox="0 0 15 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path fillRule="evenodd" clipRule="evenodd" d="M1 10.0001C1 10.8285 1.67157 11.5001 2.5 11.5001H4V10.5001H2.5C2.22386 10.5001 2 10.2762 2 10.0001V3.00006C2 2.72392 2.22386 2.50006 2.5 2.50006H9.5C9.77614 2.50006 10 2.72392 10 3.00006V4.50002H5.5C4.67158 4.50002 4 5.17159 4 6.00002V13C4 13.8284 4.67158 14.5 5.5 14.5H12.5C13.3284 14.5 14 13.8284 14 13V6.00002C14 5.17159 13.3284 4.50002 12.5 4.50002H11V3.00006C11 2.17163 10.3284 1.50006 9.5 1.50006H2.5C1.67157 1.50006 1 2.17163 1 3.00006V10.0001ZM5 6.00002C5 5.72388 5.22386 5.50002 5.5 5.50002H12.5C12.7761 5.50002 13 5.72388 13 6.00002V13C13 13.2762 12.7761 13.5 12.5 13.5H5.5C5.22386 13.5 5 13.2762 5 13V6.00002Z" fill="#7C7A85"/>
+                            <path fillRule="evenodd" clipRule="evenodd" d="M1 10.0001C1 10.8285 1.67157 11.5001 2.5 11.5001H4V10.5001H2.5C2.22386 10.5001 2 10.2762 2 10.0001V3.00006C2 2.72392 2.22386 2.50006 2.5 2.50006H9.5C9.77614 2.50006 10 2.72392 10 3.00006V4.50002H5.5C4.67158 4.50002 4 5.17159 4 6.00002V13C4 13.8284 4.67158 14.5 5.5 14.5H12.5C13.3284 14.5 14 13.8284 14 13V6.00002C14 5.17159 13.3284 4.50002 12.5 4.50002H11V3.00006C11 2.17163 10.3284 1.50006 9.5 1.50006H2.5C1.67157 1.50006 1 2.17163 1 3.00006V10.0001ZM5 6.00002C5 5.72388 5.22386 5.50002 5.5 5.50002H12.5C12.7761 5.50002 13 5.72388 13 6.00002V13C13 13.2762 12.7761 13.5 12.5 13.5H5.5C5.22386 13.5 5 13.2762 5 13V6.00002Z" fill="#7C7A85" />
                           </svg>
                         )}
                       </div>
@@ -881,7 +881,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               </div>
               <button className="close-btn-absolute" onClick={closeModal} aria-label="Close modal">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" clipRule="evenodd" d="M18.8504 6.45054C19.2097 6.09126 19.2097 5.50874 18.8504 5.14946C18.4912 4.79018 17.9086 4.79018 17.5494 5.14946L11.9999 10.6989L6.45043 5.14946C6.09113 4.79018 5.50862 4.79018 5.14934 5.14946C4.79006 5.50874 4.79006 6.09126 5.14934 6.45054L10.6988 12L5.14934 17.5495C4.79006 17.9088 4.79006 18.4912 5.14934 18.8506C5.50862 19.2098 6.09113 19.2098 6.45043 18.8506L11.9999 13.3011L17.5494 18.8506C17.9086 19.2098 18.4912 19.2098 18.8504 18.8506C19.2097 18.4912 19.2097 17.9088 18.8504 17.5495L13.301 12L18.8504 6.45054Z" fill="#7C7A85"/>
+                  <path fillRule="evenodd" clipRule="evenodd" d="M18.8504 6.45054C19.2097 6.09126 19.2097 5.50874 18.8504 5.14946C18.4912 4.79018 17.9086 4.79018 17.5494 5.14946L11.9999 10.6989L6.45043 5.14946C6.09113 4.79018 5.50862 4.79018 5.14934 5.14946C4.79006 5.50874 4.79006 6.09126 5.14934 6.45054L10.6988 12L5.14934 17.5495C4.79006 17.9088 4.79006 18.4912 5.14934 18.8506C5.50862 19.2098 6.09113 19.2098 6.45043 18.8506L11.9999 13.3011L17.5494 18.8506C17.9086 19.2098 18.4912 19.2098 18.8504 18.8506C19.2097 18.4912 19.2097 17.9088 18.8504 17.5495L13.301 12L18.8504 6.45054Z" fill="#7C7A85" />
                 </svg>
               </button>
             </div>
@@ -907,13 +907,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       <div className="action-buttons">
                         <button className="action-btn send-btn" onClick={() => sendFundsDialog.open()}>
                           <svg width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M14.4574 1.79248C14.3317 1.66682 14.1747 1.57694 14.0027 1.53212C13.8307 1.4873 13.6498 1.48915 13.4787 1.53748H13.4693L1.47307 5.17748C1.27832 5.23361 1.10522 5.34759 0.976711 5.50432C0.848201 5.66105 0.77035 5.85313 0.753473 6.05511C0.736597 6.25708 0.781492 6.45942 0.882209 6.6353C0.982927 6.81119 1.13471 6.95231 1.31745 7.03998L6.62495 9.62498L9.2062 14.9294C9.28648 15.1007 9.41413 15.2455 9.57405 15.3466C9.73397 15.4477 9.91949 15.5009 10.1087 15.5C10.1374 15.5 10.1662 15.4987 10.1949 15.4962C10.3968 15.4799 10.5888 15.4022 10.7452 15.2736C10.9016 15.145 11.0149 14.9717 11.0699 14.7769L14.7074 2.78061C14.7074 2.77748 14.7074 2.77436 14.7074 2.77123C14.7564 2.60059 14.7591 2.41998 14.7151 2.24797C14.6712 2.07596 14.5822 1.91875 14.4574 1.79248ZM10.1143 14.4906L10.1112 14.4994V14.495L7.60745 9.35123L10.6074 6.35123C10.6973 6.2567 10.7466 6.13083 10.7449 6.00045C10.7432 5.87007 10.6907 5.74549 10.5985 5.65329C10.5063 5.56109 10.3817 5.50856 10.2514 5.50689C10.121 5.50522 9.9951 5.55455 9.90057 5.64436L6.90057 8.64436L1.75495 6.14061H1.75057H1.75932L13.7499 2.49998L10.1143 14.4906Z" fill="#7C7A85"/>
+                            <path d="M14.4574 1.79248C14.3317 1.66682 14.1747 1.57694 14.0027 1.53212C13.8307 1.4873 13.6498 1.48915 13.4787 1.53748H13.4693L1.47307 5.17748C1.27832 5.23361 1.10522 5.34759 0.976711 5.50432C0.848201 5.66105 0.77035 5.85313 0.753473 6.05511C0.736597 6.25708 0.781492 6.45942 0.882209 6.6353C0.982927 6.81119 1.13471 6.95231 1.31745 7.03998L6.62495 9.62498L9.2062 14.9294C9.28648 15.1007 9.41413 15.2455 9.57405 15.3466C9.73397 15.4477 9.91949 15.5009 10.1087 15.5C10.1374 15.5 10.1662 15.4987 10.1949 15.4962C10.3968 15.4799 10.5888 15.4022 10.7452 15.2736C10.9016 15.145 11.0149 14.9717 11.0699 14.7769L14.7074 2.78061C14.7074 2.77748 14.7074 2.77436 14.7074 2.77123C14.7564 2.60059 14.7591 2.41998 14.7151 2.24797C14.6712 2.07596 14.5822 1.91875 14.4574 1.79248ZM10.1143 14.4906L10.1112 14.4994V14.495L7.60745 9.35123L10.6074 6.35123C10.6973 6.2567 10.7466 6.13083 10.7449 6.00045C10.7432 5.87007 10.6907 5.74549 10.5985 5.65329C10.5063 5.56109 10.3817 5.50856 10.2514 5.50689C10.121 5.50522 9.9951 5.55455 9.90057 5.64436L6.90057 8.64436L1.75495 6.14061H1.75057H1.75932L13.7499 2.49998L10.1143 14.4906Z" fill="#7C7A85" />
                           </svg>
                           <span>Send</span>
                         </button>
                         <button className="action-btn receive-btn" onClick={() => receiveFundsDialog.open()}>
                           <svg width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M3.89625 7.35375C3.80243 7.25993 3.74972 7.13268 3.74972 7C3.74972 6.86732 3.80243 6.74007 3.89625 6.64625C3.99007 6.55243 4.11732 6.49972 4.25 6.49972C4.38268 6.49972 4.50993 6.55243 4.60375 6.64625L8.25 10.2931V2C8.25 1.86739 8.30268 1.74021 8.39645 1.64645C8.49021 1.55268 8.61739 1.5 8.75 1.5C8.88261 1.5 9.00979 1.55268 9.10355 1.64645C9.19732 1.74021 9.25 1.86739 9.25 2V10.2931L12.8962 6.64625C12.9427 6.59979 12.9979 6.56294 13.0586 6.5378C13.1192 6.51266 13.1843 6.49972 13.25 6.49972C13.3157 6.49972 13.3808 6.51266 13.4414 6.5378C13.5021 6.56294 13.5573 6.59979 13.6038 6.64625C13.6502 6.6927 13.6871 6.74786 13.7122 6.80855C13.7373 6.86925 13.7503 6.9343 13.7503 7C13.7503 7.0657 13.7373 7.13075 13.7122 7.19145C13.6871 7.25214 13.6502 7.3073 13.6038 7.35375L9.10375 11.8538C9.05731 11.9002 9.00217 11.9371 8.94147 11.9623C8.88077 11.9874 8.81571 12.0004 8.75 12.0004C8.68429 12.0004 8.61923 11.9874 8.55853 11.9623C8.49783 11.9371 8.44269 11.9002 8.39625 11.8538L3.89625 7.35375ZM14.25 13H3.25C3.11739 13 2.99021 13.0527 2.89645 13.1464C2.80268 13.2402 2.75 13.3674 2.75 13.5C2.75 13.6326 2.80268 13.7598 2.89645 13.8536C2.99021 13.9473 3.11739 14 3.25 14H14.25C14.3826 14 14.5098 13.9473 14.6036 13.8536C14.6973 13.7598 14.75 13.6326 14.75 13.5C14.75 13.3674 14.6973 13.2402 14.6036 13.1464C14.5098 13.0527 14.3826 13 14.25 13Z" fill="#7C7A85"/>
+                            <path d="M3.89625 7.35375C3.80243 7.25993 3.74972 7.13268 3.74972 7C3.74972 6.86732 3.80243 6.74007 3.89625 6.64625C3.99007 6.55243 4.11732 6.49972 4.25 6.49972C4.38268 6.49972 4.50993 6.55243 4.60375 6.64625L8.25 10.2931V2C8.25 1.86739 8.30268 1.74021 8.39645 1.64645C8.49021 1.55268 8.61739 1.5 8.75 1.5C8.88261 1.5 9.00979 1.55268 9.10355 1.64645C9.19732 1.74021 9.25 1.86739 9.25 2V10.2931L12.8962 6.64625C12.9427 6.59979 12.9979 6.56294 13.0586 6.5378C13.1192 6.51266 13.1843 6.49972 13.25 6.49972C13.3157 6.49972 13.3808 6.51266 13.4414 6.5378C13.5021 6.56294 13.5573 6.59979 13.6038 6.64625C13.6502 6.6927 13.6871 6.74786 13.7122 6.80855C13.7373 6.86925 13.7503 6.9343 13.7503 7C13.7503 7.0657 13.7373 7.13075 13.7122 7.19145C13.6871 7.25214 13.6502 7.3073 13.6038 7.35375L9.10375 11.8538C9.05731 11.9002 9.00217 11.9371 8.94147 11.9623C8.88077 11.9874 8.81571 12.0004 8.75 12.0004C8.68429 12.0004 8.61923 11.9874 8.55853 11.9623C8.49783 11.9371 8.44269 11.9002 8.39625 11.8538L3.89625 7.35375ZM14.25 13H3.25C3.11739 13 2.99021 13.0527 2.89645 13.1464C2.80268 13.2402 2.75 13.3674 2.75 13.5C2.75 13.6326 2.80268 13.7598 2.89645 13.8536C2.99021 13.9473 3.11739 14 3.25 14H14.25C14.3826 14 14.5098 13.9473 14.6036 13.8536C14.6973 13.7598 14.75 13.6326 14.75 13.5C14.75 13.3674 14.6973 13.2402 14.6036 13.1464C14.5098 13.0527 14.3826 13 14.25 13Z" fill="#7C7A85" />
                           </svg>
                           <span>Receive</span>
                         </button>
@@ -925,7 +925,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           <div className="balance-left">
                             <div className="token-icon-small">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fillRule="evenodd" clipRule="evenodd" d="M13.2019 6.10456C12.8363 6.12729 12.0596 6.21872 11.7577 6.27461C10.8985 6.43363 10.1713 6.68895 9.59736 7.03318C8.89069 7.45698 8.47902 7.78375 7.93465 8.353L7.58269 8.72104L7.32782 9.07199C7.01028 9.50926 6.89933 9.6915 6.68376 10.1297C6.44521 10.6147 6.24284 11.1842 6.1606 11.6021C6.14587 11.6769 6.11801 11.8104 6.09866 11.8988L6.06349 12.0596L6.03837 13.2961L6.15313 13.9884L6.19481 13.9966C6.21772 14.0011 6.28814 13.9611 6.35129 13.9078C6.90817 13.4378 8.17309 12.7935 9.47599 12.3162C9.62284 12.2624 9.81399 12.1913 9.90077 12.1582C10.1277 12.0717 10.9892 11.7816 11.2601 11.7006C11.3869 11.6626 11.6818 11.5743 11.9154 11.5043C12.1491 11.4342 12.5368 11.3226 12.7771 11.2561C13.0174 11.1896 13.3536 11.0956 13.5242 11.0471C13.971 10.9203 14.0169 10.9287 13.6366 11.0677C13.2292 11.2165 12.2937 11.6074 11.8548 11.8122C11.788 11.8434 11.6296 11.9156 11.5028 11.9728C10.8382 12.2724 9.46424 12.9692 8.86916 13.3084C7.38025 14.1572 6.08485 14.9936 4.90052 15.8708C4.50089 16.1668 4.14444 16.4339 4.05096 16.5074C3.99088 16.5546 3.76696 16.7297 3.55336 16.8966C3.33976 17.0634 3.03244 17.3065 2.87041 17.4367C2.70839 17.5669 2.53637 17.7045 2.48811 17.7425C2.43986 17.7805 2.40039 17.8222 2.40039 17.8352C2.40039 17.8746 2.49792 17.8619 2.56656 17.8136C2.6657 17.7439 2.99387 17.5673 3.55336 17.2827C5.19942 16.4454 6.32192 15.997 6.91186 15.9413L7.09058 15.9243L7.37305 16.2184C7.92215 16.79 8.54068 17.2028 9.28996 17.4978C10.5043 17.9759 11.9229 18.0379 13.2869 17.6726C14.0207 17.4761 14.7341 17.1723 15.2992 16.8157C16.7651 15.8907 18.4099 13.7797 20.2126 10.5096C20.3751 10.2148 20.5081 9.969 20.5081 9.96336C20.5081 9.9577 20.6073 9.76487 20.7286 9.53485C21.0386 8.94693 21.6004 7.77861 21.6004 7.7219V7.67454L20.9754 7.46505C20.4264 7.28105 20.148 7.19088 19.7314 7.06209C18.9531 6.82151 17.4213 6.44182 16.6001 6.28594C16.2209 6.21395 15.6567 6.14915 15.0831 6.11169C14.7481 6.0898 13.5148 6.08513 13.2019 6.10456Z" fill="#0E9F6E"/>
+                                <path fillRule="evenodd" clipRule="evenodd" d="M13.2019 6.10456C12.8363 6.12729 12.0596 6.21872 11.7577 6.27461C10.8985 6.43363 10.1713 6.68895 9.59736 7.03318C8.89069 7.45698 8.47902 7.78375 7.93465 8.353L7.58269 8.72104L7.32782 9.07199C7.01028 9.50926 6.89933 9.6915 6.68376 10.1297C6.44521 10.6147 6.24284 11.1842 6.1606 11.6021C6.14587 11.6769 6.11801 11.8104 6.09866 11.8988L6.06349 12.0596L6.03837 13.2961L6.15313 13.9884L6.19481 13.9966C6.21772 14.0011 6.28814 13.9611 6.35129 13.9078C6.90817 13.4378 8.17309 12.7935 9.47599 12.3162C9.62284 12.2624 9.81399 12.1913 9.90077 12.1582C10.1277 12.0717 10.9892 11.7816 11.2601 11.7006C11.3869 11.6626 11.6818 11.5743 11.9154 11.5043C12.1491 11.4342 12.5368 11.3226 12.7771 11.2561C13.0174 11.1896 13.3536 11.0956 13.5242 11.0471C13.971 10.9203 14.0169 10.9287 13.6366 11.0677C13.2292 11.2165 12.2937 11.6074 11.8548 11.8122C11.788 11.8434 11.6296 11.9156 11.5028 11.9728C10.8382 12.2724 9.46424 12.9692 8.86916 13.3084C7.38025 14.1572 6.08485 14.9936 4.90052 15.8708C4.50089 16.1668 4.14444 16.4339 4.05096 16.5074C3.99088 16.5546 3.76696 16.7297 3.55336 16.8966C3.33976 17.0634 3.03244 17.3065 2.87041 17.4367C2.70839 17.5669 2.53637 17.7045 2.48811 17.7425C2.43986 17.7805 2.40039 17.8222 2.40039 17.8352C2.40039 17.8746 2.49792 17.8619 2.56656 17.8136C2.6657 17.7439 2.99387 17.5673 3.55336 17.2827C5.19942 16.4454 6.32192 15.997 6.91186 15.9413L7.09058 15.9243L7.37305 16.2184C7.92215 16.79 8.54068 17.2028 9.28996 17.4978C10.5043 17.9759 11.9229 18.0379 13.2869 17.6726C14.0207 17.4761 14.7341 17.1723 15.2992 16.8157C16.7651 15.8907 18.4099 13.7797 20.2126 10.5096C20.3751 10.2148 20.5081 9.969 20.5081 9.96336C20.5081 9.9577 20.6073 9.76487 20.7286 9.53485C21.0386 8.94693 21.6004 7.77861 21.6004 7.7219V7.67454L20.9754 7.46505C20.4264 7.28105 20.148 7.19088 19.7314 7.06209C18.9531 6.82151 17.4213 6.44182 16.6001 6.28594C16.2209 6.21395 15.6567 6.14915 15.0831 6.11169C14.7481 6.0898 13.5148 6.08513 13.2019 6.10456Z" fill="#0E9F6E" />
                               </svg>
                             </div>
                             <div className="balance-details">
@@ -947,7 +947,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         <button className="menu-item" onClick={() => setCurrentView('transactions')}>
                           <div className="menu-icon-large">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path fillRule="evenodd" clipRule="evenodd" d="M4.0002 6.39999C3.55837 6.39999 3.2002 6.75817 3.2002 7.19999C3.2002 7.64182 3.55837 7.99999 4.0002 7.99999H20.0002C20.442 7.99999 20.8002 7.64182 20.8002 7.19999C20.8002 6.75817 20.442 6.39999 20.0002 6.39999H4.0002ZM3.2002 12C3.2002 11.5582 3.55837 11.2 4.0002 11.2H20.0002C20.442 11.2 20.8002 11.5582 20.8002 12C20.8002 12.4418 20.442 12.8 20.0002 12.8H4.0002C3.55837 12.8 3.2002 12.4418 3.2002 12ZM3.2002 16.8C3.2002 16.3582 3.55837 16 4.0002 16H20.0002C20.442 16 20.8002 16.3582 20.8002 16.8C20.8002 17.2418 20.442 17.6 20.0002 17.6H4.0002C3.55837 17.6 3.2002 17.2418 3.2002 16.8Z" fill="#7C7A85"/>
+                              <path fillRule="evenodd" clipRule="evenodd" d="M4.0002 6.39999C3.55837 6.39999 3.2002 6.75817 3.2002 7.19999C3.2002 7.64182 3.55837 7.99999 4.0002 7.99999H20.0002C20.442 7.99999 20.8002 7.64182 20.8002 7.19999C20.8002 6.75817 20.442 6.39999 20.0002 6.39999H4.0002ZM3.2002 12C3.2002 11.5582 3.55837 11.2 4.0002 11.2H20.0002C20.442 11.2 20.8002 11.5582 20.8002 12C20.8002 12.4418 20.442 12.8 20.0002 12.8H4.0002C3.55837 12.8 3.2002 12.4418 3.2002 12ZM3.2002 16.8C3.2002 16.3582 3.55837 16 4.0002 16H20.0002C20.442 16 20.8002 16.3582 20.8002 16.8C20.8002 17.2418 20.442 17.6 20.0002 17.6H4.0002C3.55837 17.6 3.2002 17.2418 3.2002 16.8Z" fill="#7C7A85" />
                             </svg>
                           </div>
                           <span>Transactions</span>
@@ -956,10 +956,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         <button className="menu-item" onClick={() => setCurrentView('assets')}>
                           <div className="menu-icon-large">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M18.0898 10.37C19.0351 10.7224 19.8763 11.3075 20.5355 12.0712C21.1948 12.8349 21.6509 13.7524 21.8615 14.7391C22.0722 15.7257 22.0307 16.7495 21.7408 17.7158C21.451 18.6822 20.9221 19.5598 20.2032 20.2676C19.4843 20.9754 18.5985 21.4905 17.6278 21.7652C16.657 22.04 15.6327 22.0655 14.6495 21.8395C13.6663 21.6134 12.7559 21.1431 12.0026 20.472C11.2493 19.8009 10.6774 18.9507 10.3398 18" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M7 6H8V10" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M16.7098 13.88L17.4098 14.59L14.5898 17.41" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M18.0898 10.37C19.0351 10.7224 19.8763 11.3075 20.5355 12.0712C21.1948 12.8349 21.6509 13.7524 21.8615 14.7391C22.0722 15.7257 22.0307 16.7495 21.7408 17.7158C21.451 18.6822 20.9221 19.5598 20.2032 20.2676C19.4843 20.9754 18.5985 21.4905 17.6278 21.7652C16.657 22.04 15.6327 22.0655 14.6495 21.8395C13.6663 21.6134 12.7559 21.1431 12.0026 20.472C11.2493 19.8009 10.6774 18.9507 10.3398 18" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M7 6H8V10" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M16.7098 13.88L17.4098 14.59L14.5898 17.41" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                           </div>
                           <span>View Assets</span>
@@ -993,7 +993,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           >
                             <div className="menu-icon-large">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.8103 12.75L13.5 3.43969C13.3612 3.2998 13.196 3.18889 13.014 3.11341C12.832 3.03792 12.6368 2.99938 12.4397 3.00001H3.75001C3.5511 3.00001 3.36033 3.07903 3.21968 3.21968C3.07903 3.36033 3.00001 3.5511 3.00001 3.75001V12.4397C2.99938 12.6368 3.03792 12.832 3.11341 13.014C3.18889 13.196 3.2998 13.3612 3.43969 13.5L12.75 22.8103C12.8893 22.9496 13.0547 23.0602 13.2367 23.1356C13.4187 23.211 13.6138 23.2498 13.8108 23.2498C14.0078 23.2498 14.2029 23.211 14.3849 23.1356C14.5669 23.0602 14.7323 22.9496 14.8716 22.8103L22.8103 14.8716C22.9496 14.7323 23.0602 14.5669 23.1356 14.3849C23.211 14.2029 23.2498 14.0078 23.2498 13.8108C23.2498 13.6138 23.211 13.4187 23.1356 13.2367C23.0602 13.0547 22.9496 12.8893 22.8103 12.75ZM13.8103 21.75L4.50001 12.4397V4.50001H12.4397L21.75 13.8103L13.8103 21.75ZM9.00001 7.87501C9.00001 8.09751 8.93403 8.31502 8.81041 8.50002C8.68679 8.68503 8.51109 8.82922 8.30553 8.91437C8.09996 8.99952 7.87376 9.0218 7.65553 8.97839C7.4373 8.93498 7.23685 8.82784 7.07951 8.6705C6.92218 8.51317 6.81503 8.31271 6.77162 8.09448C6.72822 7.87626 6.75049 7.65006 6.83564 7.44449C6.92079 7.23892 7.06499 7.06322 7.24999 6.9396C7.435 6.81599 7.6525 6.75001 7.87501 6.75001C8.17338 6.75001 8.45952 6.86853 8.6705 7.07951C8.88148 7.29049 9.00001 7.57664 9.00001 7.87501Z" fill="#7C7A85"/>
+                                <path d="M22.8103 12.75L13.5 3.43969C13.3612 3.2998 13.196 3.18889 13.014 3.11341C12.832 3.03792 12.6368 2.99938 12.4397 3.00001H3.75001C3.5511 3.00001 3.36033 3.07903 3.21968 3.21968C3.07903 3.36033 3.00001 3.5511 3.00001 3.75001V12.4397C2.99938 12.6368 3.03792 12.832 3.11341 13.014C3.18889 13.196 3.2998 13.3612 3.43969 13.5L12.75 22.8103C12.8893 22.9496 13.0547 23.0602 13.2367 23.1356C13.4187 23.211 13.6138 23.2498 13.8108 23.2498C14.0078 23.2498 14.2029 23.211 14.3849 23.1356C14.5669 23.0602 14.7323 22.9496 14.8716 22.8103L22.8103 14.8716C22.9496 14.7323 23.0602 14.5669 23.1356 14.3849C23.211 14.2029 23.2498 14.0078 23.2498 13.8108C23.2498 13.6138 23.211 13.4187 23.1356 13.2367C23.0602 13.0547 22.9496 12.8893 22.8103 12.75ZM13.8103 21.75L4.50001 12.4397V4.50001H12.4397L21.75 13.8103L13.8103 21.75ZM9.00001 7.87501C9.00001 8.09751 8.93403 8.31502 8.81041 8.50002C8.68679 8.68503 8.51109 8.82922 8.30553 8.91437C8.09996 8.99952 7.87376 9.0218 7.65553 8.97839C7.4373 8.93498 7.23685 8.82784 7.07951 8.6705C6.92218 8.51317 6.81503 8.31271 6.77162 8.09448C6.72822 7.87626 6.75049 7.65006 6.83564 7.44449C6.92079 7.23892 7.06499 7.06322 7.24999 6.9396C7.435 6.81599 7.6525 6.75001 7.87501 6.75001C8.17338 6.75001 8.45952 6.86853 8.6705 7.07951C8.88148 7.29049 9.00001 7.57664 9.00001 7.87501Z" fill="#7C7A85" />
                               </svg>
                             </div>
                             <span>Active Offers</span>
@@ -1080,8 +1080,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                     )}
                                   </div>
                                   <div className="transaction-time">
-                                    {isSpent ? 
-                                      `Spent • Height: ${transaction.spent_at_height}` : 
+                                    {isSpent ?
+                                      `Spent • Height: ${transaction.spent_at_height}` :
                                       `Created • Height: ${transaction.confirmed_at_height}`
                                     }
                                   </div>
@@ -1108,12 +1108,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           </div>
                         )}
 
-                        {allTransactions.length === 0 && sentTransactions.length === 0 && 
-                         !spacescanXchTransactions.loading && !spacescanNftTransactions.loading && !spacescanTokenTransactions.loading && (
-                          <div className="no-transactions">
-                            <p>No transactions yet</p>
-                          </div>
-                        )}
+                        {allTransactions.length === 0 && sentTransactions.length === 0 &&
+                          !spacescanXchTransactions.loading && !spacescanNftTransactions.loading && !spacescanTokenTransactions.loading && (
+                            <div className="no-transactions">
+                              <p>No transactions yet</p>
+                            </div>
+                          )}
                       </div>
                     </div>
                   ) : currentView === 'assets' ? (
@@ -1167,7 +1167,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                 <div className="asset-info">
                                   <h5 className="asset-name">{displayName}</h5>
                                   <p className="asset-collection">{collectionName}</p>
-                                  
+
                                   {/* Edition Info */}
                                   {editionInfo && (
                                     <div className="asset-edition">{editionInfo}</div>
@@ -1210,160 +1210,160 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         )}
                       </div>
                     </div>
-                                     ) : currentView === 'nft-details' && selectedNft ? (
-                     <div className="nft-details-view">
-                       <div className="view-header">
-                         <button className="back-btn" onClick={() => setCurrentView('assets')}>
-                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                             <path d="M19 12H5"></path>
-                             <path d="M12 19l-7-7 7-7"></path>
-                           </svg>
-                         </button>
-                         <h4>NFT Details</h4>
-                         <div></div>
-                       </div>
+                  ) : currentView === 'nft-details' && selectedNft ? (
+                    <div className="nft-details-view">
+                      <div className="view-header">
+                        <button className="back-btn" onClick={() => setCurrentView('assets')}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M19 12H5"></path>
+                            <path d="M12 19l-7-7 7-7"></path>
+                          </svg>
+                        </button>
+                        <h4>NFT Details</h4>
+                        <div></div>
+                      </div>
 
-                       <div className="nft-details-content">
-                         {(() => {
-                           const metadata = getNftMetadata(selectedNft);
-                           const isLoading = false; // Spacescan NFTs are already loaded
-                           const displayName = getNftDisplayName(selectedNft);
-                           // const collectionName = getNftCollectionName(selectedNft);
-                           const editionInfo = getNftEditionInfo(selectedNft);
-                           // const imageUrl = getNftImageUrl(selectedNft);
+                      <div className="nft-details-content">
+                        {(() => {
+                          const metadata = getNftMetadata(selectedNft);
+                          const isLoading = false; // Spacescan NFTs are already loaded
+                          const displayName = getNftDisplayName(selectedNft);
+                          // const collectionName = getNftCollectionName(selectedNft);
+                          const editionInfo = getNftEditionInfo(selectedNft);
+                          // const imageUrl = getNftImageUrl(selectedNft);
 
-                           return (
-                             <>
-                               {/* NFT Image */}
-                               <div className="section-card">
-                                 <div className="nft-image-large">
-                                   {isLoading ? (
-                                     <div className="loading-state">
-                                       <div className="spinner"></div>
-                                     </div>
-                                   ) : metadata?.data_uris && metadata.data_uris.length > 0 ? (
-                                     <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
-                                   ) : metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
-                                     <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
-                                   ) : (
-                                     <div className="nft-placeholder-large">🖼️</div>
-                                   )}
-                                 </div>
-                               </div>
+                          return (
+                            <>
+                              {/* NFT Image */}
+                              <div className="section-card">
+                                <div className="nft-image-large">
+                                  {isLoading ? (
+                                    <div className="loading-state">
+                                      <div className="spinner"></div>
+                                    </div>
+                                  ) : metadata?.data_uris && metadata.data_uris.length > 0 ? (
+                                    <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
+                                  ) : metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
+                                    <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
+                                  ) : (
+                                    <div className="nft-placeholder-large">🖼️</div>
+                                  )}
+                                </div>
+                              </div>
 
-                               {/* Basic Information */}
-                               <div className="section-card">
-                                 <h3>Basic Information</h3>
-                                 <div className="grid grid-2">
-                                   <div className="info-item">
-                                     <label>Name</label>
-                                     <span className="info-value">
-                                       {displayName}
-                                     </span>
-                                   </div>
-                                   <div className="info-item">
-                                     <label>Collection</label>
-                                     <span className="info-value">
-                                       {metadata?.collection?.name || 'Unknown Collection'}
-                                     </span>
-                                   </div>
-                                   {metadata?.description && (
-                                     <div className="info-item">
-                                       <label>Description</label>
-                                       <span className="info-value description">{metadata.description}</span>
-                                     </div>
-                                   )}
-                                   <div className="info-item">
-                                     <label>Edition</label>
-                                     <span className="info-value">
-                                       {editionInfo || 'N/A'}
-                                     </span>
-                                   </div>
-                                   <div className="info-item">
-                                     <label>Launcher ID</label>
-                                     <code className="info-value monospace">
-                                       {(() => {
-                                         if ('nft_id' in selectedNft) {
-                                           const spacescanNft = selectedNft as any;
-                                           return spacescanNft.launcher_id || spacescanNft.nft_id || 'N/A';
-                                         }
-                                         return 'N/A';
-                                       })()}
-                                     </code>
-                                   </div>
-                                   <div className="info-item">
-                                     <label>Edition</label>
-                                     <span className="info-value">
-                                       {editionInfo || 'N/A'}
-                                     </span>
-                                   </div>
-                                 </div>
-                               </div>
+                              {/* Basic Information */}
+                              <div className="section-card">
+                                <h3>Basic Information</h3>
+                                <div className="grid grid-2">
+                                  <div className="info-item">
+                                    <label>Name</label>
+                                    <span className="info-value">
+                                      {displayName}
+                                    </span>
+                                  </div>
+                                  <div className="info-item">
+                                    <label>Collection</label>
+                                    <span className="info-value">
+                                      {metadata?.collection?.name || 'Unknown Collection'}
+                                    </span>
+                                  </div>
+                                  {metadata?.description && (
+                                    <div className="info-item">
+                                      <label>Description</label>
+                                      <span className="info-value description">{metadata.description}</span>
+                                    </div>
+                                  )}
+                                  <div className="info-item">
+                                    <label>Edition</label>
+                                    <span className="info-value">
+                                      {editionInfo || 'N/A'}
+                                    </span>
+                                  </div>
+                                  <div className="info-item">
+                                    <label>Launcher ID</label>
+                                    <code className="info-value monospace">
+                                      {(() => {
+                                        if ('nft_id' in selectedNft) {
+                                          const spacescanNft = selectedNft as any;
+                                          return spacescanNft.launcher_id || spacescanNft.nft_id || 'N/A';
+                                        }
+                                        return 'N/A';
+                                      })()}
+                                    </code>
+                                  </div>
+                                  <div className="info-item">
+                                    <label>Edition</label>
+                                    <span className="info-value">
+                                      {editionInfo || 'N/A'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
 
-                               {/* Metadata Attributes */}
-                               {metadata?.attributes && metadata.attributes.length > 0 && (
-                                 <div className="section-card">
-                                   <h3>Attributes</h3>
-                                   <div className="grid grid-3">
-                                     {metadata.attributes.map((attr: any, index: number) => (
-                                       <div key={index} className="attribute-item">
-                                         <div className="attribute-name">{attr.trait_type || attr.name || `Attribute ${index + 1}`}</div>
-                                         <div className="attribute-value">{attr.value}</div>
-                                         {attr.display_type && (
-                                           <div className="attribute-type">{attr.display_type}</div>
-                                         )}
-                                       </div>
-                                     ))}
-                                   </div>
-                                 </div>
-                               )}
+                              {/* Metadata Attributes */}
+                              {metadata?.attributes && metadata.attributes.length > 0 && (
+                                <div className="section-card">
+                                  <h3>Attributes</h3>
+                                  <div className="grid grid-3">
+                                    {metadata.attributes.map((attr: any, index: number) => (
+                                      <div key={index} className="attribute-item">
+                                        <div className="attribute-name">{attr.trait_type || attr.name || `Attribute ${index + 1}`}</div>
+                                        <div className="attribute-value">{attr.value}</div>
+                                        {attr.display_type && (
+                                          <div className="attribute-type">{attr.display_type}</div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
-                               {/* Collection Information */}
-                               {metadata?.collection && (
-                                 <div className="section-card">
-                                   <h3>Collection Details</h3>
-                                   <div className="grid grid-2">
-                                     <div className="info-item">
-                                       <label>Collection Name</label>
-                                       <span className="info-value">{metadata.collection.name || 'Unknown'}</span>
-                                     </div>
-                                     {metadata.collection.family && (
-                                       <div className="info-item">
-                                         <label>Family</label>
-                                         <span className="info-value">{metadata.collection.family}</span>
-                                       </div>
-                                     )}
-                                     {metadata.collection.description && (
-                                       <div className="info-item">
-                                         <label>Collection Description</label>
-                                         <span className="info-value description">{metadata.collection.description}</span>
-                                       </div>
-                                     )}
-                                   </div>
-                                 </div>
-                               )}
+                              {/* Collection Information */}
+                              {metadata?.collection && (
+                                <div className="section-card">
+                                  <h3>Collection Details</h3>
+                                  <div className="grid grid-2">
+                                    <div className="info-item">
+                                      <label>Collection Name</label>
+                                      <span className="info-value">{metadata.collection.name || 'Unknown'}</span>
+                                    </div>
+                                    {metadata.collection.family && (
+                                      <div className="info-item">
+                                        <label>Family</label>
+                                        <span className="info-value">{metadata.collection.family}</span>
+                                      </div>
+                                    )}
+                                    {metadata.collection.description && (
+                                      <div className="info-item">
+                                        <label>Collection Description</label>
+                                        <span className="info-value description">{metadata.collection.description}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
 
-                               {/* Technical Details */}
-                               <div className="section-card">
-                                 <h3>Technical Information</h3>
-                                 <div className="grid grid-2">
-                                   <div className="info-item">
-                                     <label>Parent Coin Info</label>
-                                     <code className="info-value monospace">{selectedNft.coin.parentCoinInfo}</code>
-                                   </div>
-                                   <div className="info-item">
-                                     <label>Puzzle Hash</label>
-                                     <code className="info-value monospace">{selectedNft.coin.puzzleHash}</code>
-                                   </div>
-                                   <div className="info-item">
-                                     <label>Amount</label>
-                                     <span className="info-value">{selectedNft.coin.amount} mojos</span>
-                                   </div>
-                                   <div className="info-item">
-                                     <label>Created Height</label>
-                                     <span className="info-value">{selectedNft.createdHeight}</span>
-                                   </div>
-                                                                     {metadata?.dataHash && (
+                              {/* Technical Details */}
+                              <div className="section-card">
+                                <h3>Technical Information</h3>
+                                <div className="grid grid-2">
+                                  <div className="info-item">
+                                    <label>Parent Coin Info</label>
+                                    <code className="info-value monospace">{selectedNft.coin.parentCoinInfo}</code>
+                                  </div>
+                                  <div className="info-item">
+                                    <label>Puzzle Hash</label>
+                                    <code className="info-value monospace">{selectedNft.coin.puzzleHash}</code>
+                                  </div>
+                                  <div className="info-item">
+                                    <label>Amount</label>
+                                    <span className="info-value">{selectedNft.coin.amount} mojos</span>
+                                  </div>
+                                  <div className="info-item">
+                                    <label>Created Height</label>
+                                    <span className="info-value">{selectedNft.createdHeight}</span>
+                                  </div>
+                                  {metadata?.dataHash && (
                                     <div className="info-item">
                                       <label>Data Hash</label>
                                       <code className="info-value monospace">{metadata.dataHash}</code>
@@ -1375,29 +1375,29 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                                       <code className="info-value monospace">{metadata.metadataHash}</code>
                                     </div>
                                   )}
-                                 </div>
-                               </div>
+                                </div>
+                              </div>
 
-                               {/* Data URIs */}
-                               {metadata?.data_uris && metadata.data_uris.length > 0 && (
-                                 <div className="section-card">
-                                   <h3>Data URIs</h3>
-                                   <div className="uri-list">
-                                     {metadata.data_uris.map((uri: string, index: number) => (
-                                       <div key={index} className="uri-item">
-                                         <a href={convertIpfsUrl(uri)} target="_blank" rel="noopener noreferrer" className="uri-link">
-                                           {uri.startsWith('ipfs://') ? `IPFS: ${uri.substring(7, 20)}...` : uri}
-                                         </a>
-                                       </div>
-                                     ))}
-                                   </div>
-                                 </div>
-                               )}
-                             </>
-                           );
-                         })()}
-                       </div>
-                     </div>
+                              {/* Data URIs */}
+                              {metadata?.data_uris && metadata.data_uris.length > 0 && (
+                                <div className="section-card">
+                                  <h3>Data URIs</h3>
+                                  <div className="uri-list">
+                                    {metadata.data_uris.map((uri: string, index: number) => (
+                                      <div key={index} className="uri-item">
+                                        <a href={convertIpfsUrl(uri)} target="_blank" rel="noopener noreferrer" className="uri-link">
+                                          {uri.startsWith('ipfs://') ? `IPFS: ${uri.substring(7, 20)}...` : uri}
+                                        </a>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   ) : null}
                 </>
               ) : (
@@ -1408,11 +1408,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   </button>
                 </div>
               )}
-              
+
               {/* Footer Section - Inside Modal Body */}
               {isConnected && footer && footer}
             </div>
-            
+
             {/* Disconnect Section - Bottom */}
             {isConnected && (
               <div className="disconnect-section">
@@ -1420,11 +1420,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   <div className="disconnect-icon-large">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <g clipPath="url(#clip0_1772_59567)">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M4.8002 1.60001C3.91653 1.60001 3.2002 2.31636 3.2002 3.20001V20.8C3.2002 21.6837 3.91655 22.4 4.8002 22.4H16.8002C17.242 22.4 17.6002 22.0418 17.6002 21.6C17.6002 21.1582 17.242 20.8 16.8002 20.8H4.8002V3.20001H16.8002C17.242 3.20001 17.6002 2.84183 17.6002 2.40001C17.6002 1.95818 17.242 1.60001 16.8002 1.60001H4.8002ZM20.166 7.83433C19.8535 7.52189 19.3469 7.52189 19.0344 7.83433C18.7221 8.14674 18.7221 8.65327 19.0344 8.96569L21.2688 11.2H10.4002C9.95837 11.2 9.6002 11.5582 9.6002 12C9.6002 12.4418 9.95837 12.8 10.4002 12.8H21.2688L19.0344 15.0343C18.7221 15.3467 18.7221 15.8533 19.0344 16.1658C19.3469 16.4781 19.8535 16.4781 20.166 16.1658L23.766 12.5657C24.0783 12.2533 24.0783 11.7467 23.766 11.4343L20.166 7.83433Z" fill="#7C7A85"/>
+                        <path fillRule="evenodd" clipRule="evenodd" d="M4.8002 1.60001C3.91653 1.60001 3.2002 2.31636 3.2002 3.20001V20.8C3.2002 21.6837 3.91655 22.4 4.8002 22.4H16.8002C17.242 22.4 17.6002 22.0418 17.6002 21.6C17.6002 21.1582 17.242 20.8 16.8002 20.8H4.8002V3.20001H16.8002C17.242 3.20001 17.6002 2.84183 17.6002 2.40001C17.6002 1.95818 17.242 1.60001 16.8002 1.60001H4.8002ZM20.166 7.83433C19.8535 7.52189 19.3469 7.52189 19.0344 7.83433C18.7221 8.14674 18.7221 8.65327 19.0344 8.96569L21.2688 11.2H10.4002C9.95837 11.2 9.6002 11.5582 9.6002 12C9.6002 12.4418 9.95837 12.8 10.4002 12.8H21.2688L19.0344 15.0343C18.7221 15.3467 18.7221 15.8533 19.0344 16.1658C19.3469 16.4781 19.8535 16.4781 20.166 16.1658L23.766 12.5657C24.0783 12.2533 24.0783 11.7467 23.766 11.4343L20.166 7.83433Z" fill="#7C7A85" />
                       </g>
                       <defs>
                         <clipPath id="clip0_1772_59567">
-                          <rect width="24" height="24" fill="white"/>
+                          <rect width="24" height="24" fill="white" />
                         </clipPath>
                       </defs>
                     </svg>

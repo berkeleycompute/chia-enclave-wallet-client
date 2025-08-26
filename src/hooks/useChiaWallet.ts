@@ -177,7 +177,7 @@ export function useChiaWallet(config: UseChiaWalletConfig = {}): UseChiaWalletRe
       if (autoRefreshIntervalRef.current) {
         clearInterval(autoRefreshIntervalRef.current);
       }
-      
+
       // Setup new interval for auto-refresh
       autoRefreshIntervalRef.current = window.setInterval(() => {
         if (!state.balanceLoading) {
