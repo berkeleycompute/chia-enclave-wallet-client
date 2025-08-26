@@ -2,6 +2,53 @@ import React, { useState, useRef } from 'react';
 import { useChiaNFTMint, type ChiaNFTMintConfig } from '../hooks/useChiaNFTMint';
 import { useUploadFile } from '../hooks/useUploadFile';
 import { useUnifiedWalletClient } from '../hooks/useChiaWalletSDK';
+import { useDIDs } from '../hooks/useDIDs';
+import { bech32m } from 'bech32';
+
+// Utility function to compute SHA256 hash of file content
+const computeFileSHA256 = async (file: File): Promise<string> => {
+  const arrayBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+// Utility function to encode launcher ID as NFT address
+const encodeLauncherIdAsNftAddress = (launcherId: string): string => {
+  try {
+    if (!launcherId || launcherId === 'unknown') {
+      console.warn('Invalid launcher ID provided for NFT address encoding:', launcherId);
+      return '';
+    }
+    
+    // Remove '0x' prefix if present and ensure lowercase
+    const cleanLauncherId = launcherId.replace(/^0x/, '').toLowerCase();
+    
+    // Validate hex string format (should be 64 characters)
+    if (!/^[0-9a-f]{64}$/.test(cleanLauncherId)) {
+      console.error('Invalid launcher ID format - expected 64 hex characters, got:', cleanLauncherId);
+      return '';
+    }
+    
+    // Convert hex string to Uint8Array
+    const bytes = new Uint8Array(cleanLauncherId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+    
+    if (bytes.length !== 32) {
+      console.error('Invalid launcher ID length - expected 32 bytes, got:', bytes.length);
+      return '';
+    }
+    
+    // Use bech32m.toWords to convert to 5-bit words, then encode with 'nft' prefix
+    const words = bech32m.toWords(bytes);
+    const nftAddress = bech32m.encode("nft", words);
+    
+    console.log('✅ Successfully encoded NFT address:', { launcherId: cleanLauncherId, nftAddress });
+    return nftAddress;
+  } catch (error) {
+    console.error('❌ Error encoding launcher ID as NFT address:', error, 'launcher ID:', launcherId);
+    return '';
+  }
+};
 
 /**
  * Example component demonstrating how to use the Chia NFT minting hook
@@ -20,6 +67,7 @@ export function ChiaNFTMintExample() {
     mintError,
     lastMintId,
     lastNFTId,
+    lastTransactionId,
     mintHistory,
     mintNFT,
     validateMintConfig,
@@ -59,7 +107,8 @@ export function ChiaNFTMintExample() {
     metadataHash: '',
     editionNumber: 1,
     editionTotal: 1,
-    royaltyPercentage: 0
+    royaltyPercentage: 0,
+    feeXCH: 0.000001 // Default fee: 0.000001 XCH
   });
   
   const [statusMessage, setStatusMessage] = useState<string>('');
@@ -115,7 +164,8 @@ export function ChiaNFTMintExample() {
       metadataHash: '',
       editionNumber: 1,
       editionTotal: 1,
-      royaltyPercentage: 0
+      royaltyPercentage: 0,
+      feeXCH: 0.000001
     });
     setStatusMessage('');
   };
@@ -309,6 +359,28 @@ export function ChiaNFTMintExample() {
                 />
               </label>
             </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label>
+                Transaction Fee (XCH):
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.000000001"
+                  value={formData.feeXCH || 0.000000001}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    handleInputChange('feeXCH', isNaN(value) ? 0.000000001 : Math.max(0.000000001, value));
+                  }}
+                  style={{ width: '100%', padding: '5px', marginTop: '5px' }}
+                  title="Default fee is 0.000000001 XCH (1000 mojos). Higher fees may result in faster confirmation."
+                />
+              </label>
+              <small style={{ color: '#666', fontSize: '12px' }}>
+                Recommended: 0.000000001 XCH (1000 mojos). Higher fees may result in faster confirmation.
+              </small>
+            </div>
           </div>
         )}
 
@@ -379,8 +451,47 @@ export function ChiaNFTMintExample() {
       {lastNFTId && (
         <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#d1ecf1', borderRadius: '5px' }}>
           <h4>Last Minted NFT</h4>
-          <p><strong>NFT ID:</strong> {lastNFTId}</p>
+          <p><strong>Launcher ID:</strong> {lastNFTId}</p>
+          <p><strong>NFT Address:</strong> {encodeLauncherIdAsNftAddress(lastNFTId)}</p>
+          <p><strong>Transaction ID:</strong> {lastTransactionId || 'N/A'}</p>
           <p><strong>Mint ID:</strong> {lastMintId}</p>
+          <div style={{ marginTop: '8px' }}>
+            {encodeLauncherIdAsNftAddress(lastNFTId) && (
+              <button
+                onClick={() => navigator.clipboard.writeText(encodeLauncherIdAsNftAddress(lastNFTId))}
+                style={{
+                  marginRight: '8px',
+                  padding: '6px 12px',
+                  fontSize: '14px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy NFT address to clipboard"
+              >
+                📋 Copy Address
+              </button>
+            )}
+            {lastTransactionId && (
+              <button
+                onClick={() => navigator.clipboard.writeText(lastTransactionId)}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '14px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy transaction ID to clipboard"
+              >
+                📋 Copy TX ID
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -433,7 +544,7 @@ export function ChiaNFTMintExample() {
 export function SimpleChiaNFTMintExample() {
   const sdk = useUnifiedWalletClient();
   const isConnected = sdk.isConnected;
-  const { mintNFT, isMinting, mintError, lastNFTId } = useChiaNFTMint({
+  const { mintNFT, isMinting, mintError, lastNFTId, lastTransactionId } = useChiaNFTMint({
     sdk: sdk as any,
     enableLogging: true
   });
@@ -452,7 +563,8 @@ export function SimpleChiaNFTMintExample() {
       dataHash: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
       metadataHash: 'fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321',
       editionNumber: 1,
-      editionTotal: 1000
+      editionTotal: 1000,
+      feeXCH: 0.000001 // Default fee
     };
 
     try {
@@ -494,7 +606,49 @@ export function SimpleChiaNFTMintExample() {
 
       {lastNFTId && (
         <div style={{ marginTop: '10px', color: 'green' }}>
-          Success! NFT ID: {lastNFTId}
+          <div>Success! Launcher ID: {lastNFTId}</div>
+          <div style={{ fontSize: '14px', marginTop: '4px' }}>
+            NFT Address: {encodeLauncherIdAsNftAddress(lastNFTId)}
+            {encodeLauncherIdAsNftAddress(lastNFTId) && (
+              <button
+                onClick={() => navigator.clipboard.writeText(encodeLauncherIdAsNftAddress(lastNFTId))}
+                style={{
+                  marginLeft: '8px',
+                  padding: '2px 6px',
+                  fontSize: '12px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+                title="Copy NFT address to clipboard"
+              >
+                📋
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize: '14px', marginTop: '4px' }}>
+            Transaction ID: {lastTransactionId || 'N/A'}
+            {lastTransactionId && (
+              <button
+                onClick={() => navigator.clipboard.writeText(lastTransactionId)}
+                style={{
+                  marginLeft: '8px',
+                  padding: '2px 6px',
+                  fontSize: '12px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+                title="Copy transaction ID to clipboard"
+              >
+                📋
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -510,14 +664,25 @@ export function StreamlinedChiaNFTMintForm() {
   const isConnected = sdk.isConnected;
   const address = sdk.address;
   
+  // DID management hook
+  const { 
+    dids, 
+    isLoading: didsLoading, 
+    error: didsError,
+    refresh: refreshDIDs 
+  } = useDIDs({ 
+    autoLoad: true,
+    enableLogging: true 
+  });
+  
   // NFT Minting hook
   const {
     isMinting,
     isConfirming,
     mintError,
     lastNFTId,
+    lastTransactionId,
     mintNFT,
-    validateMintConfig,
     reset: resetMint
   } = useChiaNFTMint({
     sdk: sdk as any,
@@ -531,7 +696,6 @@ export function StreamlinedChiaNFTMintForm() {
   const {
     isUploading,
     uploadError,
-    lastUploadResult,
     uploadFile,
     reset: resetUpload,
     validateFile
@@ -560,7 +724,9 @@ export function StreamlinedChiaNFTMintForm() {
     metadataUrl: '',
     metadataHash: '',
     useFile: true, // Toggle between file upload and URL
-    attributes: {} as Record<string, string>
+    attributes: {} as Record<string, string>,
+    selectedDidId: '' as string, // Selected DID ID for minting
+    feeXCH: 0.000001 as number // Default fee amount in XCH
   });
 
   const [isDragOver, setIsDragOver] = useState(false);
@@ -570,7 +736,7 @@ export function StreamlinedChiaNFTMintForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle form field changes
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = (field: string, value: string | boolean | number) => {
     setFormState(prev => ({ ...prev, [field]: value }));
   };
 
@@ -598,6 +764,11 @@ export function StreamlinedChiaNFTMintForm() {
     reader.readAsDataURL(file);
 
     try {
+      setUploadStatus('Computing SHA256 hash...');
+      
+      // Compute SHA256 hash of the file content
+      const sha256Hash = await computeFileSHA256(file);
+      
       setUploadStatus('Uploading image...');
       
       // Upload the image file
@@ -607,9 +778,9 @@ export function StreamlinedChiaNFTMintForm() {
         setFormState(prev => ({
           ...prev,
           imageUrl: uploadResult.url || '',
-          imageHash: uploadResult.hash || ''
+          imageHash: sha256Hash // Use computed SHA256 hash instead of IPFS hash
         }));
-        setUploadStatus(`Image uploaded successfully! Hash: ${uploadResult.hash?.substring(0, 8)}...`);
+        setUploadStatus(`Image uploaded successfully! SHA256: ${sha256Hash.substring(0, 8)}...`);
       } else {
         throw new Error(uploadResult.error || 'Upload failed');
       }
@@ -679,6 +850,9 @@ export function StreamlinedChiaNFTMintForm() {
       type: 'application/json'
     });
 
+    // Compute SHA256 hash of metadata file content
+    const metadataHash = await computeFileSHA256(metadataFile);
+    
     // Upload metadata file
     const uploadResult = await uploadFile(metadataFile);
     
@@ -688,7 +862,7 @@ export function StreamlinedChiaNFTMintForm() {
 
     return {
       url: uploadResult.url || '',
-      hash: uploadResult.hash || ''
+      hash: metadataHash // Use computed SHA256 hash instead of IPFS hash
     };
   };
 
@@ -754,13 +928,19 @@ export function StreamlinedChiaNFTMintForm() {
         metadataHash: metadataResult.hash,
         editionNumber: 1,
         editionTotal: 1,
-        attributes: formState.attributes
+        attributes: formState.attributes,
+        didId: formState.selectedDidId || null, // Include selected DID if available
+        feeXCH: formState.feeXCH // Include fee amount
       };
 
       setUploadStatus('Minting NFT...');
+      console.log('🚀 Starting NFT mint with config:', mintConfig);
+      
       const result = await mintNFT(mintConfig);
+      console.log('📝 Mint result:', result);
       
       if (result.success) {
+        console.log('✅ NFT minted successfully!', result);
         // Reset form on success
         setFormState({
           name: '',
@@ -771,10 +951,15 @@ export function StreamlinedChiaNFTMintForm() {
           metadataUrl: '',
           metadataHash: '',
           useFile: true,
-          attributes: {}
+          attributes: {},
+          selectedDidId: '',
+          feeXCH: 0.000001
         });
         setPreviewUrl('');
         setUploadStatus('NFT minted successfully!');
+      } else {
+        console.error('❌ NFT minting failed:', result.error);
+        throw new Error(result.error || 'NFT minting failed');
       }
     } catch (error) {
       console.error('Mint error:', error);
@@ -795,7 +980,9 @@ export function StreamlinedChiaNFTMintForm() {
       metadataUrl: '',
       metadataHash: '',
       useFile: true,
-      attributes: {}
+      attributes: {},
+      selectedDidId: '',
+      feeXCH: 0.000001
     });
     setPreviewUrl('');
     setUploadStatus('');
@@ -917,6 +1104,181 @@ export function StreamlinedChiaNFTMintForm() {
             onFocus={(e) => e.target.style.borderColor = '#2196f3'}
             onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
           />
+        </div>
+
+        {/* DID Selection */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '8px', 
+            fontWeight: '500',
+            color: '#333'
+          }}>
+            DID Selection (Optional)
+          </label>
+          
+          {didsLoading ? (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#f0f8ff',
+              border: '1px solid #bee5eb',
+              borderRadius: '8px',
+              color: '#0c5460'
+            }}>
+              <span>🔄 Loading DIDs...</span>
+            </div>
+          ) : didsError ? (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#f8d7da',
+              border: '1px solid #f5c6cb',
+              borderRadius: '8px',
+              color: '#721c24'
+            }}>
+              <span>❌ Error loading DIDs: {didsError}</span>
+              <button
+                type="button"
+                onClick={refreshDIDs}
+                style={{
+                  marginLeft: '10px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : dids.length === 0 ? (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffeaa7',
+              borderRadius: '8px',
+              color: '#856404'
+            }}>
+              <div style={{ marginBottom: '8px' }}>
+                <strong>💡 No DIDs found</strong>
+              </div>
+              <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+                You don't have any DIDs in your wallet. DIDs allow you to have verified ownership of your NFTs.
+              </div>
+              <button
+                type="button"
+                onClick={refreshDIDs}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '14px',
+                  backgroundColor: '#ffc107',
+                  color: '#212529',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔄 Refresh DIDs
+              </button>
+            </div>
+          ) : (
+            <>
+              <select
+                value={formState.selectedDidId}
+                onChange={(e) => handleInputChange('selectedDidId', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  backgroundColor: 'white',
+                  transition: 'border-color 0.3s',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+                onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+              >
+                <option value="">🔓 No DID (Regular NFT)</option>
+                {dids.map((did, index) => (
+                  <option key={did.did_id} value={did.did_id}>
+                    🆔 DID #{index + 1} ({did.did_id.substring(0, 16)}...{did.did_id.substring(did.did_id.length - 4)})
+                    {did.metadata && ` - ${did.metadata.substring(0, 30)}${did.metadata.length > 30 ? '...' : ''}`}
+                  </option>
+                ))}
+              </select>
+              
+              {formState.selectedDidId && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: '#e8f5e8',
+                  border: '1px solid #c3e6c3',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}>
+                  <strong>✅ DID-Owned NFT:</strong> This NFT will be owned by your selected DID, providing verified ownership on the blockchain.
+                </div>
+              )}
+              
+              <div style={{
+                marginTop: '8px',
+                fontSize: '12px',
+                color: '#666',
+                lineHeight: '1.4'
+              }}>
+                <strong>💡 About DIDs:</strong> Decentralized Identifiers provide cryptographic proof of ownership. 
+                NFTs minted with a DID are permanently associated with that identity on the blockchain.
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Transaction Fee */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '8px', 
+            fontWeight: '500',
+            color: '#333'
+          }}>
+            Transaction Fee (XCH)
+          </label>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.000000001"
+            value={formState.feeXCH}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              handleInputChange('feeXCH', isNaN(value) ? 0.000000001 : Math.max(0.000000001, value));
+            }}
+            style={{
+              width: '100%',
+              padding: '12px',
+              border: '2px solid #e0e0e0',
+              borderRadius: '8px',
+              fontSize: '16px',
+              transition: 'border-color 0.3s',
+              boxSizing: 'border-box'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+            title="Fee amount in XCH. Higher fees may result in faster confirmation."
+          />
+          <div style={{
+            marginTop: '6px',
+            fontSize: '12px',
+            color: '#666',
+            lineHeight: '1.4'
+          }}>
+            💰 <strong>Fee:</strong> {(formState.feeXCH * 1_000_000_000_000).toLocaleString()} mojos
+            <br />
+            💡 <strong>Recommended:</strong> 0.000001 XCH (default). Higher fees may result in faster confirmation.
+          </div>
         </div>
 
         {/* Image Upload/URL Toggle */}
@@ -1233,11 +1595,59 @@ export function StreamlinedChiaNFTMintForm() {
         }}>
           <strong>🎉 Success!</strong>
           <br />
-          <span style={{ fontSize: '14px' }}>NFT ID: {lastNFTId}</span>
+          <span style={{ fontSize: '14px' }}>
+            <strong>Launcher ID:</strong> {lastNFTId}
+          </span>
+          <br />
+          <span style={{ fontSize: '14px' }}>
+            <strong>NFT Address:</strong> {encodeLauncherIdAsNftAddress(lastNFTId)}
+          </span>
+          <br />
+          <span style={{ fontSize: '14px' }}>
+            <strong>Transaction ID:</strong> {lastTransactionId || 'N/A'}
+          </span>
           <br />
           <span style={{ fontSize: '12px', color: '#666' }}>
             Your NFT has been minted successfully!
           </span>
+          <br />
+          <div style={{ marginTop: '8px' }}>
+            {encodeLauncherIdAsNftAddress(lastNFTId) && (
+              <button
+                onClick={() => navigator.clipboard.writeText(encodeLauncherIdAsNftAddress(lastNFTId))}
+                style={{
+                  marginRight: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  backgroundColor: '#2e7d32',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy NFT address to clipboard"
+              >
+                📋 Copy Address
+              </button>
+            )}
+            {lastTransactionId && (
+              <button
+                onClick={() => navigator.clipboard.writeText(lastTransactionId)}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  backgroundColor: '#1976d2',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Copy transaction ID to clipboard"
+              >
+                📋 Copy TX ID
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1257,6 +1667,8 @@ export function StreamlinedChiaNFTMintForm() {
           <li>Metadata is automatically created and uploaded to IPFS</li>
           <li>Add custom attributes to make your NFT unique</li>
           <li>Write detailed descriptions to attract collectors</li>
+          <li>Select a DID for verified ownership (optional but recommended)</li>
+          <li>Set an appropriate transaction fee (higher fees = faster confirmation)</li>
           <li>Make sure your wallet has enough XCH for minting fees</li>
         </ul>
       </div>

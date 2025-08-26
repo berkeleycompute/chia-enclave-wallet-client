@@ -61,9 +61,17 @@ type CoinInput = Coin | RawCoin | CoinSnakeCase | any;
  * Handles both API response format (snake_case) and client format (camelCase)
  */
 export function normalizeCoin(coin: CoinInput): Coin {
+  const parentCoinInfo = coin.parentCoinInfo || coin.parent_coin_info;
+  const puzzleHash = coin.puzzleHash || coin.puzzle_hash;
+
+  if (!parentCoinInfo || !puzzleHash) {
+    console.error('Incomplete coin data:', coin);
+    throw new Error(`Coin missing required fields: parent_coin_info=${!!parentCoinInfo}, puzzle_hash=${!!puzzleHash}`);
+  }
+
   return {
-    parentCoinInfo: coin.parentCoinInfo || coin.parent_coin_info,
-    puzzleHash: coin.puzzleHash || coin.puzzle_hash,
+    parentCoinInfo,
+    puzzleHash,
     amount: coin.amount
   };
 }
@@ -108,10 +116,29 @@ export function convertCoinSpendToSnakeCase(coinSpend: CoinSpend): CoinSpendSnak
 }
 
 /**
+ * Utility function to check if a coin is properly formatted in snake_case
+ */
+function isValidCoinSnakeCase(coin: any): boolean {
+  return coin &&
+         typeof coin.parent_coin_info === 'string' &&
+         typeof coin.puzzle_hash === 'string' &&
+         typeof coin.amount === 'number' &&
+         coin.parent_coin_info.length > 0 &&
+         coin.puzzle_hash.length > 0;
+}
+
+/**
  * Utility function to convert array of CoinSpends to snake_case format
  */
-export function convertCoinSpendsToSnakeCase(coinSpends: CoinSpend[]): CoinSpendSnakeCase[] {
-  return coinSpends.map(convertCoinSpendToSnakeCase);
+export function convertCoinSpendsToSnakeCase(coinSpends: CoinSpend[] | CoinSpendSnakeCase[]): CoinSpendSnakeCase[] {
+  return coinSpends.map(coinSpend => {
+    // If already in snake_case format and properly formatted, return as-is
+    if ('puzzle_reveal' in coinSpend && isValidCoinSnakeCase(coinSpend.coin)) {
+      return coinSpend as CoinSpendSnakeCase;
+    }
+    // Otherwise convert from CoinSpend format (this will validate the coin)
+    return convertCoinSpendToSnakeCase(coinSpend as CoinSpend);
+  });
 }
 
 /**
@@ -132,10 +159,157 @@ export function convertApiCoinSpendsToSnakeCase(apiCoinSpends: ApiCoinSpend[]): 
   return apiCoinSpends.map(convertApiCoinSpendToSnakeCase);
 }
 
+/**
+ * Utility function to convert Buffer to hex string without 0x prefix
+ */
+export function bufferToHexWithoutPrefix(buffer: ArrayBuffer | Uint8Array | any): string {
+  let hexString: string;
+
+  if (typeof buffer?.toString === 'function') {
+    hexString = buffer.toString('hex');
+  } else if (buffer instanceof Uint8Array) {
+    // Fallback for browser environments or if toString is not available
+    hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0')).join('');
+  } else {
+    throw new Error('Invalid buffer type');
+  }
+
+  // Always remove 0x prefix if present
+  return hexString.startsWith('0x') ? hexString.slice(2) : hexString;
+}
+
+/**
+ * Utility function to convert Buffer to hex string WITH 0x prefix (for response format)
+ */
+export function bufferToHexWithPrefix(buffer: ArrayBuffer | Uint8Array | any): string {
+  const hexWithoutPrefix = bufferToHexWithoutPrefix(buffer);
+  return `0x${hexWithoutPrefix}`;
+}
+
+/**
+ * Utility function to convert CoinBuffer to CoinSnakeCase format
+ */
+export function convertCoinBufferToSnakeCase(coin: CoinBuffer): CoinSnakeCase {
+  return {
+    parent_coin_info: bufferToHexWithoutPrefix(coin.parentCoinInfo),
+    puzzle_hash: bufferToHexWithoutPrefix(coin.puzzleHash),
+    amount: typeof coin.amount === 'string' ? parseInt(coin.amount) : coin.amount
+  };
+}
+
+/**
+ * Utility function to convert CoinSpendBuffer to snake_case format
+ */
+export function convertCoinSpendBufferToSnakeCase(coinSpend: CoinSpendBuffer): CoinSpendSnakeCase {
+  return {
+    coin: convertCoinBufferToSnakeCase(coinSpend.coin),
+    puzzle_reveal: bufferToHexWithoutPrefix(coinSpend.puzzle_reveal),
+    solution: bufferToHexWithoutPrefix(coinSpend.solution)
+  };
+}
+
+/**
+ * Utility function to convert array of CoinSpendBuffers to snake_case format
+ */
+export function convertCoinSpendBuffersToSnakeCase(coinSpends: CoinSpendBuffer[]): CoinSpendSnakeCase[] {
+  return coinSpends.map(convertCoinSpendBufferToSnakeCase);
+}
+
+/**
+ * Utility function to convert hex string to Buffer/Uint8Array
+ */
+export function hexStringToBuffer(hexString: string): Uint8Array {
+  // Remove 0x prefix if present
+  const cleanHex = hexString.startsWith('0x') ? hexString.slice(2) : hexString;
+  // Convert hex string to Uint8Array
+  const bytes = new Uint8Array(cleanHex.length / 2);
+  for (let i = 0; i < cleanHex.length; i += 2) {
+    bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Utility function to convert CoinSpend (string format) to CoinSpendBuffer format
+ */
+export function convertCoinSpendToBuffer(coinSpend: CoinSpend): CoinSpendBuffer {
+  return {
+    coin: {
+      parentCoinInfo: hexStringToBuffer(coinSpend.coin.parentCoinInfo),
+      puzzleHash: hexStringToBuffer(coinSpend.coin.puzzleHash),
+      amount: parseInt(coinSpend.coin.amount)
+    },
+    puzzle_reveal: hexStringToBuffer(coinSpend.puzzle_reveal),
+    solution: hexStringToBuffer(coinSpend.solution)
+  };
+}
+
+/**
+ * Utility function to convert array of CoinSpends to CoinSpendBuffer format
+ */
+export function convertCoinSpendsToBuffer(coinSpends: CoinSpend[]): CoinSpendBuffer[] {
+  return coinSpends.map(convertCoinSpendToBuffer);
+}
+
+/**
+ * Utility function to remove hex prefix from string
+ */
+function removeHexPrefix(hexString: string): string {
+  if (!hexString) return hexString;
+  return hexString.startsWith('0x') ? hexString.slice(2) : hexString;
+}
+
+/**
+ * Utility function to convert coin from camelCase to snake_case format WITHOUT 0x prefix
+ * Used specifically for signSpendBundle which requires hex without 0x prefix
+ */
+export function convertCoinToSnakeCaseWithoutPrefix(coin: CoinInput): CoinSnakeCase {
+  const normalizedCoin = normalizeCoin(coin);
+  return {
+    parent_coin_info: removeHexPrefix(normalizedCoin.parentCoinInfo),
+    puzzle_hash: removeHexPrefix(normalizedCoin.puzzleHash),
+    amount: typeof normalizedCoin.amount === 'string' ? parseInt(normalizedCoin.amount) : normalizedCoin.amount
+  };
+}
+
+/**
+ * Utility function to convert CoinSpend to snake_case format WITHOUT 0x prefix
+ * Used specifically for signSpendBundle which requires hex without 0x prefix
+ */
+export function convertCoinSpendToSnakeCaseWithoutPrefix(coinSpend: CoinSpend): CoinSpendSnakeCase {
+  return {
+    coin: convertCoinToSnakeCaseWithoutPrefix(coinSpend.coin),
+    puzzle_reveal: removeHexPrefix(coinSpend.puzzle_reveal),
+    solution: removeHexPrefix(coinSpend.solution)
+  };
+}
+
+/**
+ * Utility function to convert array of CoinSpends to snake_case format WITHOUT 0x prefix
+ * Used specifically for signSpendBundle which requires hex without 0x prefix
+ */
+export function convertCoinSpendsToSnakeCaseWithoutPrefix(coinSpends: CoinSpend[]): CoinSpendSnakeCase[] {
+  return coinSpends.map(convertCoinSpendToSnakeCaseWithoutPrefix);
+}
+
 export interface CoinSpend {
   coin: Coin;
   puzzle_reveal: string;
   solution: string;
+}
+
+// Interface for CoinSpend that accepts Buffers
+export interface CoinSpendBuffer {
+  coin: CoinBuffer;
+  puzzle_reveal: ArrayBuffer | Uint8Array | any;
+  solution: ArrayBuffer | Uint8Array | any;
+}
+
+// Interface for Coin that accepts Buffers
+export interface CoinBuffer {
+  parentCoinInfo: ArrayBuffer | Uint8Array | any;
+  puzzleHash: ArrayBuffer | Uint8Array | any;
+  amount: number;
 }
 
 // Interface for CoinSpend as returned by decode-offer API (snake_case format)
@@ -152,8 +326,7 @@ export interface Payment {
 
 // Updated interfaces to match API specification
 export interface SignSpendBundleRequest {
-  spend_bundle_hex?: string;
-  coin_spends?: CoinSpend[];
+  coin_spends: CoinSpend[] | CoinSpendBuffer[];
 }
 
 export interface SendXCHRequest {
@@ -192,9 +365,15 @@ export interface MnemonicResponse {
 export interface SignedSpendBundleResponse {
   success: boolean;
   signed_spend_bundle: {
-    coin_spends: CoinSpend[];
+    coin_spends: CoinSpendSnakeCase[];
     aggregated_signature: string;
   };
+}
+
+// Interface for the actual response from sign-spendbundle API
+export interface SignSpendBundleApiResponse {
+  success: boolean;
+  aggregated_signature: string;
 }
 
 export interface SendXCHResponse {
@@ -495,7 +674,7 @@ export interface NFTMint {
 export interface MintCoinInput {
   parent_coin_info: string;
   puzzle_hash: string;
-  amount: string;
+  amount: number;
 }
 
 export interface MintNFTRequest {
@@ -524,6 +703,8 @@ export interface MintNFTResponse {
     coin_spends: CoinSpend[];
     aggregated_signature: string;
   };
+  last_spendable_coin_id?: string;
+  launcher_id?: string;
   transaction_id?: string;
   message?: string;
   error?: string;
@@ -1046,28 +1227,95 @@ export class ChiaCloudWalletClient {
    */
   async signSpendBundle(request: SignSpendBundleRequest): Promise<Result<SignedSpendBundleResponse>> {
     try {
-      if (!request.spend_bundle_hex && (!request.coin_spends || request.coin_spends.length === 0)) {
-        throw new ChiaCloudWalletApiError('Either spend_bundle_hex or coin_spends are required for signing');
+      if (!request.coin_spends || request.coin_spends.length === 0) {
+        throw new ChiaCloudWalletApiError('coin_spends are required for signing');
       }
 
-      // Normalize coin spends if provided
-      let normalizedRequest = request;
-      if (request.coin_spends && request.coin_spends.length > 0) {
-        normalizedRequest = {
-          ...request,
-          coin_spends: request.coin_spends.map(coinSpend => ({
-            ...coinSpend,
-            coin: normalizeCoin(coinSpend.coin)
-          }))
-        };
+      // Debug log incoming coin spends
+      this.logInfo('signSpendBundle - Input validation:', {
+        coinSpendsCount: request.coin_spends.length,
+        firstCoin: request.coin_spends[0]?.coin,
+        coinsValidation: request.coin_spends.map((cs, i) => ({
+          index: i,
+          coin: cs.coin,
+          hasParentInfo: !!(cs.coin as any)?.parent_coin_info || !!(cs.coin as any)?.parentCoinInfo,
+          hasPuzzleHash: !!(cs.coin as any)?.puzzle_hash || !!(cs.coin as any)?.puzzleHash,
+          coinKeys: Object.keys(cs.coin || {})
+        }))
+      });
+
+      // Check if coin_spends are CoinSpendBuffer objects (have Buffer properties)
+      const isBufferFormat = request.coin_spends.length > 0 &&
+        'puzzle_reveal' in request.coin_spends[0] &&
+        (((request.coin_spends[0] as any).puzzle_reveal instanceof Uint8Array) ||
+          ((request.coin_spends[0] as any).puzzle_reveal instanceof ArrayBuffer) ||
+          (typeof (request.coin_spends[0] as any).puzzle_reveal?.toString === 'function' &&
+            typeof (request.coin_spends[0] as any).puzzle_reveal !== 'string'));
+
+      // Convert coin spends to snake_case format for signing service
+      let convertedCoinSpends: CoinSpendSnakeCase[];
+
+      if (isBufferFormat) {
+        // Convert from Buffer format to snake_case without 0x prefix
+        convertedCoinSpends = convertCoinSpendBuffersToSnakeCase(request.coin_spends as CoinSpendBuffer[]);
+      } else {
+        // Convert from regular string format to snake_case WITHOUT 0x prefix
+        // IMPORTANT: signSpendBundle specifically requires hex WITHOUT 0x prefix
+        convertedCoinSpends = convertCoinSpendsToSnakeCaseWithoutPrefix(request.coin_spends as CoinSpend[]);
       }
+
+      const normalizedRequest = {
+        coin_spends: convertedCoinSpends
+      };
 
       const endpoint = this.getEndpoint('/wallet/transaction/sign', '/api/enclave/sign-spendbundle');
-      const result = await this.makeRequest<SignedSpendBundleResponse>(endpoint, {
+      const apiResponse = await this.makeRequest<SignSpendBundleApiResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
       });
-      return { success: true, data: result };
+
+      // Construct the full SignedSpendBundleResponse by combining server response with original coin_spends
+      let coinSpends: CoinSpendSnakeCase[];
+
+      if (isBufferFormat) {
+        // If original was Buffer format, convert back to camelCase string format for response
+        // Response format: camelCase with 0x prefix (standard client format)
+        coinSpends = (request.coin_spends as CoinSpendBuffer[]).map(bufferSpend => ({
+          coin: {
+            parent_coin_info: bufferToHexWithPrefix(bufferSpend.coin.parentCoinInfo),
+            puzzle_hash: bufferToHexWithPrefix(bufferSpend.coin.puzzleHash),
+            amount: bufferSpend.coin.amount
+          },
+          puzzle_reveal: bufferToHexWithPrefix(bufferSpend.puzzle_reveal),
+          solution: bufferToHexWithPrefix(bufferSpend.solution)
+        }));
+      } else {
+        // If original was string format, ensure it has 0x prefix for response
+        // Use normalizeCoin to handle both camelCase and snake_case input formats
+        coinSpends = (request.coin_spends as CoinSpend[]).map(coinSpend => {
+          const normalizedCoin = normalizeCoin(coinSpend.coin as any);
+          return {
+            coin: {
+              parent_coin_info: ensureHexPrefix(normalizedCoin.parentCoinInfo),
+              puzzle_hash: ensureHexPrefix(normalizedCoin.puzzleHash),
+              amount: typeof normalizedCoin.amount === 'string' ? parseInt(normalizedCoin.amount) : normalizedCoin.amount
+            },
+            puzzle_reveal: ensureHexPrefix(coinSpend.puzzle_reveal),
+            solution: ensureHexPrefix(coinSpend.solution)
+          };
+        });
+      }
+
+      const signedSpendBundleResponse: SignedSpendBundleResponse = {
+        success: apiResponse.success,
+        signed_spend_bundle: {
+          coin_spends: coinSpends,
+          // Ensure aggregated_signature has 0x prefix for response format
+          aggregated_signature: ensureHexPrefix(apiResponse.aggregated_signature)
+        }
+      };
+
+      return { success: true, data: signedSpendBundleResponse };
     } catch (error) {
       return {
         success: false,
@@ -1134,7 +1382,7 @@ export class ChiaCloudWalletClient {
         // Check if this is a DID coin
         if (driverInfo?.type === 'DID') {
           const didInfo: DIDInfo = {
-            did_id: hydratedCoin.coinId, // Use coinId as did_id for now
+            did_id: driverInfo.info?.launcherId || hydratedCoin.coinId, // Use launcher ID (DID ID) instead of coin ID
             coin: hydratedCoin.coin,
             coinId: hydratedCoin.coinId,
             createdHeight: hydratedCoin.createdHeight,
@@ -1556,7 +1804,92 @@ export class ChiaCloudWalletClient {
   }
 
   /**
-   * Mint an NFT with error handling
+   * Create an unsigned NFT mint spend bundle
+   * @param request - The mint NFT request containing metadata and coin selection
+   */
+  async createUnsignedNFTMint(request: MintNFTRequest): Promise<Result<{
+    coin_spends: CoinSpend[];
+    unsigned_spend_bundle?: any; // For compatibility with different response formats
+    launcher_id?: string; // NFT launcher ID for tracking and display
+  }>> {
+    try {
+      // Validation is the same as mintNFT...
+      if (!request.selected_coins || request.selected_coins.length === 0) {
+        throw new ChiaCloudWalletApiError('Selected coins are required');
+      }
+
+      if (!request.mints || request.mints.length === 0) {
+        throw new ChiaCloudWalletApiError('At least one mint is required');
+      }
+
+      this.logInfo('Creating unsigned NFT mint spend bundle', {
+        mintsCount: request.mints.length,
+        selectedCoinsCount: request.selected_coins.length,
+        fee: request.fee || 'default'
+      });
+
+      // This endpoint creates unsigned spend bundle for NFT minting
+      const endpoint = 'https://edge.silicon-dev.net/chia/make_unsigned_nft_mint/mint-nft';
+      console.log('🔧 Creating unsigned mint at endpoint:', endpoint);
+
+      const result = await this.makeRequest<any>(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, false);
+
+      console.log('🔧 Unsigned mint result:', result);
+
+      if (!result.success) {
+        throw new ChiaCloudWalletApiError('Failed to create unsigned NFT mint');
+      }
+
+      // Extract launcher_id from the response - it should be available from the unsigned mint response
+      let launcherId: string | undefined;
+
+      // Try to find launcher_id in various possible locations in the response
+      if (result.launcher_id) {
+        launcherId = result.launcher_id;
+      } else if (result.data && result.data.launcher_id) {
+        launcherId = result.data.launcher_id;
+      } else if (result.unsigned_spend_bundle && result.unsigned_spend_bundle.launcher_id) {
+        launcherId = result.unsigned_spend_bundle.launcher_id;
+      }
+
+      console.log('🔧 Extracted launcher_id from unsigned mint response:', launcherId);
+
+      // Handle Rust endpoint response format
+      if (result.unsigned_spend_bundle) {
+        return {
+          success: true,
+          data: {
+            coin_spends: result.unsigned_spend_bundle.coin_spends,
+            unsigned_spend_bundle: result.unsigned_spend_bundle,
+            launcher_id: launcherId
+          }
+        };
+      } else if (result.coin_spends) {
+        // Direct coin_spends format
+        return {
+          success: true,
+          data: {
+            ...result,
+            launcher_id: launcherId
+          }
+        };
+      } else {
+        throw new Error('Unexpected response format: missing coin_spends');
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create unsigned NFT mint',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Mint an NFT with error handling - handles both mnemonic and synthetic public key flows
    * @param request - The mint NFT request containing metadata and coin selection
    */
   async mintNFT(request: MintNFTRequest): Promise<Result<MintNFTResponse>> {
@@ -1587,14 +1920,6 @@ export class ChiaCloudWalletClient {
         const wordCount = request.mnemonic_words.trim().split(/\s+/).length;
         if (wordCount !== 12 && wordCount !== 24) {
           throw new ChiaCloudWalletApiError('Mnemonic must be 12 or 24 words');
-        }
-      }
-
-      // Validate last_spendable_coin_id if provided
-      if (request.last_spendable_coin_id) {
-        const cleanCoinId = request.last_spendable_coin_id.replace(/^0x/, '');
-        if (!/^[0-9a-fA-F]{64}$/.test(cleanCoinId)) {
-          throw new ChiaCloudWalletApiError('Invalid last_spendable_coin_id format: must be a 64-character hex string');
         }
       }
 
@@ -1689,27 +2014,144 @@ export class ChiaCloudWalletClient {
         hasMnemonic: !!request.mnemonic_words,
         mintsCount: request.mints.length,
         selectedCoinsCount: request.selected_coins.length,
-        fee: request.fee || 'default',
-        lastSpendableCoinId: request.last_spendable_coin_id ? request.last_spendable_coin_id.substring(0, 10) + '...' : 'not specified'
+        fee: request.fee || 'default'
       });
 
-      const endpoint = 'https://edge.silicon-dev.net/chia/offers_encoder_decoder/encode-offer';
-      const result = await this.makeRequest<MintNFTResponse>(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }, false);
+      // If using mnemonic words, use the direct mint endpoint
+      if (request.mnemonic_words) {
+        console.log('🔑 Using mnemonic flow for NFT minting');
+        const endpoint = 'https://edge.silicon-dev.net/chia/make_unsigned_nft_mint/mint-nft';
+        const result = await this.makeRequest<MintNFTResponse>(endpoint, {
+          method: 'POST',
+          body: JSON.stringify(request),
+        }, false);
 
-      this.logInfo('NFT minted successfully', {
-        success: result.success,
-        transactionId: result.transaction_id,
-        message: result.message
-      });
+        return { success: true, data: result };
+      }
 
-      return { success: true, data: result };
+      // If using synthetic public key, create unsigned spend bundle, sign it, and broadcast
+      console.log('🖋️ Using synthetic public key flow for NFT minting');
+      return await this.mintNFTWithSyntheticKey(request);
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to mint NFT',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Sign and broadcast an NFT mint spend bundle (for advanced users)
+   * @param spendBundleHex - The unsigned spend bundle hex
+   * @param coinSpends - The coin spends array
+   * @returns Promise with transaction result
+   */
+  async signAndBroadcastNFTMint(
+    spendBundleHex: string,
+    coinSpends: CoinSpend[]
+  ): Promise<Result<BroadcastResponse>> {
+    try {
+      this.logInfo('Signing and broadcasting NFT mint spend bundle');
+
+      // Step 1: Sign the spend bundle
+      const signResult = await this.signSpendBundle({
+        coin_spends: coinSpends
+      });
+
+      if (!signResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to sign spend bundle: ${signResult.error}`);
+      }
+
+      // Step 2: Broadcast the signed spend bundle
+      const broadcastResult = await this.broadcastSignedSpendBundle(signResult.data);
+      if (!broadcastResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to broadcast signed mint: ${broadcastResult.error}`);
+      }
+
+      return broadcastResult;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to sign and broadcast NFT mint',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Mint NFT using synthetic public key (3-step process: create unsigned, sign, broadcast)
+   * @param request - The mint NFT request with synthetic_public_key
+   */
+  private async mintNFTWithSyntheticKey(request: MintNFTRequest): Promise<Result<MintNFTResponse>> {
+    try {
+      if (!request.synthetic_public_key) {
+        throw new ChiaCloudWalletApiError('Synthetic public key is required for this flow');
+      }
+
+      this.logInfo('Minting NFT with synthetic key - Step 1: Creating unsigned spend bundle');
+
+      // Step 1: Create unsigned spend bundle
+      const unsignedResult = await this.createUnsignedNFTMint(request);
+      if (!unsignedResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to create unsigned mint: ${unsignedResult.error}`);
+      }
+
+      this.logInfo('Minting NFT with synthetic key - Step 2&3: Signing and broadcasting spend bundle');
+
+      // Debug log the unsigned coin spends before signing
+      this.logInfo('Unsigned coin spends before signing:', {
+        coinSpendsCount: unsignedResult.data.coin_spends?.length || 0,
+        firstCoin: unsignedResult.data.coin_spends?.[0]?.coin,
+        allCoinsDebug: unsignedResult.data.coin_spends?.map(cs => ({
+          coin: cs.coin,
+          hasParentInfo: !!(cs.coin as any)?.parent_coin_info || !!(cs.coin as any)?.parentCoinInfo,
+          hasPuzzleHash: !!(cs.coin as any)?.puzzle_hash || !!(cs.coin as any)?.puzzleHash
+        }))
+      });
+
+      // Step 2&3: Sign and broadcast the spend bundle using coin_spends
+      const signResult = await this.signSpendBundle({
+        coin_spends: unsignedResult.data.coin_spends
+      });
+
+      if (!signResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to sign spend bundle: ${signResult.error}`);
+      }
+
+      // Broadcast the spend bundle (ensure coin_spends are properly converted to snake_case)
+      const broadcastResult = await this.broadcastSpendBundle({
+        coin_spends: convertCoinSpendsToSnakeCase(signResult.data.signed_spend_bundle.coin_spends),
+        aggregated_signature: signResult.data.signed_spend_bundle.aggregated_signature
+      });
+
+      if (!broadcastResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to sign and broadcast mint: ${broadcastResult.error}`);
+      }
+
+      // Extract launcher_id from the first coin spend (NFT launcher coin)
+      const launcherId = unsignedResult.data.launcher_id;
+
+      this.logInfo('NFT minted successfully with synthetic key', {
+        transactionId: broadcastResult.data.transaction_id,
+        launcherId: launcherId,
+        status: broadcastResult.data.status
+      });
+
+      // Return result in MintNFTResponse format
+      return {
+        success: true,
+        data: {
+          success: true,
+          launcher_id: launcherId,
+          transaction_id: broadcastResult.data.transaction_id,
+          message: `NFT minted successfully. Launcher ID: ${launcherId}, Transaction ID: ${broadcastResult.data.transaction_id}`
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mint NFT with synthetic key',
         details: error
       };
     }
@@ -1728,13 +2170,25 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Signature is required for broadcasting');
       }
 
-      // The coin_spends are already in snake_case format, but we need to ensure coins are properly normalized
-      const normalizedCoinSpends = request.coin_spends.map(coinSpend => {
-        return {
-          ...coinSpend,
-          coin: convertCoinToSnakeCase(coinSpend.coin)
-        };
+      // Ensure all coin_spends are in proper snake_case format
+      const normalizedCoinSpends = convertCoinSpendsToSnakeCase(request.coin_spends);
+
+      // Debug log the data being sent to API
+      this.logInfo('Broadcasting spend bundle with coin spends:', {
+        coinSpendsCount: normalizedCoinSpends.length,
+        firstCoin: normalizedCoinSpends[0]?.coin,
+        signatureLength: request.aggregated_signature?.length || 0
       });
+
+      // Validate that all coins have required fields before sending
+      for (let i = 0; i < normalizedCoinSpends.length; i++) {
+        const coinSpend = normalizedCoinSpends[i];
+        if (!coinSpend.coin?.parent_coin_info || !coinSpend.coin?.puzzle_hash) {
+          throw new ChiaCloudWalletApiError(
+            `Invalid coin at index ${i}: missing parent_coin_info or puzzle_hash. Got: ${JSON.stringify(coinSpend.coin)}`
+          );
+        }
+      }
 
       const processedSignature = ensureHexPrefix(request.aggregated_signature);
 
