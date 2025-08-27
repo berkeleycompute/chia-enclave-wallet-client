@@ -346,6 +346,11 @@ export interface HealthCheckResponse {
   timestamp: string;
 }
 
+export interface VersionResponse {
+  version: string;
+  timestamp?: string;
+}
+
 export interface PublicKeyResponse {
   success: boolean;
   address: string;
@@ -786,13 +791,13 @@ export class ChiaCloudWalletClient {
     console.log('Environment:', this.environment);
     switch (this.environment) {
       case 'development':
-        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1';
+        return 'https://dev.edge.silicon-dev.net';
       case 'production':
-        return 'https://aedugkfqljpfirjylfvq.supabase.co/functions/v1';
+        return 'https://edge.silicon-dev.net';
       case 'test':
-        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1'; // Original endpoints for test
+        return 'https://dev.edge.silicon-dev.net'; // Use development URL for test environment
       default:
-        return 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1'; // Default to test
+        return 'https://dev.edge.silicon-dev.net'; // Default to development
     }
   }
 
@@ -860,12 +865,7 @@ export class ChiaCloudWalletClient {
     this.logInfo(`Environment updated to: ${environment}, Base URL: ${this.baseUrl}`);
   }
 
-  /**
-   * Get the correct endpoint path based on environment
-   */
-  private getEndpoint(testPath: string, prodPath: string): string {
-    return this.environment === 'test' ? testPath : prodPath;
-  }
+ 
 
   /**
    * Convert API format CoinSpend to internal format
@@ -1163,7 +1163,7 @@ export class ChiaCloudWalletClient {
    */
   async healthCheck(): Promise<Result<HealthCheckResponse>> {
     try {
-      const endpoint = this.getEndpoint('/health', '/api/health');
+      const endpoint = '/chia/enclave_proxy/api/enclave/health';
       const result = await this.makeRequest<HealthCheckResponse>(endpoint, {
         method: 'GET',
       }, false);
@@ -1178,6 +1178,25 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Get version information with error handling
+   */
+  async getVersion(): Promise<Result<VersionResponse>> {
+    try {
+      const endpoint = '/version';
+      const result = await this.makeRequest<VersionResponse>(endpoint, {
+        method: 'GET',
+      }, false);
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get version',
+        details: error
+      };
+    }
+  }
+
+  /**
    * Get public key from JWT token with error handling
    */
   async getPublicKey(): Promise<Result<PublicKeyResponse>> {
@@ -1186,7 +1205,7 @@ export class ChiaCloudWalletClient {
     const stack = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
 
     try {
-      const endpoint = 'https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1/api/enclave/public-key';
+      const endpoint = '/chia/enclave_proxy/api/enclave/public-key';
       const result = await this.makeRequest<PublicKeyResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
@@ -1207,7 +1226,7 @@ export class ChiaCloudWalletClient {
    */
   async exportMnemonic(): Promise<Result<MnemonicResponse>> {
     try {
-      const endpoint = this.getEndpoint('/mnemonic', '/api/enclave/export-mnemonic');
+      const endpoint = '/chia/enclave_proxy/api/enclave/export-mnemonic';
       const result = await this.makeRequest<MnemonicResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
@@ -1268,7 +1287,7 @@ export class ChiaCloudWalletClient {
         coin_spends: convertedCoinSpends
       };
 
-      const endpoint = this.getEndpoint('/wallet/transaction/sign', '/api/enclave/sign-spendbundle');
+      const endpoint = '/chia/enclave_proxy/api/enclave/sign-spendbundle';
       const apiResponse = await this.makeRequest<SignSpendBundleApiResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
@@ -1343,7 +1362,7 @@ export class ChiaCloudWalletClient {
         selected_coins: normalizeCoins(request.selected_coins)
       };
 
-      const endpoint = this.getEndpoint('/wallet/transaction/send-xch', '/api/wallet/send-xch');
+      const endpoint = '/chia/enclave_proxy/api/enclave/create-signed-send-xch-spendbundle';
       const result = await this.makeRequest<SendXCHResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
@@ -1427,8 +1446,8 @@ export class ChiaCloudWalletClient {
    */
   async getUnspentHydratedCoins(address: string): Promise<Result<UnspentHydratedCoinsResponse>> {
     try {
-      // const endpoint = this.getEndpoint(`/wallet/unspent-hydrated-coins/${address}`, `/api/wallet/hydrated-coins/${address}`); 
-      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`https://edge.silicon-dev.net/chia/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
+   
+      const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/chia/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
         method: 'GET',
       }, false);
 
@@ -1470,7 +1489,7 @@ export class ChiaCloudWalletClient {
         offerPrefix: request.offer.substring(0, 20) + '...'
       });
 
-      const endpoint = this.getEndpoint('/wallet/transaction/sign-offer', '/api/enclave/sign-offer');
+      const endpoint = '/chia/enclave_proxy/api/enclave/sign-offer';
       const result = await this.makeRequest<SignOfferResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(request),
@@ -1520,8 +1539,8 @@ export class ChiaCloudWalletClient {
         nftCoinId: normalizedNFTData.coinId?.substring(0, 10) + '...',
         hasNftCoinId: !!normalizedNFTData.coinId
       });
-      //  const endpoint = this.getEndpoint('/wallet/offer/make-unsigned-nft', '/api/wallet/make-unsigned-nft-offer');
-      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('https://edge.silicon-dev.net/chia/make_any_offer/make-offer', {
+  
+      const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('/chia/make_any_offer/make-offer', {
 
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
@@ -1713,7 +1732,7 @@ export class ChiaCloudWalletClient {
         ...request,
       };
 
-      const result = await this.makeRequest<TakeOfferResponse>('https://edge.silicon-dev.net/chia/take_unsigned_offer/take-offer', {
+      const result = await this.makeRequest<TakeOfferResponse>('/chia/take_unsigned_offer/take-offer', {
         method: 'POST',
         body: JSON.stringify(apiRequest),
       });
@@ -1785,7 +1804,7 @@ export class ChiaCloudWalletClient {
       const formData = new FormData();
       formData.append('file', file);
 
-      const endpoint = 'https://edge.silicon-dev.net/chia/make_unsigned_nft_mint/upload-file';
+      const endpoint = '/chia/make_unsigned_nft_mint/upload-file';
       const result = await this.makeFileUploadRequest<UploadFileResponse>(endpoint, formData, false);
 
       this.logInfo('File uploaded successfully', {
@@ -1829,7 +1848,7 @@ export class ChiaCloudWalletClient {
       });
 
       // This endpoint creates unsigned spend bundle for NFT minting
-      const endpoint = 'https://edge.silicon-dev.net/chia/make_unsigned_nft_mint/mint-nft';
+      const endpoint = '/chia/make_unsigned_nft_mint/mint-nft';
       console.log('🔧 Creating unsigned mint at endpoint:', endpoint);
 
       const result = await this.makeRequest<any>(endpoint, {
@@ -2020,7 +2039,7 @@ export class ChiaCloudWalletClient {
       // If using mnemonic words, use the direct mint endpoint
       if (request.mnemonic_words) {
         console.log('🔑 Using mnemonic flow for NFT minting');
-        const endpoint = 'https://edge.silicon-dev.net/chia/make_unsigned_nft_mint/mint-nft';
+        const endpoint = '/chia/make_unsigned_nft_mint/mint-nft';
         const result = await this.makeRequest<MintNFTResponse>(endpoint, {
           method: 'POST',
           body: JSON.stringify(request),
@@ -2190,14 +2209,12 @@ export class ChiaCloudWalletClient {
         }
       }
 
-      const processedSignature = ensureHexPrefix(request.aggregated_signature);
-
-      const endpoint = 'https://edge.silicon-dev.net/chia/chia_public_api/broadcast';
+      const endpoint = '/chia/chia_public_api/broadcast';
       const result = await this.makeRequest<BroadcastResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           coin_spends: normalizedCoinSpends,
-          aggregated_signature: processedSignature
+          aggregated_signature: request.aggregated_signature
         }),
       });
       return { success: true, data: result };
@@ -2229,7 +2246,7 @@ export class ChiaCloudWalletClient {
         offerPrefix: request.offer_string.substring(0, 20) + '...'
       });
 
-      const result = await this.makeRequest<DecodeOfferResponse>('https://edge.silicon-dev.net/chia/offers_encoder_decoder/decode-offer', {
+      const result = await this.makeRequest<DecodeOfferResponse>('/chia/offers_encoder_decoder/decode-offer', {
         method: 'POST',
         body: JSON.stringify(request),
       }, false);
