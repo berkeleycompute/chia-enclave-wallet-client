@@ -40,6 +40,7 @@ export { useChiaTransactions } from './hooks/useChiaTransactions';
 export { useHydratedCoins } from './hooks/useHydratedCoins';
 export { useMintNFT, useNFTMintMetadata } from './hooks/useMintNFT';
 export { useChiaNFTMint, useChiaNFTMetadata, encodeLauncherIdAsNftAddress } from './hooks/useChiaNFTMint';
+export { useTwinNFTMint } from './hooks/useTwinNFTMint';
 export { useUploadFile } from './hooks/useUploadFile';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export {
@@ -85,6 +86,7 @@ export {
   SimpleChiaNFTMintExample,
   StreamlinedChiaNFTMintForm
 } from './examples/ChiaNFTMintExample';
+export { TwinNFTMintExample } from './examples/TwinNFTMintExample';
 
 // Export dialog hooks from GlobalDialogProvider
 export {
@@ -134,7 +136,15 @@ export type {
   CoinBuffer,
   
   // Signing response types
-  SignSpendBundleApiResponse
+  SignSpendBundleApiResponse,
+
+  // Twin NFT types
+  TwinNFTMintRequest,
+  TwinNFTMintResponse,
+  TwinNFTChiaMetadata,
+  TwinNFTInchainMetadata,
+  TwinNFTSignedSpendBundle,
+  TwinNFTEVMNFT
 } from './client/ChiaCloudWalletClient';
 // Export SDK class and types
 export { ChiaWalletSDK } from './client/ChiaWalletSDK';
@@ -169,6 +179,13 @@ export type {
   UseChiaNFTMintConfig,
   UseChiaNFTMintResult
 } from './hooks/useChiaNFTMint';
+
+// Export Twin NFT mint hook types
+export type {
+  TwinNFTMintRecord,
+  UseTwinNFTMintConfig,
+  UseTwinNFTMintResult
+} from './hooks/useTwinNFTMint';
 
 // Export Chia NFT mint service types
 export type {
