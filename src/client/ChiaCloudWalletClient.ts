@@ -715,6 +715,96 @@ export interface MintNFTResponse {
   error?: string;
 }
 
+// Twin NFT minting interfaces
+export interface TwinNFTChiaMetadata {
+  format: string;
+  minting_tool: string;
+  name: string;
+  description: string;
+  sensitive_content: boolean;
+  collection: {
+    name: string;
+    id: string;
+    attributes: Array<{
+      type: string;
+      value: string;
+    }>;
+  };
+  attributes: Array<{
+    trait_type: string;
+    value: string | number | null;
+  }>;
+  series_number: number;
+  series_total: number;
+  custom_metadata_version: string;
+}
+
+export interface TwinNFTInchainMetadata {
+  edition_number: number;
+  edition_total: number;
+  data_uris: string[];
+  data_hash: string;
+  metadata_uris: string[];
+  metadata_hash: string;
+}
+
+export interface TwinNFTSignedSpendBundle {
+  coin_spends: Array<{
+    coin: {
+      parent_coin_info: string;
+      puzzle_hash: string;
+      amount: string;
+    };
+    puzzle_reveal: string;
+    solution: string;
+  }>;
+  aggregated_signature: string;
+}
+
+export interface TwinNFTEVMNFT {
+  metadata: {
+    id: string;
+    uri: string;
+    name: string;
+    description: string;
+    image: string;
+    attributes: Array<{
+      trait_type: string;
+      value: string | number;
+    }>;
+  };
+  owner: string;
+  type: string;
+  supply: string;
+  token_id: string;
+}
+
+export interface TwinNFTMintRequest {
+  recipientAddress?: string;
+  fee?: number;
+  metadata?: Record<string, any>;
+  [key: string]: any;
+}
+
+export interface TwinNFTMintResponse {
+  success: boolean;
+  data: {
+    launcher_id: string;
+    nft_id: string;
+    chiaMetadata: TwinNFTChiaMetadata;
+    inchainMetadata: TwinNFTInchainMetadata;
+    signed_spend_bundle: TwinNFTSignedSpendBundle;
+    signed_spend_bundle_hex: string;
+    evm_nft: TwinNFTEVMNFT;
+    is_new_twin: boolean;
+    fee_paid: number;
+    coins_used: any[];
+    recipient_address: string;
+  };
+  message: string;
+  timestamp: string;
+}
+
 export class ChiaCloudWalletApiError extends Error {
   constructor(
     message: string,
@@ -2703,6 +2793,47 @@ export class ChiaCloudWalletClient {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to calculate coin IDs',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Mint a Twin NFT using the Silicon Network API
+   * @param request - The Twin NFT mint request
+   * @returns Promise with Twin NFT mint result
+   */
+  async mintTwinNFT(request: TwinNFTMintRequest): Promise<Result<TwinNFTMintResponse>> {
+    try {
+      this.logInfo('Minting Twin NFT', {
+        recipientAddress: request.recipientAddress,
+        fee: request.fee,
+        hasMetadata: !!request.metadata
+      });
+
+      const endpoint = '/chia/twin_nft_minter/api/v1/twin-nft/mint';
+      const result = await this.makeRequest<TwinNFTMintResponse>(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, true); // Explicitly require JWT authentication
+
+      if (!result.success) {
+        throw new ChiaCloudWalletApiError(result.message || 'Twin NFT mint failed');
+      }
+
+      this.logInfo('Twin NFT minted successfully', {
+        nftId: result.data.nft_id,
+        launcherId: result.data.launcher_id,
+        feePaid: result.data.fee_paid,
+        isNewTwin: result.data.is_new_twin
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      this.logError('Failed to mint Twin NFT', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mint Twin NFT',
         details: error
       };
     }
