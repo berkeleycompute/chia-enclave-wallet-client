@@ -805,6 +805,97 @@ export interface TwinNFTMintResponse {
   timestamp: string;
 }
 
+// Offer History Interfaces
+export interface OfferCollection {
+  blocked: boolean;
+  discord: string | null;
+  id: string;
+  name: string;
+  suspicious: boolean;
+  twitter: string;
+  verifications: {
+    mintgarden?: {
+      name: string;
+    };
+  };
+  website: string;
+}
+
+export interface OfferNFTData {
+  creator: {
+    id: string;
+    is_did: boolean;
+  };
+  data_hash: string;
+  data_uris: string[];
+  height: number;
+  metadata_hash: string;
+  metadata_uris: string[];
+  royalty: number;
+}
+
+export interface OfferNFTPreview {
+  medium: string;
+  tiny: string;
+}
+
+export interface OfferAsset {
+  collection: OfferCollection;
+  id: string;
+  is_nft: boolean;
+  name: string;
+  nft_data: OfferNFTData;
+  preview: OfferNFTPreview;
+}
+
+export interface OfferRequestedAsset {
+  amount: number;
+  code: string;
+  id: string;
+  name: string;
+}
+
+export interface OfferMempool {
+  cost: number;
+  fees: number;
+  id: string;
+}
+
+export interface OfferHistoryItem {
+  asset: string;
+  block_expiry: number | null;
+  code: string;
+  date_completed: string | null;
+  date_created: string;
+  date_expiry: string | null;
+  date_found: string;
+  date_pending: string | null;
+  date_taken: string | null;
+  fees: number;
+  involved_coins: string[];
+  known_taker: string | null;
+  mempool: OfferMempool | null;
+  mod_version: number;
+  nftid: string;
+  offer_id: string;
+  offer_maker: string;
+  offer_taker: string;
+  offered: OfferAsset[];
+  price: number;
+  related_offers: any[];
+  requested: OfferRequestedAsset[];
+  spent_block_index: number | null;
+  status: number;
+  trade_id: string;
+}
+
+export interface GetOfferHistoryResponse {
+  success: boolean;
+  address: string;
+  offer_count: number;
+  offers: OfferHistoryItem[];
+}
+
 export class ChiaCloudWalletApiError extends Error {
   constructor(
     message: string,
@@ -2849,6 +2940,50 @@ export class ChiaCloudWalletClient {
     const id = coinId.replace(/^0x/, '');
     // Must be exactly 64 hex characters (32 bytes)
     return /^[0-9a-fA-F]{64}$/.test(id);
+  }
+
+  /**
+   * Get offer history for a specific address
+   * @param address - The wallet address to get offer history for
+   */
+  async getOfferHistory(address: string): Promise<Result<GetOfferHistoryResponse>> {
+    try {
+      if (!address) {
+        return {
+          success: false,
+          error: 'Address is required'
+        };
+      }
+
+      // Use the NFT offers API endpoint
+      const endpoint = `/chia/nft-offers/offers/${address}`;
+      
+      this.logInfo('Fetching offer history', { 
+        address: address.substring(0, 16) + '...' 
+      });
+
+      const result = await this.makeRequest<GetOfferHistoryResponse>(
+        endpoint, 
+        {
+          method: 'GET',
+        }, 
+        false // No auth required for this endpoint
+      );
+
+      this.logInfo('Offer history retrieved', {
+        address: address.substring(0, 16) + '...',
+        count: result.offer_count || 0
+      });
+
+      return { success: true, data: result };
+    } catch (error) {
+      this.logError('Failed to get offer history', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get offer history',
+        details: error
+      };
+    }
   }
 }
 

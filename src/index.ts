@@ -42,6 +42,7 @@ export { useMintNFT, useNFTMintMetadata } from './hooks/useMintNFT';
 export { useChiaNFTMint, useChiaNFTMetadata, encodeLauncherIdAsNftAddress } from './hooks/useChiaNFTMint';
 export { useTwinNFTMint } from './hooks/useTwinNFTMint';
 export { useUploadFile } from './hooks/useUploadFile';
+export { useOfferHistory, useActiveOffers, useCompletedOffers, OFFER_STATUS } from './hooks/useOfferHistory';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export {
   // Core wallet hooks
@@ -87,6 +88,7 @@ export {
   StreamlinedChiaNFTMintForm
 } from './examples/ChiaNFTMintExample';
 export { TwinNFTMintExample } from './examples/TwinNFTMintExample';
+export { OfferHistoryExample, SimpleOfferHistoryExample } from './examples/OfferHistoryExample';
 
 // Export dialog hooks from GlobalDialogProvider
 export {
@@ -144,7 +146,17 @@ export type {
   TwinNFTChiaMetadata,
   TwinNFTInchainMetadata,
   TwinNFTSignedSpendBundle,
-  TwinNFTEVMNFT
+  TwinNFTEVMNFT,
+
+  // Offer History types
+  GetOfferHistoryResponse,
+  OfferHistoryItem,
+  OfferCollection,
+  OfferNFTData,
+  OfferNFTPreview,
+  OfferAsset,
+  OfferRequestedAsset,
+  OfferMempool
 } from './client/ChiaCloudWalletClient';
 // Export SDK class and types
 export { ChiaWalletSDK } from './client/ChiaWalletSDK';
@@ -209,6 +221,13 @@ export type {
   UseDIDsResult
 } from './hooks/useDIDs';
 export type { DIDInfo } from './client/ChiaCloudWalletClient';
+
+// Export Offer History hook types
+export type {
+  UseOfferHistoryConfig,
+  UseOfferHistoryResult,
+  OfferStatus
+} from './hooks/useOfferHistory';
 
 
 export { NFTMintDebugger } from './examples/NFTMintDebugger';
