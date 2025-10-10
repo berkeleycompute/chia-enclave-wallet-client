@@ -489,7 +489,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
             <h2>🔗 Unified Wallet</h2>
             <button
               onClick={onClose}
-              className="close-button"
+              className="header-btn"
               aria-label="Close modal"
             >
               ✕
@@ -564,21 +564,7 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
           color: var(--color-text, #ffffff);
         }
 
-        .close-button {
-          background: none;
-          border: none;
-          font-size: 24px;
-          color: var(--color-text-secondary, #9ca3af);
-          cursor: pointer;
-          padding: 8px;
-          border-radius: 4px;
-          transition: all 0.2s ease;
-        }
-
-        .close-button:hover {
-          background: var(--color-surface, #2a2b35);
-          color: var(--color-text, #ffffff);
-        }
+        /* Using shared .header-btn styles injected globally */
 
         .tab-navigation {
           display: flex;

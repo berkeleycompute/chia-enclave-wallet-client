@@ -8,11 +8,14 @@ export interface ErrorResult {
   success: false;
   error: string;
   details?: unknown;
+  data?: undefined;
 }
 
 export interface SuccessResult<T> {
   success: true;
   data: T;
+  error?: undefined;
+  details?: undefined;
 }
 
 export type Result<T> = SuccessResult<T> | ErrorResult;
@@ -447,6 +450,19 @@ export interface UnspentCoinsResponse {
 }
 
 // New interfaces for hydrated coins
+export interface NFTOnChainMetadata {
+  dataHash?: string;
+  dataUris?: string[];
+  editionNumber?: string;
+  editionTotal?: string;
+  licenseHash?: string;
+  licenseUris?: string[];
+  metadataHash?: string;
+  metadataUris?: string[];
+  // For DID or legacy cases where metadata is a string, we preserve the raw value
+  raw?: string;
+}
+
 export interface DriverInfo {
   assetId?: string;
   type?: 'CAT' | 'NFT' | 'DID';
@@ -455,16 +471,8 @@ export interface DriverInfo {
     // NFT-specific info
     currentOwner?: string | null;
     launcherId?: string;
-    metadata?: {
-      dataHash?: string;
-      dataUris?: string[];
-      editionNumber?: string;
-      editionTotal?: string;
-      licenseHash?: string;
-      licenseUris?: string[];
-      metadataHash?: string;
-      metadataUris?: string[];
-    } | string; // DID metadata is a string, NFT metadata is an object
+    // Always expose metadata as an object shape for consumer predictability
+    metadata?: NFTOnChainMetadata;
     metadataUpdaterPuzzleHash?: string;
     p2PuzzleHash?: string;
     royaltyPuzzleHash?: string;
@@ -1140,6 +1148,17 @@ export class ChiaCloudWalletClient {
         }
       };
 
+      // Normalize metadata shape: if metadata is a string, wrap into { raw: string }
+      try {
+        const driverInfo = normalizedCoin.parentSpendInfo?.driverInfo;
+        if (driverInfo && typeof driverInfo.info?.metadata === 'string') {
+          normalizedCoin.parentSpendInfo.driverInfo.info = {
+            ...driverInfo.info,
+            metadata: { raw: driverInfo.info.metadata }
+          };
+        }
+      } catch {/* best-effort normalization */}
+
       // Calculate coinId if not already present
       if (!normalizedCoin.coinId) {
         try {
@@ -1218,11 +1237,11 @@ export class ChiaCloudWalletClient {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const result = await response.json();
-        this.logInfo(`Request successful for ${endpoint}`);
+        this.logInfo(`Request successful for ${endpoint} with result: ${JSON.stringify(result)}`);
         return result;
       } else {
         const result = await response.text() as T;
-        this.logInfo(`Request successful for ${endpoint}`);
+        this.logInfo(`Request successful for ${endpoint} with result: ${JSON.stringify(result)}`);
         return result;
       }
     } catch (error) {

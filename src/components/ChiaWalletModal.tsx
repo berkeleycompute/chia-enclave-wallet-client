@@ -26,6 +26,8 @@ import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
 import { ActiveOffersModal } from './ActiveOffersModal';
 import { NFTDetailsModal } from './NFTDetailsModal';
+import { TransactionsModal } from './TransactionsModal';
+import { ViewAssetsModal } from './ViewAssetsModal';
 import { sharedModalStyles } from './modal-styles';
 // Import the new dialog hooks
 import {
@@ -33,9 +35,12 @@ import {
   useMakeOfferDialog,
   useReceiveFundsDialog,
   useActiveOffersDialog,
-  useNFTDetailsDialog
+  useNFTDetailsDialog,
+  useTransactionsDialog,
+  useViewAssetsDialog
 } from '../hooks/useDialogs';
 import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { PiX } from 'react-icons/pi';
 
 export interface ChiaWalletModalProps {
   isOpen: boolean;
@@ -93,6 +98,15 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     isLoading: coinsLoading,
     error: coinsError
   } = useWalletCoins();
+
+  // Dialogs
+  const sendFundsDialog = useSendFundsDialog();
+  const receiveFundsDialog = useReceiveFundsDialog();
+  const makeOfferDialog = useMakeOfferDialog();
+  const activeOffersDialog = useActiveOffersDialog();
+  const nftDetailsDialog = useNFTDetailsDialog();
+  const transactionsDialog = useTransactionsDialog();
+  const viewAssetsDialog = useViewAssetsDialog();
 
   // Use Spacescan for NFTs and balance
   const {
@@ -238,16 +252,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   // const { sendXCH, isSending } = useSendTransaction();
 
-  // Replace manual modal states with dialog hooks
-  const sendFundsDialog = useSendFundsDialog();
-  const makeOfferDialog = useMakeOfferDialog();
-  const receiveFundsDialog = useReceiveFundsDialog();
-  const activeOffersDialog = useActiveOffersDialog();
-  const nftDetailsDialog = useNFTDetailsDialog();
+  // Replace manual modal states with dialog hooks (migrated above)
 
   // Local UI state
-  const [currentView, setCurrentView] = useState<'main' | 'transactions' | 'assets' | 'nft-details'>('main');
-  const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
+  const [currentView, setCurrentView] = useState<'main' | 'transactions'>('main');
   const [sentTransactions, setSentTransactions] = useState<SentTransaction[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
 
@@ -765,19 +773,17 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const closeModal = () => {
     onClose();
     setCurrentView('main');
-    setSelectedNft(null);
     // Close all dialogs using hooks
     sendFundsDialog.close();
     receiveFundsDialog.close();
     makeOfferDialog.close();
     activeOffersDialog.close();
     nftDetailsDialog.close();
+    transactionsDialog.close();
+    viewAssetsDialog.close();
   };
 
-  const openNftDetails = (nftCoin: HydratedCoin) => {
-    setSelectedNft(nftCoin);
-    setCurrentView('nft-details');
-  };
+  // Inline NFT details view removed; using dedicated NFTDetailsModal instead
 
   /*
   const getConnectionStatus = (): string => {
@@ -798,6 +804,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <SendFundsModal
         isOpen={sendFundsDialog.isOpen}
         onClose={sendFundsDialog.close}
+        onCloseWallet={closeModal}
         onTransactionSent={handleTransactionSent}
       />
 
@@ -805,12 +812,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <ReceiveFundsModal
         isOpen={receiveFundsDialog.isOpen}
         onClose={receiveFundsDialog.close}
+        onCloseWallet={closeModal}
       />
 
       {/* Make Offer Modal */}
       <MakeOfferModal
         isOpen={makeOfferDialog.isOpen}
         onClose={makeOfferDialog.close}
+        onCloseWallet={closeModal}
         // onOfferCreated={(offerData) => {
         //   console.log('Offer created:', offerData);
         //   saveOffer(offerData);
@@ -822,6 +831,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <ActiveOffersModal
         isOpen={activeOffersDialog.isOpen}
         onClose={activeOffersDialog.close}
+        onCloseWallet={closeModal}
         onOfferUpdate={() => {
           // Refresh offers when status changes
           console.log('Offers updated');
@@ -832,7 +842,31 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       <NFTDetailsModal
         isOpen={nftDetailsDialog.isOpen}
         onClose={nftDetailsDialog.close}
+        onCloseWallet={closeModal}
         nft={nftDetailsDialog.selectedNft}
+      />
+
+      {/* Transactions Modal */}
+      <TransactionsModal
+        isOpen={transactionsDialog.isOpen}
+        onClose={transactionsDialog.close}
+        onCloseWallet={closeModal}
+      />
+
+      {/* View Assets Modal */}
+      <ViewAssetsModal
+        isOpen={viewAssetsDialog.isOpen}
+        onClose={viewAssetsDialog.close}
+        onCloseWallet={closeModal}
+        onNFTSelected={(nft) => {
+          try {
+            // If received NFT is legacy type, open NFT details dialog
+            // This cast aligns with our NFTDetailsModal expectations
+            nftDetailsDialog.open((nft as unknown) as HydratedCoin);
+          } catch (e) {
+            console.warn('Unable to open NFT details from ViewAssetsModal selection');
+          }
+        }}
       />
 
       {/* Main Modal */}
@@ -879,7 +913,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   </div>
                 </div>
               </div>
-              <button className="close-btn-absolute" onClick={closeModal} aria-label="Close modal">
+              <button className="header-btn close-btn-absolute" onClick={closeModal} aria-label="Close modal">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path fillRule="evenodd" clipRule="evenodd" d="M18.8504 6.45054C19.2097 6.09126 19.2097 5.50874 18.8504 5.14946C18.4912 4.79018 17.9086 4.79018 17.5494 5.14946L11.9999 10.6989L6.45043 5.14946C6.09113 4.79018 5.50862 4.79018 5.14934 5.14946C4.79006 5.50874 4.79006 6.09126 5.14934 6.45054L10.6988 12L5.14934 17.5495C4.79006 17.9088 4.79006 18.4912 5.14934 18.8506C5.50862 19.2098 6.09113 19.2098 6.45043 18.8506L11.9999 13.3011L17.5494 18.8506C17.9086 19.2098 18.4912 19.2098 18.8504 18.8506C19.2097 18.4912 19.2097 17.9088 18.8504 17.5495L13.301 12L18.8504 6.45054Z" fill="#7C7A85" />
                 </svg>
@@ -944,7 +978,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
                       {/* Menu Options */}
                       <div className="menu-options">
-                        <button className="menu-item" onClick={() => setCurrentView('transactions')}>
+                        <button className="menu-item" onClick={() => transactionsDialog.open()}>
                           <div className="menu-icon-large">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path fillRule="evenodd" clipRule="evenodd" d="M4.0002 6.39999C3.55837 6.39999 3.2002 6.75817 3.2002 7.19999C3.2002 7.64182 3.55837 7.99999 4.0002 7.99999H20.0002C20.442 7.99999 20.8002 7.64182 20.8002 7.19999C20.8002 6.75817 20.442 6.39999 20.0002 6.39999H4.0002ZM3.2002 12C3.2002 11.5582 3.55837 11.2 4.0002 11.2H20.0002C20.442 11.2 20.8002 11.5582 20.8002 12C20.8002 12.4418 20.442 12.8 20.0002 12.8H4.0002C3.55837 12.8 3.2002 12.4418 3.2002 12ZM3.2002 16.8C3.2002 16.3582 3.55837 16 4.0002 16H20.0002C20.442 16 20.8002 16.3582 20.8002 16.8C20.8002 17.2418 20.442 17.6 20.0002 17.6H4.0002C3.55837 17.6 3.2002 17.2418 3.2002 16.8Z" fill="#7C7A85" />
@@ -953,7 +987,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           <span>Transactions</span>
                         </button>
 
-                        <button className="menu-item" onClick={() => setCurrentView('assets')}>
+                        <button className="menu-item" onClick={() => viewAssetsDialog.open()}>
                           <div className="menu-icon-large">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1003,401 +1037,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
 
                     </>
-                  ) : currentView === 'transactions' ? (
-                    <div className="transactions-view">
-                      <div className="view-header">
-                        <button className="back-btn" onClick={() => setCurrentView('main')}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M19 12H5"></path>
-                            <path d="M12 19l-7-7 7-7"></path>
-                          </svg>
-                        </button>
-                        <h4>Transactions ({coinCount + sentTransactions.length})</h4>
-                        <button className="refresh-btn" onClick={() => refreshBalance()}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M1 4v6h6"></path>
-                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="transactions-list">
-                        {/* Outgoing Transactions */}
-                        {sentTransactions.map(transaction => (
-                          <div key={transaction.id} className="transaction-item outgoing">
-                            <div className="transaction-icon">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="7" y1="17" x2="17" y2="7"></line>
-                                <polyline points="7,7 17,7 17,17"></polyline>
-                              </svg>
-                            </div>
-                            <div className="transaction-info">
-                              <div className="transaction-amount">-{(transaction.amount / 1000000000000).toFixed(6)} XCH</div>
-                              <div className="transaction-details">
-                                <div className="transaction-address">To: {formatAddress(transaction.recipient)}</div>
-                                <div className="transaction-fee">Fee: {(transaction.fee / 1000000000000).toFixed(6)} XCH</div>
-                                {transaction.transactionId && (
-                                  <div
-                                    className="transaction-id"
-                                    onClick={() => copyToClipboard(transaction.transactionId!)}
-                                    title="Click to copy transaction ID"
-                                  >
-                                    ID: {transaction.transactionId.substring(0, 8)}...{transaction.transactionId.substring(transaction.transactionId.length - 8)}
-                                  </div>
-                                )}
-                                <div className="transaction-time">{formatTime(transaction.timestamp)}</div>
-                              </div>
-                            </div>
-                            <div className={`transaction-status ${transaction.status}`}>
-                              {transaction.status === 'pending' ? 'Pending' : 'Confirmed'}
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Spacescan Transactions */}
-                        {allTransactions.map((transaction, _index) => {
-                          const isSpent = transaction.spent_at_time !== undefined;
-                          const transactionIcon = getTransactionIcon(transaction.type);
-
-                          return (
-                            <div key={transaction.id} className={`transaction-item ${isSpent ? 'outgoing' : 'incoming'} ${transaction.type.toLowerCase()}`}>
-                              <div className="transaction-icon">
-                                <span className="coin-type-icon">{transactionIcon}</span>
-                              </div>
-                              <div className="transaction-info">
-                                <div className="transaction-amount">
-                                  {isSpent ? '-' : '+'}
-                                  {formatTransactionAmount(transaction)}
-                                </div>
-                                <div className="transaction-details">
-                                  <div className="transaction-address">
-                                    {transaction.type === 'XCH' ? (
-                                      `XCH Transaction`
-                                    ) : transaction.type === 'NFT' ? (
-                                      `NFT: ${transaction.nft_id?.slice(0, 8)}...`
-                                    ) : (
-                                      `Token: ${getTokenDisplayName(transaction.asset_id || '', (transaction.data as any)?.token_id)}`
-                                    )}
-                                  </div>
-                                  <div className="transaction-time">
-                                    {isSpent ?
-                                      `Spent • Height: ${transaction.spent_at_height}` :
-                                      `Created • Height: ${transaction.confirmed_at_height}`
-                                    }
-                                  </div>
-                                </div>
-                              </div>
-                              <div className={`transaction-status confirmed ${transaction.type.toLowerCase()}`}>
-                                {isSpent ? 'Spent' : 'Confirmed'}
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Loading states */}
-                        {(spacescanXchTransactions.loading || spacescanNftTransactions.loading || spacescanTokenTransactions.loading) && (
-                          <div className="loading-transactions">
-                            <p>Loading transactions...</p>
-                          </div>
-                        )}
-
-                        {/* Error states */}
-                        {(spacescanXchTransactions.error || spacescanNftTransactions.error || spacescanTokenTransactions.error) && (
-                          <div className="error-transactions">
-                            <p>Error loading transactions: {spacescanXchTransactions.error || spacescanNftTransactions.error || spacescanTokenTransactions.error}</p>
-                          </div>
-                        )}
-
-                        {allTransactions.length === 0 && sentTransactions.length === 0 &&
-                          !spacescanXchTransactions.loading && !spacescanNftTransactions.loading && !spacescanTokenTransactions.loading && (
-                            <div className="no-transactions">
-                              <p>No transactions yet</p>
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  ) : currentView === 'assets' ? (
-                    <div className="assets-view">
-                      <div className="view-header">
-                        <button className="back-btn" onClick={() => setCurrentView('main')}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M19 12H5"></path>
-                            <path d="M12 19l-7-7 7-7"></path>
-                          </svg>
-                        </button>
-                        <h4>Assets ({nftCoins.length} NFTs)</h4>
-                        <button className="refresh-btn" onClick={() => refreshBalance()}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M1 4v6h6"></path>
-                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="assets-content">
-                        <div className="grid grid-3">
-                          {nftCoins.map((nft, index) => {
-                            const metadata = getNftMetadata(nft);
-                            const isLoading = false; // Spacescan NFTs are already loaded
-                            const displayName = getNftDisplayName(nft);
-                            const collectionName = getNftCollectionName(nft);
-                            const editionInfo = getNftEditionInfo(nft);
-                            const imageUrl = getNftImageUrl(nft);
-
-                            return (
-                              <div key={index} className="asset-card" onClick={() => {
-                                // For now, we'll handle SpacescanNFT differently
-                                if ('nft_id' in nft) {
-                                  console.log('Spacescan NFT clicked:', nft);
-                                } else {
-                                  openNftDetails(nft as HydratedCoin);
-                                }
-                              }}>
-                                <div className="asset-image">
-                                  {isLoading ? (
-                                    <div className="loading-state">
-                                      <div className="spinner"></div>
-                                    </div>
-                                  ) : imageUrl ? (
-                                    <img src={convertIpfsUrl(imageUrl)} alt={displayName || 'NFT'} />
-                                  ) : (
-                                    <div className="asset-placeholder">🖼️</div>
-                                  )}
-                                </div>
-                                <div className="asset-info">
-                                  <h5 className="asset-name">{displayName}</h5>
-                                  <p className="asset-collection">{collectionName}</p>
-
-                                  {/* Edition Info */}
-                                  {editionInfo && (
-                                    <div className="asset-edition">{editionInfo}</div>
-                                  )}
-
-                                  {/* Key Attributes Preview */}
-                                  {metadata?.attributes && metadata.attributes.length > 0 && (
-                                    <div className="asset-attributes">
-                                      {metadata.attributes.slice(0, 2).map((attr: any, attrIndex: number) => (
-                                        <div key={attrIndex} className="attribute-preview">
-                                          <span className="attr-name">{attr.trait_type || attr.name}</span>
-                                          <span className="attr-value">{attr.value}</span>
-                                        </div>
-                                      ))}
-                                      {metadata.attributes.length > 2 && (
-                                        <div className="more-attributes">+{metadata.attributes.length - 2} more</div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Rarity/Special indicators */}
-                                  <div className="asset-badges">
-                                    {/* Spacescan NFTs don't have royalty info in the same format */}
-                                    {metadata?.properties?.category && (
-                                      <span className="badge category">{metadata.properties.category}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {nftCoins.length === 0 && (
-                          <div className="no-assets">
-                            <div className="no-assets-icon">🖼️</div>
-                            <h4>No NFTs Found</h4>
-                            <p>Your wallet doesn't contain any NFTs yet.</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : currentView === 'nft-details' && selectedNft ? (
-                    <div className="nft-details-view">
-                      <div className="view-header">
-                        <button className="back-btn" onClick={() => setCurrentView('assets')}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M19 12H5"></path>
-                            <path d="M12 19l-7-7 7-7"></path>
-                          </svg>
-                        </button>
-                        <h4>NFT Details</h4>
-                        <div></div>
-                      </div>
-
-                      <div className="nft-details-content">
-                        {(() => {
-                          const metadata = getNftMetadata(selectedNft);
-                          const isLoading = false; // Spacescan NFTs are already loaded
-                          const displayName = getNftDisplayName(selectedNft);
-                          // const collectionName = getNftCollectionName(selectedNft);
-                          const editionInfo = getNftEditionInfo(selectedNft);
-                          // const imageUrl = getNftImageUrl(selectedNft);
-
-                          return (
-                            <>
-                              {/* NFT Image */}
-                              <div className="section-card">
-                                <div className="nft-image-large">
-                                  {isLoading ? (
-                                    <div className="loading-state">
-                                      <div className="spinner"></div>
-                                    </div>
-                                  ) : metadata?.data_uris && metadata.data_uris.length > 0 ? (
-                                    <img src={convertIpfsUrl(metadata.data_uris[0])} alt={metadata.name || 'NFT'} />
-                                  ) : metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value ? (
-                                    <img src={convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value)} alt={metadata.name || 'NFT'} />
-                                  ) : (
-                                    <div className="nft-placeholder-large">🖼️</div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Basic Information */}
-                              <div className="section-card">
-                                <h3>Basic Information</h3>
-                                <div className="grid grid-2">
-                                  <div className="info-item">
-                                    <label>Name</label>
-                                    <span className="info-value">
-                                      {displayName}
-                                    </span>
-                                  </div>
-                                  <div className="info-item">
-                                    <label>Collection</label>
-                                    <span className="info-value">
-                                      {metadata?.collection?.name || 'Unknown Collection'}
-                                    </span>
-                                  </div>
-                                  {metadata?.description && (
-                                    <div className="info-item">
-                                      <label>Description</label>
-                                      <span className="info-value description">{metadata.description}</span>
-                                    </div>
-                                  )}
-                                  <div className="info-item">
-                                    <label>Edition</label>
-                                    <span className="info-value">
-                                      {editionInfo || 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="info-item">
-                                    <label>Launcher ID</label>
-                                    <code className="info-value monospace">
-                                      {(() => {
-                                        if ('nft_id' in selectedNft) {
-                                          const spacescanNft = selectedNft as any;
-                                          return spacescanNft.launcher_id || spacescanNft.nft_id || 'N/A';
-                                        }
-                                        return 'N/A';
-                                      })()}
-                                    </code>
-                                  </div>
-                                  <div className="info-item">
-                                    <label>Edition</label>
-                                    <span className="info-value">
-                                      {editionInfo || 'N/A'}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Metadata Attributes */}
-                              {metadata?.attributes && metadata.attributes.length > 0 && (
-                                <div className="section-card">
-                                  <h3>Attributes</h3>
-                                  <div className="grid grid-3">
-                                    {metadata.attributes.map((attr: any, index: number) => (
-                                      <div key={index} className="attribute-item">
-                                        <div className="attribute-name">{attr.trait_type || attr.name || `Attribute ${index + 1}`}</div>
-                                        <div className="attribute-value">{attr.value}</div>
-                                        {attr.display_type && (
-                                          <div className="attribute-type">{attr.display_type}</div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Collection Information */}
-                              {metadata?.collection && (
-                                <div className="section-card">
-                                  <h3>Collection Details</h3>
-                                  <div className="grid grid-2">
-                                    <div className="info-item">
-                                      <label>Collection Name</label>
-                                      <span className="info-value">{metadata.collection.name || 'Unknown'}</span>
-                                    </div>
-                                    {metadata.collection.family && (
-                                      <div className="info-item">
-                                        <label>Family</label>
-                                        <span className="info-value">{metadata.collection.family}</span>
-                                      </div>
-                                    )}
-                                    {metadata.collection.description && (
-                                      <div className="info-item">
-                                        <label>Collection Description</label>
-                                        <span className="info-value description">{metadata.collection.description}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Technical Details */}
-                              <div className="section-card">
-                                <h3>Technical Information</h3>
-                                <div className="grid grid-2">
-                                  <div className="info-item">
-                                    <label>Parent Coin Info</label>
-                                    <code className="info-value monospace">{selectedNft.coin.parentCoinInfo}</code>
-                                  </div>
-                                  <div className="info-item">
-                                    <label>Puzzle Hash</label>
-                                    <code className="info-value monospace">{selectedNft.coin.puzzleHash}</code>
-                                  </div>
-                                  <div className="info-item">
-                                    <label>Amount</label>
-                                    <span className="info-value">{selectedNft.coin.amount} mojos</span>
-                                  </div>
-                                  <div className="info-item">
-                                    <label>Created Height</label>
-                                    <span className="info-value">{selectedNft.createdHeight}</span>
-                                  </div>
-                                  {metadata?.dataHash && (
-                                    <div className="info-item">
-                                      <label>Data Hash</label>
-                                      <code className="info-value monospace">{metadata.dataHash}</code>
-                                    </div>
-                                  )}
-                                  {metadata?.metadataHash && (
-                                    <div className="info-item">
-                                      <label>Metadata Hash</label>
-                                      <code className="info-value monospace">{metadata.metadataHash}</code>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Data URIs */}
-                              {metadata?.data_uris && metadata.data_uris.length > 0 && (
-                                <div className="section-card">
-                                  <h3>Data URIs</h3>
-                                  <div className="uri-list">
-                                    {metadata.data_uris.map((uri: string, index: number) => (
-                                      <div key={index} className="uri-item">
-                                        <a href={convertIpfsUrl(uri)} target="_blank" rel="noopener noreferrer" className="uri-link">
-                                          {uri.startsWith('ipfs://') ? `IPFS: ${uri.substring(7, 20)}...` : uri}
-                                        </a>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
                   ) : null}
                 </>
               ) : (
@@ -1439,7 +1078,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
       {/* Modal Styles */}
       <style>{`
-        ${sharedModalStyles}
 
         /* Wallet Modal Specific Styles - Figma Design */
         .modal-content {
@@ -1535,7 +1173,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 4px;
         }
 
         .wallet-address {
@@ -1576,7 +1213,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           margin: 0;
           color: #7c7a85;
           font-size: 12px;
-          font-weight: 500;
+          font-weight: 400;
           line-height: 1.5;
           font-family: 'system-ui', sans-serif;
           text-align: left;

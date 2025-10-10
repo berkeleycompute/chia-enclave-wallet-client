@@ -13,7 +13,8 @@
     "clean": "rm -rf dist",
     "build": "rollup -c",
     "prepare": "npm run build",
-    "dev": "rollup -c -w",
+    "dev": "npm --prefix example run dev",
+    "dev:lib": "rollup -c -w",
     "test": "echo \"No tests specified\""
   },
   "peerDependencies": {
@@ -23,7 +24,11 @@
   "dependencies": {
     "bech32": "^2.0.0",
     "phosphor-react": "^1.4.1",
-    "react-icons": "^5.5.0"
+    "react-icons": "^5.5.0",
+    "flowbite-react": "^0.7.6",
+    "flowbite": "^2.5.2",
+    "tailwindcss": "^3.4.13",
+    "clsx": "^2.1.1"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",

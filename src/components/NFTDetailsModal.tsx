@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { injectModalStyles } from './modal-styles';
 import { useNFTOffers, useWalletConnection } from '../hooks/useChiaWalletSDK';
 import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
 
 interface NFTDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // New: closes the entire wallet modal (parent)
+  onCloseWallet?: () => void;
   nft: HydratedCoin | null;
 }
 
 export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   isOpen,
   onClose,
+  onCloseWallet,
   nft,
 }) => {
+  // Ensure shared modal styles are available
+  useEffect(() => {
+    injectModalStyles();
+  }, []);
   const { isConnected } = useWalletConnection();
   const { createNFTOffer, isCreatingOffer: offerLoading } = useNFTOffers();
   const [activeTab, setActiveTab] = useState<'details' | 'offer'>('details');
@@ -69,7 +77,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
       <div className="nft-details-modal">
         <div className="modal-header">
           <h2>🖼️ NFT Details</h2>
-          <button className="close-button" onClick={onClose}>×</button>
+          <button className="header-btn" onClick={onCloseWallet || onClose} aria-label="Close modal">×</button>
         </div>
 
         <div className="modal-tabs">

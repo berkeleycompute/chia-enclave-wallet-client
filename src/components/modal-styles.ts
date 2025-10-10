@@ -84,6 +84,26 @@ export const sharedModalStyles = `
     right: 20px;
   }
 
+  /* Shared Header Button - unified style across modals */
+  .header-btn {
+    background: none;
+    border: none;
+    color: #7C7A85;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+  }
+
+  .header-btn:hover {
+    color: #EEEEF0;
+  }
+
   /* View Header for internal navigation */
   .view-header {
     display: flex;

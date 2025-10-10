@@ -581,7 +581,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
 
                         {/* Close button overlay */}
                         <button
-                            className="close-btn"
+                            className="header-btn"
                             onClick={onClose}
                             style={{
                                 position: 'absolute',
@@ -711,7 +711,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 <div className="modal-content" style={{ maxWidth: '400px', width: '90%' }}>
                     <div className="modal-header">
                         <h3>Connection Error</h3>
-                        <button className="close-btn" onClick={onClose}>
+                        <button className="header-btn" onClick={onClose}>
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -746,7 +746,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 <div className="modal-content" style={{ maxWidth: '400px', width: '90%' }}>
                     <div className="modal-header">
                         <h3>Offer Not Available</h3>
-                        <button className="close-btn" onClick={onClose}>
+                        <button className="header-btn" onClick={onClose}>
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -822,7 +822,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
 
                         {/* Close button overlay */}
                         <button
-                            className="close-btn"
+                            className="header-btn"
                             onClick={onClose}
                             style={{
                                 position: 'absolute',
@@ -908,7 +908,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
                 <div className="modal-content" style={{ maxWidth: '400px', width: '90%' }}>
                     <div className="modal-header">
                         <h3>Transaction Failed</h3>
-                        <button className="close-btn" onClick={onClose}>
+                        <button className="header-btn" onClick={onClose}>
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -945,12 +945,12 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
             <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
                 {/* Header */}
                 <div className="modal-header">
-                    <button className="back-btn" onClick={() => setWidgetState('initial')}>
+                    <button className="header-btn" onClick={() => setWidgetState('initial')}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="m15 18-6-6 6-6" />
                         </svg>
                     </button>
-                    <button className="close-btn" onClick={onClose}>
+                    <button className="header-btn" onClick={onClose}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>

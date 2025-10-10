@@ -1,3 +1,5 @@
+// Ambient BigInt type for environments where lib may not include bigint at type-check time
+declare const BigInt: (value: string | number | bigint) => bigint;
 // Export client classes
 export { 
   ChiaCloudWalletClient,
@@ -79,6 +81,8 @@ export { ReceiveFundsModal } from './components/ReceiveFundsModal';
 export { MakeOfferModal } from './components/MakeOfferModal';
 export { ActiveOffersModal } from './components/ActiveOffersModal';
 export { NFTDetailsModal } from './components/NFTDetailsModal';
+export { ViewAssetsModal } from './components/ViewAssetsModal';
+export { TransactionsModal } from './components/TransactionsModal';
 export { TakeOfferWidget } from './components/TakeOfferWidget';
 
 // Export example components
