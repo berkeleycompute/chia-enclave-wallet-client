@@ -1545,7 +1545,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         }
 
         .menu-item {
-          width: 100%;
           display: flex;
           align-items: center;
           gap: 12px;

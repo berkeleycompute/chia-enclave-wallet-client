@@ -8,6 +8,9 @@ module.exports = {
     './src/**/*.{js,jsx,ts,tsx}',
     './example/src/**/*.{js,jsx,ts,tsx}',
     './example/index.html',
+    // Include Flowbite React and core Flowbite JS so Tailwind picks up bracket classes used internally
+    './node_modules/flowbite-react/**/*.{js,jsx,ts,tsx}',
+    './node_modules/flowbite/**/*.js',
     flowbite.content(),
   ],
   safelist: [
