@@ -6,12 +6,14 @@
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
+  "style": "dist/styles.css",
   "files": [
     "dist"
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "rollup -c",
+    "build:css": "tailwindcss -i ./src/styles.css -o ./dist/styles.css -c ./tailwind.config.cjs --minify",
+    "build": "npm run build:css && rollup -c",
     "prepare": "npm run build",
     "dev": "npm --prefix example run dev",
     "dev:lib": "rollup -c -w",

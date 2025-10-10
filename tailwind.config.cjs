@@ -1,4 +1,3 @@
-const flowbite = require('flowbite-react/tailwind');
 const flowbitePlugin = require('flowbite/plugin');
 
 /** @type {import('tailwindcss').Config} */
@@ -11,7 +10,6 @@ module.exports = {
     // Include Flowbite React and core Flowbite JS so Tailwind picks up bracket classes used internally
     './node_modules/flowbite-react/**/*.{js,jsx,ts,tsx}',
     './node_modules/flowbite/**/*.js',
-    flowbite.content(),
   ],
   safelist: [
     // Safelist all arbitrary-value classes used in the library
