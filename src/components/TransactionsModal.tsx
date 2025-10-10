@@ -79,7 +79,7 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
           <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
             <PiCaretLeft size={24} />
           </button>
-          <h3 className="m-0 text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Transactions</h3>
+          <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Transactions</h3>
           <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
             <PiX size={24} />
           </button>

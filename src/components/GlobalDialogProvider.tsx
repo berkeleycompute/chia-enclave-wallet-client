@@ -5,6 +5,7 @@ import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
 import { ActiveOffersModal } from './ActiveOffersModal';
 import { NFTDetailsModal } from './NFTDetailsModal';
+import { ExportPrivateKeyModal } from './ExportPrivateKeyModal';
 
 // Global dialog configuration
 export interface GlobalDialogConfig {
@@ -62,6 +63,7 @@ export interface GlobalDialogContextValue {
   openMakeOfferDialog: (args?: MakeOfferDialogArgs) => void;
   openOffersDialog: (args?: OffersDialogArgs) => void;
   openNFTDetailsDialog: (args: NFTDetailsDialogArgs) => void;
+  openExportKeyDialog?: () => void;
 
   // Dialog state management
   closeDialog: (dialogType: string) => void;
@@ -86,6 +88,7 @@ interface DialogStates {
   makeOffer: DialogState;
   offers: DialogState;
   nftDetails: DialogState;
+  exportKey: DialogState;
 }
 
 // Provider props
@@ -111,7 +114,8 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     receive: { isOpen: false },
     makeOffer: { isOpen: false },
     offers: { isOpen: false },
-    nftDetails: { isOpen: false }
+    nftDetails: { isOpen: false },
+    exportKey: { isOpen: false }
   });
 
   // Wallet state
@@ -257,7 +261,8 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       receive: dialogStates.receive.isOpen,
       makeOffer: dialogStates.makeOffer.isOpen,
       offers: dialogStates.offers.isOpen,
-      nftDetails: dialogStates.nftDetails.isOpen
+      nftDetails: dialogStates.nftDetails.isOpen,
+      exportKey: dialogStates.exportKey.isOpen
     });
   }, [dialogStates]);
 
@@ -387,6 +392,13 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     }));
   }, []);
 
+  const openExportKeyDialog = useCallback(() => {
+    setDialogStates(prev => ({
+      ...prev,
+      exportKey: { isOpen: true }
+    }));
+  }, []);
+
   // Close specific dialog
   const closeDialog = useCallback((dialogType: string) => {
     setDialogStates(prev => ({
@@ -402,7 +414,8 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
       receive: { isOpen: false },
       makeOffer: { isOpen: false },
       offers: { isOpen: false },
-      nftDetails: { isOpen: false }
+      nftDetails: { isOpen: false },
+      exportKey: { isOpen: false }
     });
   }, []);
 
@@ -444,6 +457,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
     openMakeOfferDialog,
     openOffersDialog,
     openNFTDetailsDialog,
+    openExportKeyDialog,
 
     // Dialog management
     closeDialog,
@@ -493,6 +507,7 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         isOpen={dialogStates.offers.isOpen}
         onClose={() => closeDialog('offers')}
         onOfferUpdate={handleOfferUpdate}
+        onCreateOffer={() => openMakeOfferDialog()}
       />
 
       {/* NFT Details Modal */}
@@ -500,6 +515,12 @@ export const GlobalDialogProvider: React.FC<GlobalDialogProviderProps> = ({
         isOpen={dialogStates.nftDetails.isOpen}
         onClose={() => closeDialog('nftDetails')}
         nft={dialogStates.nftDetails.args?.nft}
+      />
+
+      {/* Export Private Key Modal */}
+      <ExportPrivateKeyModal
+        isOpen={dialogStates.exportKey.isOpen}
+        onClose={() => closeDialog('exportKey')}
       />
     </GlobalDialogContext.Provider>
   );

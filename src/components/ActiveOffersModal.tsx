@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
-import { PiCaretLeft, PiX } from 'react-icons/pi';
+import { PiCaretLeft, PiMagnifyingGlass, PiX } from 'react-icons/pi';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
@@ -10,13 +10,17 @@ interface ActiveOffersModalProps {
   // New: closes the entire wallet modal (parent)
   onCloseWallet?: () => void;
   onOfferUpdate?: () => void;
+  onCreateOffer?: () => void;
+  onEditOffer?: (offer: SavedOffer) => void;
 }
 
 export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({ 
   isOpen, 
   onClose, 
   onCloseWallet,
-  onOfferUpdate 
+  onOfferUpdate,
+  onCreateOffer,
+  onEditOffer
 }) => {
   // Get wallet state from hook (using same pattern as other modals)
   const { address, isConnected } = useWalletConnection();
@@ -52,6 +56,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<SavedOffer | null>(null);
   const [showOfferDetails, setShowOfferDetails] = useState(false);
+  const [search, setSearch] = useState('');
 
   // Storage key for offers
   const getOffersStorageKey = useCallback((pubKey: string | null): string => {
@@ -207,6 +212,20 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     setShowOfferDetails(false);
   };
 
+  const handleCreateOffer = () => {
+    onClose();
+    onCreateOffer?.();
+  };
+
+  const handleEditOffer = (offer: SavedOffer) => {
+    if (onEditOffer) {
+      onEditOffer(offer);
+    } else {
+      onClose();
+      onCreateOffer?.();
+    }
+  };
+
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -242,7 +261,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
         tabIndex={0}
       >
         <div
-          className="w-[90%] max-w-[800px] max-h-[90vh] overflow-y-auto"
+          className="w-[90%] max-w-[397px] max-h-[90vh] overflow-y-auto"
           role="document"
           tabIndex={0}
           style={{ backgroundColor: '#131418', borderRadius: '16px', border: '1px solid #272830', color: '#EEEEF0' }}
@@ -251,7 +270,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
             <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeOfferDetails} aria-label="Back">
               <PiCaretLeft size={24} />
             </button>
-            <h3 className="m-0 text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Offer Details</h3>
+            <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Offer Details</h3>
             <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
               <PiX size={24} />
             </button>
@@ -322,7 +341,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
       tabIndex={0}
     >
       <div
-        className="w-[90%] max-w-[800px] max-h-[90vh] overflow-y-auto"
+        className="w-[90%] max-w-[397px] max-h-[90vh] overflow-y-auto"
         role="document"
         tabIndex={0}
         style={{ backgroundColor: '#131418', borderRadius: '16px', border: '1px solid #272830', color: '#EEEEF0' }}
@@ -331,72 +350,81 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
             <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
             <PiCaretLeft size={24} />
           </button>
-          <h3 className="m-0 text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Active Offers ({activeOffers.length})</h3>
-          <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
-            <PiX size={24} />
-          </button>
+          <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Offers ({activeOffers.length})</h3>
+          <div className="flex items-center gap-2">
+            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
+              <PiX size={24} />
+            </button>
+          </div>
         </div>
-        <div className="px-6 border-b border-t border-[#272830]">
+        <div className="px-4 border-b border-t border-[#272830]">
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex items-center gap-2 flex-1 px-3 py-2 bg-[#1B1C22] border border-[#272830] rounded">
+              <PiMagnifyingGlass size={16} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search"
+                className="bg-transparent outline-none border-none text-sm text-[#EEEEF0] placeholder-[#A7A7A7] p-0"
+              />
+            </div>
+            <button
+              className="px-4 py-2 bg-[#2C64F8] rounded text-[#EEEEF0] text-sm font-medium hover:bg-[#1E56E8] disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleCreateOffer}
+              disabled={!isConnected}
+              title={!isConnected ? 'Wallet not connected' : 'Create a new offer'}
+            >
+              Create offer
+            </button>
+          </div>
           {loading ? (
             <div className="text-center py-12 text-[#888]">
               <div className="w-8 h-8 border-2 border-[#272830] border-t-[#2C64F8] rounded-full animate-spin mx-auto mb-4" />
-              <p className="m-0 text-sm">Loading offers...</p>
+              <p className=" text-sm">Loading offers...</p>
             </div>
           ) : !address ? (
             <div className="text-center py-12 text-[#888]">
-              <h4 className="m-0 mb-2 text-white text-lg font-semibold">Wallet Not Connected</h4>
-              <p className="m-0 text-sm">Please connect your wallet to view active offers.</p>
+              <h4 className=" mb-2 text-white text-lg font-semibold">Wallet Not Connected</h4>
+              <p className=" text-sm">Please connect your wallet to view active offers.</p>
             </div>
           ) : activeOffers.length === 0 ? (
             <div className="text-center py-12 text-[#888]">
-              <h4 className="m-0 mb-2 text-white text-lg font-semibold">No Active Offers</h4>
-              <p className="m-0 text-sm">You haven't created any offers yet. Create an offer to see it here.</p>
+              <h4 className=" mb-2 text-white text-lg font-semibold">No Active Offers</h4>
+              <p className=" text-sm">You haven't created any offers yet. Create an offer to see it here.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {activeOffers.map((offer) => (
-                <div key={offer.id} className="flex items-center gap-4 p-4 bg-[#1B1C22] border border-[#272830] rounded hover:bg-[#20212a] transition-colors cursor-pointer" onClick={() => viewOfferDetails(offer)}>
-                  <div className="w-16 h-16 rounded-lg overflow-hidden flex items-center justify-center bg-[#272830] shrink-0">
-                    {offer.nft.imageUrl ? (
-                      <img src={convertIpfsUrl(offer.nft.imageUrl)} alt={offer.nft.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-[#666]">NFT</div>
-                    )}
-                  </div>
-                  <div className="flex-1 flex flex-col gap-1 min-w-0">
-                    <div className="font-semibold text-white text-[16px] break-words">{offer.nft.name}</div>
-                    <div className="text-[#888] text-sm break-words">{offer.nft.collection}</div>
-                    <div className="text-[#6bc36b] font-semibold text-sm">
-                      Requesting: {offer.requestedPayment.amount} {offer.requestedPayment.assetName}
+            <div className="flex flex-col gap-4 max-h-[300px] overflow-y-scroll">
+              {activeOffers.filter((offer) => {
+                const term = search.trim().toLowerCase();
+                if (!term) return true;
+                return (
+                  offer.nft.name.toLowerCase().includes(term) ||
+                  (offer.nft.collection || '').toLowerCase().includes(term) ||
+                  (offer.requestedPayment.assetName || '').toLowerCase().includes(term)
+                );
+              }).map((offer) => (
+                <div key={offer.id} className="p-[14px] bg-[#1B1C22] border-none rounded">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-row items-center justify-between min-w-0">
+                      <div className="text-[#A7A7A7] text-sm">NFT</div>
+                      <div className="text-white">{offer.nft.name}</div>
                     </div>
-                    <div className="text-[#666] text-xs">{formatTime(offer.timestamp)}</div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className={getStatusBadgeClasses(offer.status)}>{offer.status}</span>
-                    <div className="text-[#888] text-[10px]">{offer.offerData.isSigned ? 'Signed' : 'Unsigned'}</div>
-                  </div>
-                  <div className="text-[#666] ml-2 shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6-6-6"></path>
-                    </svg>
-                  </div>
+                    <div className="flex flex-row items-center justify-between min-w-0">
+                      <div className="text-[#A7A7A7] text-sm">Amount</div>
+                      <div className="text-white">{offer.requestedPayment.amount} {offer.requestedPayment.assetName}</div>
+                    </div>
+                    <div className="h-0 border-b border-[#272830]" />
+                    <div className="flex flex-row items-center gap-3">
+                      <button className="px-3 py-2 rounded border border-[#272830] hover:bg-[#1B1C22] text-[#EEEEF0] text-xx" onClick={() => updateOfferStatus(offer.id, 'cancelled')}>Delete</button>
+                      <button className="px-3 py-2 rounded border border-[#272830] hover:bg-[#1B1C22] text-[#EEEEF0] text-xs" onClick={() => handleEditOffer(offer)}>Edit</button>
+                      <button className="px-3 py-2 rounded border border-[#272830] hover:bg-[#1B1C22] text-[#EEEEF0] text-xs" onClick={() => viewOfferDetails(offer)}>View</button>
+                    </div>
                 </div>
+              </div>
               ))}
             </div>
           )}
-        </div>
-
-        <div className="p-3.5">
-          <div className="flex justify-center">
-            <button 
-              className="text-[#EEEEF0] rounded-lg py-2.5 px-5 items-center justify-center gap-2 hover:bg-[#333] border border-[#272830] w-full max-w-[150px]"
-              onClick={loadActiveOffers}
-              disabled={!address || loading}
-              title={!address ? 'Wallet not connected' : loading ? 'Loading...' : 'Refresh offers'}
-            >
-              {loading ? 'Loading...' : 'Refresh'}
-            </button>
-          </div>
         </div>
       </div>
     </div>

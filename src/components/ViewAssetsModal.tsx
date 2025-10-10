@@ -95,7 +95,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
             <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
               <PiCaretLeft size={24} />
             </button>
-            <h3 className="m-0 text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">View Assets</h3>
+            <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">View Assets</h3>
             <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
               <PiX size={24} />
             </button>
@@ -104,7 +104,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
           <div className="px-6 pb-4">
             {!isConnected ? (
               <div className="text-center py-10">
-                <p className="text-[#ef4444] m-0 text-[16px]">Wallet not connected. Please connect your wallet first.</p>
+                <p className="text-[#ef4444]  ">Wallet not connected. Please connect your wallet first.</p>
               </div>
             ) : (coinsLoading || nftsLoading) ? (
               <div className="text-center py-10">
@@ -132,19 +132,19 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   <div className="bg-[#1B1C22] rounded-lg border border-[#272830] p-3">
                     <div className="flex justify-between items-center text-[14px] leading-[1.5]">
                       <span>Total XCH</span>
-                      <span className="text-white font-medium text-[16px]">{formatXCH(xchAvailableMojos)} XCH</span>
+                      <span className="text-white font-medium ">{formatXCH(xchAvailableMojos)} XCH</span>
                     </div>
                     <div className="flex justify-between items-center text-[14px] leading-[1.5] mt-2">
                       <span>XCH coins</span>
-                      <span className="text-white font-medium text-[16px]">{xchCoins.length}</span>
+                      <span className="text-white font-medium ">{xchCoins.length}</span>
                     </div>
                     <div className="flex justify-between items-center text-[14px] leading-[1.5] mt-2">
                       <span>CAT coins</span>
-                      <span className="text-white font-medium text-[16px]">{catCoins.length}</span>
+                      <span className="text-white font-medium ">{catCoins.length}</span>
                     </div>
                     <div className="flex justify-between items-center text-[14px] leading-[1.5] mt-2">
                       <span>NFTs</span>
-                      <span className="text-white font-medium text-[16px]">{nftCoins.length}</span>
+                      <span className="text-white font-medium ">{nftCoins.length}</span>
                     </div>
                   </div>
 

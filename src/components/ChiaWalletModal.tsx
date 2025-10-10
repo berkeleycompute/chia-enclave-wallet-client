@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { PiHandCoins } from "react-icons/pi";
+import { PiHandCoins, PiKey } from "react-icons/pi";
 import {
   useWalletConnection,
   useWalletBalance,
@@ -41,6 +41,8 @@ import {
 } from '../hooks/useDialogs';
 import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { PiX } from 'react-icons/pi';
+import { useMnemonic } from '../hooks/useWalletInfo';
+import { useGlobalDialogs } from './GlobalDialogProvider';
 
 export interface ChiaWalletModalProps {
   isOpen: boolean;
@@ -127,6 +129,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   // Use Spacescan NFTs as the primary NFT source
   const nftCoins = spacescanNfts;
+
+  // Asset/offer counts
+  const assetsCount = useMemo(() => (Array.isArray(nftCoins) ? nftCoins.length : 0), [nftCoins]);
+  const [offersCount, setOffersCount] = useState<number>(0);
 
   // Helper functions for NFT data (moved to component level)
   const getNftMetadata = (nft: SpacescanNFT | HydratedCoin): any => {
@@ -370,24 +376,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return 'Unknown';
   };
 
-  // Helper function to format transaction time
-  /*
-  const formatTransactionTime = (timestamp: number): string => {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  };
-  */
-
-  // Helper function to get transaction icon
-  const getTransactionIcon = (type: 'XCH' | 'NFT' | 'TOKEN'): string => {
-    switch (type) {
-      case 'XCH': return '🌾';
-      case 'NFT': return '🖼️';
-      case 'TOKEN': return '🪙';
-      default: return '💰';
-    }
-  };
-
   // Emit wallet updates only when data actually changes
   useEffect(() => {
     if (onWalletUpdate && isConnected && !spacescanBalance.loading) {
@@ -414,12 +402,36 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return `chia_nft_metadata_${pubKey.substring(0, 16)}`;
   }, []);
 
-  /*
   const getOffersStorageKey = useCallback((pubKey: string | null): string => {
     if (!pubKey) return 'chia_active_offers';
     return `chia_active_offers_${pubKey.substring(0, 16)}`;
   }, []);
-  */
+
+  const refreshOffersCount = useCallback(() => {
+    if (!address) {
+      setOffersCount(0);
+      return;
+    }
+    try {
+      const storageKey = getOffersStorageKey(address);
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const offers = JSON.parse(stored);
+        const activeCount = Array.isArray(offers)
+          ? offers.filter((o: any) => o && o.status === 'active').length
+          : 0;
+        setOffersCount(activeCount);
+      } else {
+        setOffersCount(0);
+      }
+    } catch (e) {
+      setOffersCount(0);
+    }
+  }, [address, getOffersStorageKey]);
+
+  useEffect(() => {
+    refreshOffersCount();
+  }, [refreshOffersCount, address, makeOfferDialog.isOpen, activeOffersDialog.isOpen]);
 
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -757,6 +769,30 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
   }, []);
 
+  // Export private key - open modal from GlobalDialogProvider
+  const globalDialogs = (() => {
+    try {
+      return useGlobalDialogs();
+    } catch {
+      return null;
+    }
+  })();
+  const { exportMnemonic, loading: isExportingMnemonic } = useMnemonic({ jwtToken });
+  const handleExportPrivateKey = useCallback(async () => {
+    if (globalDialogs) {
+      // Use global modal if provider exists
+      (globalDialogs as any).openExportKeyDialog?.();
+      return;
+    }
+    // Fallback: export mnemonic and copy
+    try {
+      const phrase = await exportMnemonic();
+      if (phrase) {
+        await copyToClipboard(phrase);
+      }
+    } catch {}
+  }, [globalDialogs, exportMnemonic, copyToClipboard]);
+
   // Event handlers
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -820,10 +856,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         isOpen={makeOfferDialog.isOpen}
         onClose={makeOfferDialog.close}
         onCloseWallet={closeModal}
-        // onOfferCreated={(offerData) => {
-        //   console.log('Offer created:', offerData);
-        //   saveOffer(offerData);
-        // }}
+        onOfferCreated={() => {
+          refreshOffersCount();
+        }}
         onRefreshWallet={refreshBalance}
       />
 
@@ -835,6 +870,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         onOfferUpdate={() => {
           // Refresh offers when status changes
           console.log('Offers updated');
+        }}
+        onCreateOffer={() => {
+          makeOfferDialog.open();
         }}
       />
 
@@ -943,7 +981,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           <svg width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M14.4574 1.79248C14.3317 1.66682 14.1747 1.57694 14.0027 1.53212C13.8307 1.4873 13.6498 1.48915 13.4787 1.53748H13.4693L1.47307 5.17748C1.27832 5.23361 1.10522 5.34759 0.976711 5.50432C0.848201 5.66105 0.77035 5.85313 0.753473 6.05511C0.736597 6.25708 0.781492 6.45942 0.882209 6.6353C0.982927 6.81119 1.13471 6.95231 1.31745 7.03998L6.62495 9.62498L9.2062 14.9294C9.28648 15.1007 9.41413 15.2455 9.57405 15.3466C9.73397 15.4477 9.91949 15.5009 10.1087 15.5C10.1374 15.5 10.1662 15.4987 10.1949 15.4962C10.3968 15.4799 10.5888 15.4022 10.7452 15.2736C10.9016 15.145 11.0149 14.9717 11.0699 14.7769L14.7074 2.78061C14.7074 2.77748 14.7074 2.77436 14.7074 2.77123C14.7564 2.60059 14.7591 2.41998 14.7151 2.24797C14.6712 2.07596 14.5822 1.91875 14.4574 1.79248ZM10.1143 14.4906L10.1112 14.4994V14.495L7.60745 9.35123L10.6074 6.35123C10.6973 6.2567 10.7466 6.13083 10.7449 6.00045C10.7432 5.87007 10.6907 5.74549 10.5985 5.65329C10.5063 5.56109 10.3817 5.50856 10.2514 5.50689C10.121 5.50522 9.9951 5.55455 9.90057 5.64436L6.90057 8.64436L1.75495 6.14061H1.75057H1.75932L13.7499 2.49998L10.1143 14.4906Z" fill="#7C7A85" />
                           </svg>
-                          <span>Send 2</span>
+                          <span>Send</span>
                         </button>
                         <button className="action-btn receive-btn" onClick={() => receiveFundsDialog.open()}>
                           <svg width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -978,6 +1016,36 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
                       {/* Menu Options */}
                       <div className="menu-options">
+                        <div className="offers-row">
+                          <button
+                            className={`menu-item`}
+                            onClick={() => {
+                              activeOffersDialog.open();
+                            }}
+                            title={''}
+                          >
+                            <div className="menu-icon-large">
+                              <PiHandCoins size={24} />
+                            </div>
+                            <span>Offers ({offersCount})</span>
+                          </button>
+                          <div className="offers-divider"></div>
+                          <button
+                            className="menu-item"
+                            onClick={() => viewAssetsDialog.open()}
+                          >
+                            <div className="menu-icon-large">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M18.0898 10.37C19.0351 10.7224 19.8763 11.3075 20.5355 12.0712C21.1948 12.8349 21.6509 13.7524 21.8615 14.7391C22.0722 15.7257 22.0307 16.7495 21.7408 17.7158C21.451 18.6822 20.9221 19.5598 20.2032 20.2676C19.4843 20.9754 18.5985 21.4905 17.6278 21.7652C16.657 22.04 15.6327 22.0655 14.6495 21.8395C13.6663 21.6134 12.7559 21.1431 12.0026 20.472C11.2493 19.8009 10.6774 18.9507 10.3398 18" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M7 6H8V10" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M16.7098 13.88L17.4098 14.59L14.5898 17.41" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </div>
+                            <span>Assets ({assetsCount})</span>
+                          </button>
+                        </div>
+
                         <button className="menu-item" onClick={() => transactionsDialog.open()}>
                           <div className="menu-icon-large">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -987,52 +1055,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           <span>Transactions</span>
                         </button>
 
-                        <button className="menu-item" onClick={() => viewAssetsDialog.open()}>
+                        <button className="menu-item" onClick={handleExportPrivateKey} disabled={isExportingMnemonic}>
                           <div className="menu-icon-large">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M18.0898 10.37C19.0351 10.7224 19.8763 11.3075 20.5355 12.0712C21.1948 12.8349 21.6509 13.7524 21.8615 14.7391C22.0722 15.7257 22.0307 16.7495 21.7408 17.7158C21.451 18.6822 20.9221 19.5598 20.2032 20.2676C19.4843 20.9754 18.5985 21.4905 17.6278 21.7652C16.657 22.04 15.6327 22.0655 14.6495 21.8395C13.6663 21.6134 12.7559 21.1431 12.0026 20.472C11.2493 19.8009 10.6774 18.9507 10.3398 18" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M7 6H8V10" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M16.7098 13.88L17.4098 14.59L14.5898 17.41" stroke="#7C7A85" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+                            <PiKey size={16} />
                           </div>
-                          <span>View Assets</span>
+                          <span>{isExportingMnemonic ? 'Exporting...' : 'Export private key'}</span>
                         </button>
-
-                        <div className="offers-row">
-                          <button
-                            className={`menu-item ${!isConnected ? 'disabled' : ''}`}
-                            onClick={() => {
-                              console.log('Make Offer button clicked!', {
-                                isConnected,
-                                showOfferModal: makeOfferDialog.isOpen,
-                                nftCount: nftCoins.length
-                              });
-                              makeOfferDialog.open();
-                            }}
-                            disabled={!isConnected}
-                            title={!isConnected ? 'Please wait for wallet connection to complete' : ''}
-                          >
-                            <div className="menu-icon-large">
-                              <PiHandCoins size={24} />
-                            </div>
-                            <span>Make Offer</span>
-                          </button>
-
-                          <div className="offers-divider"></div>
-
-                          <button
-                            className="menu-item"
-                            onClick={() => activeOffersDialog.open()}
-                          >
-                            <div className="menu-icon-large">
-                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.8103 12.75L13.5 3.43969C13.3612 3.2998 13.196 3.18889 13.014 3.11341C12.832 3.03792 12.6368 2.99938 12.4397 3.00001H3.75001C3.5511 3.00001 3.36033 3.07903 3.21968 3.21968C3.07903 3.36033 3.00001 3.5511 3.00001 3.75001V12.4397C2.99938 12.6368 3.03792 12.832 3.11341 13.014C3.18889 13.196 3.2998 13.3612 3.43969 13.5L12.75 22.8103C12.8893 22.9496 13.0547 23.0602 13.2367 23.1356C13.4187 23.211 13.6138 23.2498 13.8108 23.2498C14.0078 23.2498 14.2029 23.211 14.3849 23.1356C14.5669 23.0602 14.7323 22.9496 14.8716 22.8103L22.8103 14.8716C22.9496 14.7323 23.0602 14.5669 23.1356 14.3849C23.211 14.2029 23.2498 14.0078 23.2498 13.8108C23.2498 13.6138 23.211 13.4187 23.1356 13.2367C23.0602 13.0547 22.9496 12.8893 22.8103 12.75ZM13.8103 21.75L4.50001 12.4397V4.50001H12.4397L21.75 13.8103L13.8103 21.75ZM9.00001 7.87501C9.00001 8.09751 8.93403 8.31502 8.81041 8.50002C8.68679 8.68503 8.51109 8.82922 8.30553 8.91437C8.09996 8.99952 7.87376 9.0218 7.65553 8.97839C7.4373 8.93498 7.23685 8.82784 7.07951 8.6705C6.92218 8.51317 6.81503 8.31271 6.77162 8.09448C6.72822 7.87626 6.75049 7.65006 6.83564 7.44449C6.92079 7.23892 7.06499 7.06322 7.24999 6.9396C7.435 6.81599 7.6525 6.75001 7.87501 6.75001C8.17338 6.75001 8.45952 6.86853 8.6705 7.07951C8.88148 7.29049 9.00001 7.57664 9.00001 7.87501Z" fill="#7C7A85" />
-                              </svg>
-                            </div>
-                            <span>Active Offers</span>
-                          </button>
-                        </div>
                       </div>
 
 

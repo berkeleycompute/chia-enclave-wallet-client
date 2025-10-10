@@ -9,8 +9,9 @@ import {
 } from '../hooks/useChiaWalletSDK';
 import { useSpacescanNFTs, type SpacescanNFT } from '../client/SpacescanClient';
 import { injectModalStyles } from './modal-styles';
-import { PiCaretLeft, PiX } from 'react-icons/pi';
+import { PiCaretLeft, PiInfo, PiX } from 'react-icons/pi';
 import { SavedOffer } from './types';
+import { Selector, type SelectorItem } from './Selector';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -71,50 +72,27 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [depositAddress, setDepositAddress] = useState(initialDepositAddress || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'select-nft' | 'confirm'>('select-nft');
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const hasRefreshedOnOpen = useRef(false);
-  const hasUserSelectedNft = useRef(false);
 
   // Handle modal opening/closing and initial setup
   useEffect(() => {
-    console.log('🔄 Modal state useEffect triggered:', {
-      isOpen,
-      hasInitialSelectedNft: !!initialSelectedNft,
-      currentStep: step,
-      hasSelectedNft: !!selectedNft,
-      hasUserSelectedNft: hasUserSelectedNft.current
-    });
-
     if (isOpen) {
-      // Update initial values when modal opens
       setOfferAmount(initialOfferAmount || '');
       setDepositAddress(initialDepositAddress || (address || ''));
       setError(null);
 
-      // Handle initial NFT selection
       if (initialSelectedNft) {
-        console.log('🎯 Setting up initial selected NFT');
-        // Enrich the initial selected NFT with Spacescan data
         const enrichedInitialNft = enrichNftWithSpacescanData(initialSelectedNft);
         setSelectedNft(enrichedInitialNft);
-        setStep('confirm'); // Skip NFT selection step if NFT is pre-selected
-      } else if (!hasUserSelectedNft.current) {
-        console.log('🔄 Resetting to select-nft step (no user selection yet)');
-        // Only reset to selection step if user hasn't manually selected an NFT
-        setStep('select-nft');
-        setSelectedNft(null);
       }
 
-      // Refresh hydrated coins when modal opens for the first time only
       if (!hasRefreshedOnOpen.current) {
         hasRefreshedOnOpen.current = true;
         refreshCoins();
       }
     } else {
-      // Reset flags when modal closes
       hasRefreshedOnOpen.current = false;
-      hasUserSelectedNft.current = false;
     }
   }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address]);
 
@@ -328,7 +306,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   // Utility functions
   const formatAddress = (address: string): string => {
     if (!address) return '';
-    return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
+    return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   };
 
   const convertIpfsUrl = (url: string): string => {
@@ -539,34 +517,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   // Event handlers
   const selectNft = (nft: EnrichedNftCoin) => {
-    console.log('🎯 NFT selected:', {
-      nft: nft,
-      displayName: getNftDisplayName(nft),
-      collectionName: getNftCollectionName(nft),
-      editionInfo: getNftEditionInfo(nft),
-      launcherId: getLauncherId(nft),
-      spacescanData: nft.spacescanData,
-      metadata: getNftMetadata(nft)
-    });
-
-    console.log('🔄 Setting selectedNft and step to confirm');
-    // Mark that user has manually selected an NFT
-    hasUserSelectedNft.current = true;
-
-    // Store the enriched NFT for display purposes
     setSelectedNft(nft);
-    setStep('confirm');
-  };
-
-  const goBack = () => {
-    if (step === 'confirm') {
-      setStep('select-nft');
-      setSelectedNft(null);
-      setOfferAmount('');
-      setDepositAddress(address || '');
-      // Reset the user selection flag when going back
-      hasUserSelectedNft.current = false;
-    }
   };
 
   // Validation function for Chia addresses
@@ -711,7 +662,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         dexieOfferId: dexieResult.success ? dexieResult.data?.id : undefined,
         dexieOfferUrl: dexieResult.success ? dexieResult.data?.offer_url : undefined
       };
-      
+
       // Save to localStorage with Dexie information
 
       // Save to localStorage first
@@ -744,7 +695,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     setSelectedNft(null);
     setOfferAmount('');
     setDepositAddress(address || '');
-    setStep('select-nft');
     setError(null);
     (onCloseWallet || onClose)();
   };
@@ -773,7 +723,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         tabIndex={0}
       >
         <div
-          className="w-[90%] max-w-[600px] max-h-[80vh] overflow-y-auto"
+          className="w-[90%] max-w-[397px] max-h-[80vh] overflow-y-auto"
           role="document"
           tabIndex={0}
           style={{ backgroundColor: '#131418', borderRadius: '16px', border: '1px solid #272830', color: '#EEEEF0' }}
@@ -781,12 +731,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
           <div className="flex justify-between items-center px-4 py-5">
             <button
               className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
-              onClick={step === 'confirm' ? goBack : onClose}
+              onClick={onClose}
               aria-label="Back"
             >
               <PiCaretLeft size={24} />
             </button>
-            <h3 className="m-0 text-[#EEEEF0] text-xl font-medium text-left">Make Offer</h3>
+            <h3 className=" text-[#EEEEF0] text-xl font-medium text-left">Make Offer</h3>
             <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
               <PiX size={24} />
             </button>
@@ -794,7 +744,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
           <div className="px-6 pb-4">
             {error && (
-              <div className="error-message">
+              <div className="p-3 rounded border border-red-300 text-red-500 bg-red-500/10 text-sm my-2 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                   <line x1="12" y1="9" x2="12" y2="13"></line>
@@ -805,23 +755,19 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
             )}
 
             {!syntheticPublicKey && (
-              <div className="info-message">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
+              <div className="p-3 rounded border border-blue-300 text-blue-400 bg-blue-500/10 text-sm my-2 flex items-center gap-2">
+                <PiInfo size={16} />
                 <span>
                   {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
                 </span>
                 <button
-                  className="refresh-wallet-btn"
+                  className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#272830] text-[#EEEEF0] hover:bg-[#1B1C22] disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={refreshWalletData}
                   disabled={isRefreshingWallet}
                 >
                   {isRefreshingWallet ? (
                     <>
-                      <div className="refresh-spinner"></div>
+                      <div className="w-3.5 h-3.5 border border-blue-300 border-t-blue-500 rounded-full animate-spin"></div>
                       Refreshing...
                     </>
                   ) : (
@@ -837,137 +783,84 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               </div>
             )}
 
-            {step === 'select-nft' ? (
-              <div className="step-content">
-                <p className="step-description">Select the NFT you want to make an offer for:</p>
+            <div className="flex flex-col gap-4">
+                {/* Select GPU */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-white text-sm font-medium text-left">Select GPU</label>
+                  {(() => {
+                    const idForNft = (n: EnrichedNftCoin) => getLauncherId(n) || (n.spacescanData?.nft_id) || `${n.coin.parentCoinInfo}_${n.coin.puzzleHash}`;
+                    const items: SelectorItem[] = nftCoinsToDisplay.map((n) => ({ id: idForNft(n), label: getNftDisplayName(n) }));
+                    const selectedId = selectedNft ? idForNft(selectedNft) : null;
+                    return (
+                      <Selector
+                        items={items}
+                        selectedId={selectedId || undefined}
+                        onSelect={(itemId) => {
+                          const found = nftCoinsToDisplay.find((n) => idForNft(n) === itemId);
+                          if (found) selectNft(found);
+                        }}
+                        placeholder="Select a GPU to sell"
+                      />
+                    );
+                  })()}
+                </div>
 
-                {nftCoinsToDisplay.length === 0 ? (
-                  <div className="no-items">
-                    <p>No NFTs found in your wallet</p>
-                    {nftsLoading && <p>Loading NFTs from Spacescan...</p>}
-                    {nftsError && <p>Error loading NFTs: {nftsError}</p>}
+                {/* Requested currency and Amount */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-white text-sm font-medium text-left">Requested currency</label>
+                    <Selector
+                      items={[{ id: 'wusdc', label: 'wUSDC.b' }]}
+                      selectedId={'wusdc'}
+                      onSelect={() => {}}
+                      placeholder="Select currency"
+                    />
                   </div>
-                ) : (
-                  <div className="nft-grid">
-                    {nftCoinsToDisplay.map((nft: EnrichedNftCoin, index: number) => {
-                      // const metadata = getNftMetadata(nft);
-                      const isLoading = isNftMetadataLoading(nft);
-                      const editionInfo = getNftEditionInfo(nft);
-
-                      return (
-                        <div key={index} className="nft-card" onClick={() => selectNft(nft)}>
-                          <div className="nft-image">
-                            {isLoading ? (
-                              <div className="nft-loading">
-                                <div className="nft-spinner"></div>
-                              </div>
-                            ) : (() => {
-                              const imageUrl = getNftImageUrl(nft);
-                              return imageUrl ? (
-                                <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(nft)} />
-                              ) : (
-                                <div className="nft-placeholder">🖼️</div>
-                              );
-                            })()}
-                          </div>
-                          <div className="nft-info">
-                            <h4>{getNftDisplayName(nft)}</h4>
-                            <p className="nft-collection">{getNftCollectionName(nft)}</p>
-                            {editionInfo && <p className="nft-edition">{editionInfo}</p>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="step-content">
-                <div className="offer-summary">
-                  <h4>Offer Summary</h4>
-
-                  <div className="summary-section">
-                    <h5>NFT to Offer:</h5>
-                    <div className="nft-summary-card">
-                      <div className="nft-summary-image">
-                        {selectedNft && isNftMetadataLoading(selectedNft) ? (
-                          <div className="nft-loading">
-                            <div className="nft-spinner"></div>
-                          </div>
-                        ) : selectedNft ? (
-                          (() => {
-                            const imageUrl = getNftImageUrl(selectedNft);
-                            return imageUrl ? (
-                              <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(selectedNft)} />
-                            ) : (
-                              '🖼️'
-                            );
-                          })()
-                        ) : null}
-                      </div>
-                      <div className="nft-summary-info">
-                        <h6>{selectedNft ? getNftDisplayName(selectedNft) : ''}</h6>
-                        <p>{selectedNft ? getNftCollectionName(selectedNft) : ''}</p>
-                        {selectedNft && getNftEditionInfo(selectedNft) && (
-                          <p className="nft-edition">{getNftEditionInfo(selectedNft)}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="summary-section">
-                    <h5>Payment Token:</h5>
-                    <div className="cat-summary-card">
-                      <div className="cat-summary-icon">💰</div>
-                      <div className="cat-summary-info">
-                        <h6>wUSDC.b</h6>
-                        <p>Asset ID: {formatAddress(WUSDC_ASSET_ID)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="summary-section">
-                    <h5>Offer Amount:</h5>
-                    <div className="amount-input-group">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-white text-sm font-medium text-left">Amount</label>
+                    <div className="relative flex items-center">
                       <input
                         type="number"
                         step="0.000001"
                         min="0"
                         value={offerAmount}
                         onChange={(e) => setOfferAmount(e.target.value)}
-                        placeholder="Enter amount..."
-                        className="amount-input"
+                        placeholder="0.0 [currency]"
+                        className="w-full px-4 py-2 bg-[#1B1C22] border border-[#272830] rounded text-[#EEEEF0] text-sm focus:outline-none focus:border-[#2C64F8] placeholder-[#A7A7A7]"
                         disabled={isSubmitting}
                       />
-                      <span className="amount-unit">wUSDC.b</span>
                     </div>
                   </div>
+                </div>
 
-                  <div className="summary-section">
-                    <h5>Deposit Address:</h5>
+                {/* Deposit address */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-white text-sm font-medium text-left">Deposit address</label>
+                  <div className="relative flex items-center">
                     <input
                       type="text"
                       value={depositAddress}
                       onChange={(e) => setDepositAddress(e.target.value)}
-                      placeholder="Enter Chia address (xch...) or puzzle hash..."
-                      className="deposit-address-input"
+                      placeholder="xch1..."
+                      className="w-full px-4 py-2 bg-[#1B1C22] border border-[#272830] rounded text-[#EEEEF0] text-sm focus:outline-none focus:border-[#2C64F8] placeholder-[#A7A7A7]"
                       disabled={isSubmitting}
                     />
                   </div>
                 </div>
 
-                <div className="action-buttons">
-                  <button className="cancel-btn" onClick={closeModal} disabled={isSubmitting || isCreatingOffer}>
+                <div className="flex gap-2  mb-2 p-0">
+                  <button type="button" onClick={closeModal} className="px-5 py-2 bg-transparent border border-[#272830] rounded text-[#EEEEF0]  font-medium hover:bg-[#1B1C22] w-1/4" disabled={isSubmitting || isCreatingOffer}>
                     Cancel
                   </button>
                   <button
-                    className="submit-btn"
+                    type="button"
                     onClick={submitOffer}
                     disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
+                    className="flex items-center justify-center gap-2 px-5 py-2 bg-[#2C64F8] rounded text-[#EEEEF0]  font-medium hover:bg-[#1E56E8] disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
                   >
-                    {isSubmitting || isCreatingOffer ? (
+                    {(isSubmitting || isCreatingOffer) ? (
                       <>
-                        <div className="button-spinner"></div>
+                        <div className="w-4 h-4 border-2 border-[#EEEEF0]/30 border-t-[#EEEEF0] rounded-full animate-spin"></div>
                         Creating Offer...
                       </>
                     ) : !syntheticPublicKey ? (
@@ -978,7 +871,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                   </button>
                 </div>
               </div>
-            )}
           </div>
         </div>
       </div>

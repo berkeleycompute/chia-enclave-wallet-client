@@ -93,7 +93,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
             <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
               <PiCaretLeft size={20} />
             </button>
-            <h3 className="m-0 text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Receive XCH</h3>
+            <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Receive XCH</h3>
               <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
               <PiX size={20} />
             </button>
@@ -101,8 +101,8 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
 
           <div className="p-4 md:p-5 space-y-6">
             {!isConnected ? (
-              <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 text-center dark:bg-gray-800 dark:text-red-400">
-                <p className="m-0">Wallet not connected. Please connect your wallet first.</p>
+              <div className="p-4 mb-4 text-sm text-red-800 rounded-lg text-center dark:bg-gray-800 dark:text-red-400">
+                <p className="text-[#ef4444]">Wallet not connected. Please connect your wallet first.</p>
               </div>
             ) : (
               <div className="flex flex-col gap-6">
@@ -112,7 +112,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
                     {qrLoading ? (
                       <div className="flex flex-col items-center justify-center p-10 text-gray-500">
                         <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-                        <p className="m-0 text-sm">Generating QR Code...</p>
+                        <p className=" text-sm">Generating QR Code...</p>
                       </div>
                     ) : qrCodeUrl ? (
                       <img src={qrCodeUrl} alt="Wallet Address QR Code" className="block w-[200px] h-[200px] rounded-md" />
@@ -127,7 +127,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
                             <rect x="14" y="14" width="3" height="3"></rect>
                           </svg>
                         </div>
-                        <p className="m-0 text-sm">QR Code unavailable</p>
+                        <p className=" text-sm">QR Code unavailable</p>
                       </div>
                     )}
                   </div>
