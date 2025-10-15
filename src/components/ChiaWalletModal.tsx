@@ -819,17 +819,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     viewAssetsDialog.close();
   };
 
-  // Inline NFT details view removed; using dedicated NFTDetailsModal instead
-
-  /*
-  const getConnectionStatus = (): string => {
-    if (!isConnected) return 'Not connected';
-    if (isConnecting) return 'Connecting...';
-    if (error) return 'Connection error';
-    return 'Connected';
-  };
-  */
-
   // Show loading states
   const isLoading = isConnecting || balanceLoading || coinsLoading;
   const hasError = error || coinsError;
@@ -947,7 +936,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         )}
                       </div>
                     </div>
-                    <p className="account-type">Connected</p>
+                    <p className="account-type">Connected 1</p>
                   </div>
                 </div>
               </div>
