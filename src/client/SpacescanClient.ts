@@ -292,7 +292,7 @@ export class SpacescanClient {
 
   constructor(config: SpacescanConfig) {
     // this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl || 'https://edge.silicon-staging.net/spacescan';
+    this.baseUrl = config.baseUrl || 'https://edgedev.silicon.net/spacescan';
     this.timeout = config.timeout || 10000; // 10 seconds
     this.requestManager = new DebouncedRequestManager();
   }

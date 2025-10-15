@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `useTwinNFTMint` hook provides functionality to mint Twin NFTs using the Silicon Network API endpoint at `https://edge.silicon-staging.net/chia/twin_nft_minter/api/v1/twin-nft/mint`.
+The `useTwinNFTMint` hook provides functionality to mint Twin NFTs using the Silicon Network API endpoint at `https://edgedev.silicon.net//chia/twin_nft_minter/api/v1/twin-nft/mint`.
 
 ## Hook Features
 

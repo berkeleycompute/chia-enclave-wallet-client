@@ -440,7 +440,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const getNftImageUrl = useCallback((nft: EnrichedNftCoin): string | undefined => {
     // Prioritize Spacescan thumbnail if available
     if (nft.spacescanData) {
-      return `https://edge.silicon-staging.net/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
+      return `https://edgedev.silicon.net/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
     }
 
     // Fall back to metadata from HydratedCoin
@@ -825,7 +825,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                         min="0"
                         value={offerAmount}
                         onChange={(e) => setOfferAmount(e.target.value)}
-                        placeholder="0.0 [currency]"
+                        placeholder={`0.0 ${WUSDC_ASSET_ID === 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d' ? 'wUSDC.b' : ''}`}
                         className="w-full px-4 py-2 bg-[#1B1C22] border border-[#272830] rounded text-[#EEEEF0] text-sm focus:outline-none focus:border-[#2C64F8] placeholder-[#A7A7A7]"
                         disabled={isSubmitting}
                       />

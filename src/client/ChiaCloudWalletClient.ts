@@ -980,7 +980,7 @@ export class ChiaCloudWalletClient {
     console.log('Environment:', this.environment);
     switch (this.environment) {
       case 'development':
-        return 'https://edge.silicon-staging.net';
+        return 'https://edgedev.silicon.net/';
       case 'production':
         return 'https://edge.silicon-prod.net';
       case 'test':
