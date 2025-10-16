@@ -75,7 +75,7 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
       tabIndex={0}
     >
       <div className="rounded-2xl overflow-y-auto" role="document" tabIndex={0}
-        style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '397px' }}
+        style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '400px' }}
       >
         <div className="flex justify-between items-center px-4 py-5">
           <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={onClose} aria-label="Back">

@@ -91,7 +91,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
       >
         <div className="rounded-2xl overflow-y-auto" 
           role="document" tabIndex={0}
-          style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '397px' }}
+          style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '400px' }}
         >
         {/* Header */}
           <div className="flex justify-between items-center px-4 py-5">

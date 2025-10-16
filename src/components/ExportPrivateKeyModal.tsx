@@ -74,7 +74,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
         className="overflow-y-auto rounded-2xl"
         role="document"
         tabIndex={0}
-        style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '397px' }}
+        style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '400px' }}
       >
         <div className="flex justify-between items-center px-4 py-5">
           <button

@@ -90,7 +90,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
         tabIndex={0}
         style={{
           width: '90%',
-          maxWidth: '397px',
+          maxWidth: '400px',
           backgroundColor: '#131418',
           borderColor: '#272830',
           color: '#EEEEF0'

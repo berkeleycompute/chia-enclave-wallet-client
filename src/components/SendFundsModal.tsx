@@ -220,7 +220,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
             border: '1px solid #272830', 
             color: '#EEEEF0', 
             boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
-            maxWidth: '397px',
+            maxWidth: '400px',
             maxHeight: '90vh'
           }}
         >
