@@ -30,7 +30,7 @@ import {
   useTransactionsDialog,
   useViewAssetsDialog
 } from '../hooks/useDialogs';
-import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { useMnemonic } from '../hooks/useWalletInfo';
 import { useGlobalDialogs } from './GlobalDialogProvider';
 import { SiChianetwork } from 'react-icons/si';
@@ -87,6 +87,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   } = walletState;
 
   const {
+    xchCoins,
     hydratedCoins,
     isLoading: coinsLoading,
     error: coinsError
@@ -110,8 +111,16 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     refetch: _refetchNfts
   } = useSpacescanNFTs(address);
 
-  // Use Spacescan for balance display
-  const spacescanBalance = useSpacescanBalance(address);
+
+  // Calculate balance directly from coins (more accurate)
+  const xchAvailableMojos = useMemo(() => {
+    return xchCoins.reduce((total, coin) => total + parseInt(coin.coin.amount), 0);
+  }, [xchCoins]);
+
+  const formatXCH = useCallback((mojos: string | number): string => {
+    const result = ChiaCloudWalletClient.mojosToXCH(mojos);
+    return result.success ? result.data.toFixed(6) : '0';
+  }, []);
 
   // Use Spacescan NFTs as the primary NFT source
   const nftCoins = spacescanNfts;
@@ -137,20 +146,26 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   }, [jwtToken, isConnected, isConnecting, setJwtToken, connect]);
 
   // Memoize wallet data to prevent unnecessary re-renders
-  const walletData = useMemo(() => ({
-    connected: isConnected,
-    address: address,
-    balance: spacescanBalance.xch || 0,
-    coinCount: coinCount,
-    formattedBalance: spacescanBalance.formattedBalance
-  }), [isConnected, address, spacescanBalance.xch, spacescanBalance.formattedBalance, coinCount]);
+  const walletData = useMemo(() => {
+    const xchBalance = ChiaCloudWalletClient.mojosToXCH(xchAvailableMojos);
+    const balance = xchBalance.success ? xchBalance.data : 0;
+    const formattedBalance = formatXCH(xchAvailableMojos);
+    
+    return {
+      connected: isConnected,
+      address: address,
+      balance: balance,
+      coinCount: coinCount,
+      formattedBalance: formattedBalance
+    };
+  }, [isConnected, address, xchAvailableMojos, coinCount, formatXCH]);
 
   // Use ref to track previous wallet data
   const prevWalletDataRef = useRef<any>(null);
 
   // Emit wallet updates only when data actually changes
   useEffect(() => {
-    if (onWalletUpdate && isConnected && !spacescanBalance.loading) {
+    if (onWalletUpdate && isConnected && !coinsLoading) {
       const prevData = prevWalletDataRef.current;
       const currentData = walletData;
 
@@ -166,7 +181,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         onWalletUpdate(currentData);
       }
     }
-  }, [onWalletUpdate, isConnected, spacescanBalance.loading, walletData]);
+  }, [onWalletUpdate, isConnected, coinsLoading, walletData]);
 
   // Storage key generators for NFT metadata
   const getNftMetadataStorageKey = useCallback((pubKey: string | null): string => {
@@ -626,7 +641,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                     <SiChianetwork size={24} color="#0E9F6E" />
                     <div className="flex flex-col items-start">
                       <h4 className="text-white font-medium">Chia</h4>
-                      <p className="text-xs font-medium" style={{ color: '#7c7a85' }}>{spacescanBalance.loading ? 'Loading...' : spacescanBalance.error ? 'Error' : spacescanBalance.formattedBalance + ' XCH'}</p>
+                      <p className="text-xs font-medium" style={{ color: '#7c7a85' }}>{coinsLoading ? 'Loading...' : formatXCH(xchAvailableMojos) + ' XCH'}</p>
                     </div>
                   </div>
 
