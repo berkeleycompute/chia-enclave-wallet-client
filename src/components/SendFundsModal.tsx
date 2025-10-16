@@ -219,11 +219,11 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
         >
           {/* Header */}
           <div className="flex justify-between items-center px-4 py-5">
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
               <PiCaretLeft size={24} />
             </button>
             <h3 className=" text-[#EEEEF0] text-xl font-medium  text-left">Send XCH</h3>
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
               <PiX size={24} />
             </button>
           </div>
@@ -312,11 +312,11 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
                   <div className="flex flex-col gap-1">
                     <label className="text-white text-sm font-medium  text-left">Transaction summary</label>
                     <div className="bg-[#1B1C22] rounded-lg border-l-0 p-3 flex flex-col gap-3">
-                      <div className="flex justify-between items-center text-[14px] ">
+                      <div className="flex justify-between items-center text-sm ">
                         <span>Amount</span>
                         <span className="text-white font-medium ">{amount || '0'} XCH</span>
                       </div>
-                      <div className="flex justify-between items-center text-[14px] ">
+                      <div className="flex justify-between items-center text-sm ">
                         <span>Network fee</span>
                         <span className="text-white font-medium ">{fee || '0'} XCH</span>
                       </div>

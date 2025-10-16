@@ -79,7 +79,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
 
   return (
     <div
-      className="modal-overlay receive-modal-overlay fixed top-0 right-0 left-0 z-50 flex items-center justify-center w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full bg-black/70 backdrop-blur-sm"
+      className="fixed top-0 right-0 left-0 flex items-center justify-center w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full bg-black/70 backdrop-blur-sm"
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
       role="dialog"
@@ -87,14 +87,13 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
       tabIndex={0}
       style={{ zIndex: 1001 }}
     >
-      <div className="relative p-4 w-full max-w-md max-h-full">
-        <div className="relative bg-[#131418] rounded-2xl border border-[#272830] text-[#EEEEF0]" role="document" tabIndex={0}>
-          <div className="flex items-center justify-between px-4 py-5 border-b border-[#272830] rounded-t">
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
+      <div className="relative w-[90%] max-w-[397px] max-h-full relative bg-[#131418] rounded-2xl border border-[#272830] text-[#EEEEF0]" role="document" tabIndex={0}>
+          <div className="flex items-center justify-between px-4 py-5">
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
               <PiCaretLeft size={20} />
             </button>
-            <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Receive XCH</h3>
-              <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
+            <h3 className="text-[#EEEEF0] text-xl font-medium">Receive XCH</h3>
+              <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
               <PiX size={20} />
             </button>
           </div>
@@ -155,7 +154,6 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
               </div>
             )}
           </div>
-        </div>
       </div>
     </div>
   );

@@ -81,7 +81,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   return (
     <>
       <div
-        className="modal-overlay send-modal-overlay"
+        className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
         onClick={handleOverlayClick}
         onKeyDown={handleKeyDown}
         role="dialog"
@@ -89,14 +89,14 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
         tabIndex={0}
         style={{ zIndex: 1001 }}
       >
-        <div className="modal-content send-modal-content" role="document" tabIndex={0}>
-          {/* Header */}
+        <div className="bg-[#131418] rounded-2xl w-[90%] max-w-[397px] max-h-[90vh] overflow-y-auto border border-[#272830] text-[#EEEEF0]" role="document" tabIndex={0}>
+        {/* Header */}
           <div className="flex justify-between items-center px-4 py-5">
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
               <PiCaretLeft size={24} />
             </button>
-            <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">View Assets</h3>
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
+            <h3 className=" text-[#EEEEF0] text-xl font-medium  text-left">View Assets</h3>
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
               <PiX size={24} />
             </button>
           </div>
@@ -130,19 +130,19 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                 <div className="flex flex-col gap-3">
                   {/* Coins Summary */}
                   <div className="bg-[#1B1C22] rounded-lg border border-[#272830] p-3">
-                    <div className="flex justify-between items-center text-[14px] leading-[1.5]">
+                    <div className="flex justify-between items-center text-sm ">
                       <span>Total XCH</span>
                       <span className="text-white font-medium ">{formatXCH(xchAvailableMojos)} XCH</span>
                     </div>
-                    <div className="flex justify-between items-center text-[14px] leading-[1.5] mt-2">
+                    <div className="flex justify-between items-center text-sm  mt-2">
                       <span>XCH coins</span>
                       <span className="text-white font-medium ">{xchCoins.length}</span>
                     </div>
-                    <div className="flex justify-between items-center text-[14px] leading-[1.5] mt-2">
+                    <div className="flex justify-between items-center text-sm  mt-2">
                       <span>CAT coins</span>
                       <span className="text-white font-medium ">{catCoins.length}</span>
                     </div>
-                    <div className="flex justify-between items-center text-[14px] leading-[1.5] mt-2">
+                    <div className="flex justify-between items-center text-sm  mt-2">
                       <span>NFTs</span>
                       <span className="text-white font-medium ">{nftCoins.length}</span>
                     </div>
@@ -151,7 +151,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   {/* NFT List */}
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-white text-sm font-medium leading-[1.5] text-left">NFTs</label>
+                      <label className="text-white text-sm font-medium  text-left">NFTs</label>
                       <button
                         className="px-3 py-1 rounded border border-[#272830] text-[#EEEEF0] text-sm hover:bg-[#1B1C22] disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={refreshNFTs}

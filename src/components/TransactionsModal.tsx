@@ -67,20 +67,20 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
 
   return (
     <div
-      className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
+      className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
       style={{ zIndex: 1001 }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       tabIndex={0}
     >
-      <div className="modal-content bg-[#131418] rounded-2xl w-[90%] max-w-[640px] max-h-[90vh] overflow-y-auto border border-[#272830] text-[#EEEEF0]" role="document" tabIndex={0}>
+      <div className="bg-[#131418] rounded-2xl w-[90%] max-w-[397px] max-h-[90vh] overflow-y-auto border border-[#272830] text-[#EEEEF0]" role="document" tabIndex={0}>
         <div className="flex justify-between items-center px-4 py-5">
-          <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
+          <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
             <PiCaretLeft size={24} />
           </button>
-          <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Transactions</h3>
-          <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
+          <h3 className="text-[#EEEEF0] text-xl font-medium">Transactions</h3>
+          <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onCloseWallet || onClose} aria-label="Close modal">
             <PiX size={24} />
           </button>
         </div>

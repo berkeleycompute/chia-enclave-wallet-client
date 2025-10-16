@@ -267,11 +267,11 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
           style={{ backgroundColor: '#131418', borderRadius: '16px', border: '1px solid #272830', color: '#EEEEF0' }}
         >
           <div className="flex justify-between items-center px-4 py-5">
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeOfferDetails} aria-label="Back">
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeOfferDetails} aria-label="Back">
               <PiCaretLeft size={24} />
             </button>
-            <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Offer Details</h3>
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
+            <h3 className=" text-[#EEEEF0] text-xl font-medium  text-left">Offer Details</h3>
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
               <PiX size={24} />
             </button>
           </div>
@@ -347,12 +347,12 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
         style={{ backgroundColor: '#131418', borderRadius: '16px', border: '1px solid #272830', color: '#EEEEF0' }}
       >
           <div className="flex justify-between items-center px-4 py-5">
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={onClose} aria-label="Back">
             <PiCaretLeft size={24} />
           </button>
-          <h3 className=" text-[#EEEEF0] text-xl font-medium leading-[1.5] text-left">Offers ({activeOffers.length})</h3>
+          <h3 className=" text-[#EEEEF0] text-xl font-medium  text-left">Offers ({activeOffers.length})</h3>
           <div className="flex items-center gap-2">
-            <button className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
+            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
               <PiX size={24} />
             </button>
           </div>

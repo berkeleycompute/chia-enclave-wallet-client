@@ -78,7 +78,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
       >
         <div className="flex justify-between items-center px-4 py-5">
           <button
-            className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
+            className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
             onClick={onClose}
             aria-label="Back"
           >
@@ -86,7 +86,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
           </button>
           <h3 className=" text-[#EEEEF0] text-xl font-medium text-left">Export Private Key</h3>
           <button
-            className="bg-transparent border-0 text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
+            className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
             onClick={closeModal}
             aria-label="Close modal"
           >
