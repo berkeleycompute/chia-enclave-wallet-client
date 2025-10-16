@@ -351,7 +351,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
         tabIndex={0}
         style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '397px' }}
       >
-        <div className="flex justify-between items-center px-4 py-5">
+        <div className="flex justify-between items-center px-6 py-5">
           <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={onClose} aria-label="Back">
             <PiCaretLeft size={24} />
           </button>
@@ -388,17 +388,17 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
             </button>
           </div>
           {loading ? (
-            <div className="text-center py-12" style={{ color: '#888' }}>
+            <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px' }}>
               <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }} />
               <p className=" text-sm">Loading offers...</p>
             </div>
           ) : !address ? (
-            <div className="text-center py-12" style={{ color: '#888' }}>
+            <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px' }}>
               <h4 className="mb-2 text-white text-lg font-semibold">Wallet Not Connected</h4>
               <p className="text-sm">Please connect your wallet to view active offers.</p>
             </div>
           ) : activeOffers.length === 0 ? (
-            <div className="text-center py-12" style={{ color: '#888' }}>
+            <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px' }}>
               <h4 className="mb-2 text-white text-lg font-semibold">No Active Offers</h4>
               <p className="text-sm">You haven't created any offers yet. Create an offer to see it here.</p>
             </div>

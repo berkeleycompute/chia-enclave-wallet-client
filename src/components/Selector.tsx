@@ -42,35 +42,37 @@ export const Selector: React.FC<SelectorProps> = ({
     <div className={`relative w-full ${className}`} ref={dropdownRef}>
       <div
         onClick={() => setDropdownOpen(!dropdownOpen)}
-        className={`flex items-center justify-between w-full cursor-pointer p-2 rounded transition-colors border
-              hover:bg-[#1B1C22] 
-              border-[#272830] 
-              bg-[#1B1C22]`}
+        className={`flex items-center justify-between w-full cursor-pointer p-2 rounded transition-colors border`}
+        style={{borderColor: '#272830', backgroundColor: '#1B1C22'}}
       >
-        <span className="text-sm font-medium text-[#EEEEF0] truncate select-none">
+        <span className="text-sm font-medium truncate select-none" style={{color: '#EEEEF0'}}>
           {selected?.label || placeholder}
         </span>
         <PiCaretDown
-          className={`text-[#EEEEF0] ml-2 transition-transform ${
+          className={`ml-2 transition-transform ${
             dropdownOpen ? 'rotate-180' : ''
           }`}
           size={16}
+          style={{color: '#EEEEF0'}}
         />
       </div>
 
       {dropdownOpen && (
-        <div className="absolute top-full left-0 mt-2 w-full rounded-lg rounded-t shadow-lg bg-[#1B1C22] border-[#272830] border z-50 max-h-80 overflow-hidden select-none">
+        <div className="absolute top-full left-0 mt-2 w-full rounded-lg rounded-t shadow-lg border z-50 max-h-80 overflow-hidden select-none"
+        style={{backgroundColor: '#1B1C22', borderColor: '#272830'}}>
           <div className="relative">
-            <PiMagnifyingGlass className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#7D7D7D] w-4 h-4" />
+            <PiMagnifyingGlass className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-silicongray-400" />
             <input
               type="text"
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`text-sm pl-10 pr-4 py-3 w-full border-t-0 border-l-0 border-r-0 border-b-1 !focus:border-none 
-                    border-[#272830]
-                    focus:border-[#272830] focus:ring-transparent !focus:border-b-0 
-                    bg-transparent placeholder:text-[#7D7D7D]`}
+              className={`text-sm pr-4 py-3 w-full border-t-0 border-l-0 border-r-0 border-b-1 !focus:border-none 
+                    focus:ring-transparent !focus:border-b-0 
+                    bg-transparent placeholder:text-silicongray-400`}
+              style={{borderColor: '#272830', backgroundColor: '#1B1C22', paddingLeft: '40px'}}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
             />
           </div>
 
@@ -84,19 +86,25 @@ export const Selector: React.FC<SelectorProps> = ({
                     setDropdownOpen(false);
                     setSearchTerm('');
                   }}
-                  className={`flex items-center w-full px-4 py-3 text-sm font-normal select-none
-                        hover:bg-[#1B1C22]
-                        hover:text-white text-left ${
-                          selectedId === item.id
-                            ? 'bg-[#1B1C22] text-[#EEEEF0]'
-                            : 'text-[#7D7D7D] '
-                        }`}
+                  className={`flex items-center w-full px-4 py-3 text-sm font-normal select-none`}
+                  style={{backgroundColor: 'transparent', color: 'gray-400'}}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1B1C22';
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    if (selectedId === item.id) { e.currentTarget.style.color = '#EEEEF0';
+                    e.currentTarget.style.backgroundColor = '#1B1C22'; }
+                    else { e.currentTarget.style.color = 'gray-400';
+                    e.currentTarget.style.backgroundColor = 'transparent'; }
+                  }}
                 >
                   <span className="truncate">{item.label}</span>
                 </button>
               ))
             ) : (
-              <div className="px-4 py-3 text-sm text-[#7D7D7D] select-none">
+              <div className="px-4 py-3 text-sm text-gray-400 select-none">
                 No items found
               </div>
             )}

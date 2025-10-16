@@ -583,7 +583,7 @@ export const sharedModalStyles = `
     }
 
     .btn {
-      padding: 10px 14px;
+      padding: 12px;
       font-size: 13px;
     }
   }

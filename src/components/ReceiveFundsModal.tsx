@@ -151,7 +151,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
                   style={{ 
                     backgroundColor: '#1B1C22', 
                     borderColor: '#272830',
-                    padding: '10px 14px'
+                    padding: '12px'
                   }}
                 >
                   <span className="font-mono" style={{ color: '#EEEEF0' }}>{address?.slice(0, 7)}...{address?.slice(-4)}</span>

@@ -304,7 +304,7 @@ const ComponentsView: React.FC<{
                                 footer={
                                     <button
                                         className="w-full flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg"
-                                        style={{ padding: '10px 14px' }}
+                                        style={{ padding: '12px' }}
                                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                         onClick={() => alert('Connect to Base Wallet')}
                                     >
