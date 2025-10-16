@@ -72,7 +72,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
 
   return (
     <div
-      className="fixed top-0 right-0 left-0 flex items-center justify-center w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 backdrop-blur-sm max-h-full bg-black/70"
+      className="fixed top-0 right-0 left-0 flex items-center justify-center w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 backdrop-blur-sm max-h-full"
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
       role="dialog"
@@ -81,6 +81,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
       style={{ 
         zIndex: 1001, 
         height: 'calc(100% - 1rem)', 
+        backgroundColor: 'rgba(0, 0, 0, 0.7)'
       }}
     >
       <div 
@@ -150,7 +151,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
                   style={{ 
                     backgroundColor: '#1B1C22', 
                     borderColor: '#272830',
-                    padding: '14px 10px'
+                    padding: '10px 14px'
                   }}
                 >
                   <span className="font-mono" style={{ color: '#EEEEF0' }}>{address?.slice(0, 7)}...{address?.slice(-4)}</span>

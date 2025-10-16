@@ -713,8 +713,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
-        style={{ zIndex: 1001 }}
+        className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
+        style={{ zIndex: 1001, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
         onClick={(e) => e.target === e.currentTarget && closeModal()}
         role="dialog"
         aria-modal="true"

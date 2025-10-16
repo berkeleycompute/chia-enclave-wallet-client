@@ -67,8 +67,8 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
-      style={{ zIndex: 1001 }}
+      className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
+      style={{ zIndex: 1001, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
@@ -93,16 +93,16 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
               <p className="text-red-500">Wallet not connected. Please connect your wallet first.</p>
             </div>
           ) : loading ? (
-            <div className="text-center py-10">
+            <div className="text-center" style={{ padding: '40px' }}>
               <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }}></div>
               <p>Loading transactions...</p>
             </div>
           ) : error ? (
-            <div className="text-center py-10">
+            <div className="text-center" style={{ padding: '40px' }}>
               <p className="text-red-500">Error loading transactions: {error}</p>
             </div>
           ) : allTransactions.length === 0 ? (
-            <div className="text-center py-10">
+            <div className="text-center" style={{ padding: '40px' }}>
               <p className="">No transactions yet</p>
             </div>
           ) : (

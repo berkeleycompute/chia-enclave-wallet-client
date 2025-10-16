@@ -64,8 +64,8 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
-      style={{ zIndex: 1001 }}
+      className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
+      style={{ zIndex: 1001, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
       role="dialog"
       aria-modal="true"
       tabIndex={0}

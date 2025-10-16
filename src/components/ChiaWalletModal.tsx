@@ -526,8 +526,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       {/* Main Modal */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
-          style={{ zIndex: 1000 }}
+          className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
+          style={{ zIndex: 1000, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
           onClick={handleOverlayClick}
           onKeyDown={handleKeyDown}
           role="dialog"
@@ -548,11 +548,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               width: '90%'
             }}
           >
-            <div className="px-4" style={{ paddingTop: '8px' }}>
+            <div className="relative px-4" style={{ paddingTop: '8px' }}>
               <div className="w-full flex items-center gap-2" style={{ padding: '14px' }}>
                 <div className="relative">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center text-white" style={{ background: 'linear-gradient(to bottom, #0e9f6e, #014737)' }}></div>
-                  <div className="absolute -bottom-0.5 -right-0.5 rounded-full flex items-center justify-center" style={{ width: '18px', height: '18px', backgroundColor: '#131418', border: '1px solid #272830' }}>
+                  <div className="absolute rounded-full flex items-center justify-center" style={{ width: '18px', height: '18px', backgroundColor: '#131418', border: '1px solid #272830', bottom: '-2px', right: '-2px' }}>
                     <svg width="13" height="12" viewBox="0 0 13 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M10.5149 2.74281V1.02852C10.5149 0.876967 10.4547 0.731624 10.3476 0.624458C10.2404 0.517298 10.095 0.457092 9.9435 0.457092H2.51493C2.21182 0.457092 1.92113 0.577498 1.70681 0.791829C1.49248 1.00616 1.37207 1.29685 1.37207 1.59995M1.37207 1.59995C1.37207 1.90305 1.49248 2.19374 1.70681 2.40807C1.92113 2.6224 2.21182 2.74281 2.51493 2.74281H11.0864C11.2379 2.74281 11.3833 2.80301 11.4904 2.91017C11.5976 3.01734 11.6578 3.16268 11.6578 3.31424V5.59995M1.37207 1.59995V9.59995C1.37207 9.90304 1.49248 10.1937 1.70681 10.4081C1.92113 10.6224 2.21182 10.7428 2.51493 10.7428H11.0864C11.2379 10.7428 11.3833 10.6826 11.4904 10.5754C11.5976 10.4683 11.6578 10.3229 11.6578 10.1714V7.88566M11.6578 5.59995H9.9435C9.64041 5.59995 9.34973 5.72035 9.13538 5.93469C8.92104 6.14903 8.80064 6.43972 8.80064 6.74281C8.80064 7.04589 8.92104 7.33658 9.13538 7.55092C9.34973 7.76526 9.64041 7.88566 9.9435 7.88566H11.6578M11.6578 5.59995C11.8093 5.59995 11.9547 5.66018 12.0618 5.76732C12.169 5.87446 12.2292 6.01984 12.2292 6.17138V7.31424C12.2292 7.46578 12.169 7.61115 12.0618 7.71829C11.9547 7.82544 11.8093 7.88566 11.6578 7.88566" stroke="#3E67C1" strokeWidth="0.857143" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -622,7 +622,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   </div>
 
                   {/* Balance Section */}
-                  <div className="w-full flex rounded-lg flex items-center gap-3" style={{ padding: '14px 10px' }}>
+                  <div className="w-full flex rounded-lg flex items-center gap-3" style={{ padding: '10px 14px' }}>
                     <SiChianetwork size={24} color="#0E9F6E" />
                     <div className="flex flex-col items-start">
                       <h4 className="text-white font-medium">Chia</h4>
@@ -635,7 +635,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                     <div className="flex items-center gap-4">
                       <button
                         className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg flex-1"
-                        style={{backgroundColor: 'transparent', padding: '14px' }}
+                        style={{backgroundColor: 'transparent', padding: '10px 14px' }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         onClick={() => {
                           activeOffersDialog.open();
@@ -648,7 +648,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       <div className="h-6" style={{ backgroundColor: '#272830', width: '1px' }}></div>
                       <button
                         className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg flex-1"
-                        style={{ backgroundColor: 'transparent', padding: '14px' }}
+                        style={{ backgroundColor: 'transparent', padding: '10px 14px' }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         onClick={() => viewAssetsDialog.open()}
                       >
@@ -662,14 +662,14 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       </button>
                     </div>
 
-                    <button className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg" style={{ backgroundColor: 'transparent', padding: '14px' }} onClick={() => transactionsDialog.open()} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    <button className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg" style={{ backgroundColor: 'transparent', padding: '10px 14px' }} onClick={() => transactionsDialog.open()} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path fillRule="evenodd" clipRule="evenodd" d="M4.0002 6.39999C3.55837 6.39999 3.2002 6.75817 3.2002 7.19999C3.2002 7.64182 3.55837 7.99999 4.0002 7.99999H20.0002C20.442 7.99999 20.8002 7.64182 20.8002 7.19999C20.8002 6.75817 20.442 6.39999 20.0002 6.39999H4.0002ZM3.2002 12C3.2002 11.5582 3.55837 11.2 4.0002 11.2H20.0002C20.442 11.2 20.8002 11.5582 20.8002 12C20.8002 12.4418 20.442 12.8 20.0002 12.8H4.0002C3.55837 12.8 3.2002 12.4418 3.2002 12ZM3.2002 16.8C3.2002 16.3582 3.55837 16 4.0002 16H20.0002C20.442 16 20.8002 16.3582 20.8002 16.8C20.8002 17.2418 20.442 17.6 20.0002 17.6H4.0002C3.55837 17.6 3.2002 17.2418 3.2002 16.8Z" fill="#7C7A85" />
                       </svg>
                       <span className="font-medium text-white">Transactions</span>
                     </button>
 
-                    <button className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" style={{ backgroundColor: 'transparent', padding: '14px' }} onClick={handleExportPrivateKey} disabled={isExportingMnemonic} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    <button className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" style={{ backgroundColor: 'transparent', padding: '10px 14px' }} onClick={handleExportPrivateKey} disabled={isExportingMnemonic} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                       <div className="flex items-center justify-center w-6 h-6">
                         <PiKey size={16} color="#7C7A85" />
                       </div>
@@ -693,7 +693,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
             {/* Disconnect Section - Bottom */}
             {isConnected && (
               <div className="px-4 py-3 border-t" style={{ borderColor: '#272830' }}>
-                <button className="w-full flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg" style={{ backgroundColor: 'transparent', padding: '14px' }} onClick={disconnect} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                <button className="w-full flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg" style={{ backgroundColor: 'transparent', padding: '10px 12px' }} onClick={disconnect} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <g clipPath="url(#clip0_1772_59567)">
                       <path fillRule="evenodd" clipRule="evenodd" d="M4.8002 1.60001C3.91653 1.60001 3.2002 2.31636 3.2002 3.20001V20.8C3.2002 21.6837 3.91655 22.4 4.8002 22.4H16.8002C17.242 22.4 17.6002 22.0418 17.6002 21.6C17.6002 21.1582 17.242 20.8 16.8002 20.8H4.8002V3.20001H16.8002C17.242 3.20001 17.6002 2.84183 17.6002 2.40001C17.6002 1.95818 17.242 1.60001 16.8002 1.60001H4.8002ZM20.166 7.83433C19.8535 7.52189 19.3469 7.52189 19.0344 7.83433C18.7221 8.14674 18.7221 8.65327 19.0344 8.96569L21.2688 11.2H10.4002C9.95837 11.2 9.6002 11.5582 9.6002 12C9.6002 12.4418 9.95837 12.8 10.4002 12.8H21.2688L19.0344 15.0343C18.7221 15.3467 18.7221 15.8533 19.0344 16.1658C19.3469 16.4781 19.8535 16.4781 20.166 16.1658L23.766 12.5657C24.0783 12.2533 24.0783 11.7467 23.766 11.4343L20.166 7.83433Z" fill="#7C7A85" />

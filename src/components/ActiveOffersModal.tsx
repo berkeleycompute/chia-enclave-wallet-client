@@ -253,8 +253,8 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
   if (showOfferDetails && selectedOffer) {
     return (
       <div
-        className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
-        style={{ zIndex: 1001 }}
+        className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
+        style={{ zIndex: 1001, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
         onClick={(e) => e.target === e.currentTarget && closeOfferDetails()}
         role="dialog"
         aria-modal="true"
@@ -337,8 +337,8 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm"
-      style={{ zIndex: 1001 }}
+      className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
+      style={{ zIndex: 1001, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
       role="dialog"
