@@ -107,7 +107,7 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
 
           <div className="p-4 md:p-5 space-y-6">
             {!isConnected ? (
-              <div className="p-4 mb-4 text-sm text-red-800 rounded-lg text-center dark:bg-gray-800 dark:text-red-400">
+              <div className="p-4 mb-4 text-sm text-red-500 rounded-lg text-center">
                 <p style={{ color: '#ef4444' }}>Wallet not connected. Please connect your wallet first.</p>
               </div>
             ) : (
@@ -146,10 +146,11 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
 
                 {/* Address Section */}
                 <div 
-                  className="flex items-center justify-between rounded-lg border py-2.5 px-3.5" 
+                  className="flex items-center justify-between rounded-lg border py-2.5" 
                   style={{ 
                     backgroundColor: '#1B1C22', 
-                    borderColor: '#272830' 
+                    borderColor: '#272830',
+                    padding: '14px 10px'
                   }}
                 >
                   <span className="font-mono" style={{ color: '#EEEEF0' }}>{address?.slice(0, 7)}...{address?.slice(-4)}</span>

@@ -89,7 +89,7 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
 
         <div className="px-6 border-b border-t" style={{ borderColor: '#272830' }}>
           {!isConnected ? (
-            <div className="text-center py-10">
+            <div className="text-center" style={{ padding: '40px' }}>
               <p className="text-red-500">Wallet not connected. Please connect your wallet first.</p>
             </div>
           ) : loading ? (
@@ -113,7 +113,7 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
                   <div key={tx.id} style={{ maxHeight: "330px", borderColor: isOutgoing ? '#3a2a2a' : '#27352a', backgroundColor: isOutgoing ? '#241d1d' : '#1d241f' }} className={`overflow-y-scroll flex flex-col items-center justify-between p-2 rounded-lg border 
                     ${index === allTransactions.length - 1 ? 'mb-2' : ''}
                     ${index === 0 ? 'mt-2' : ''}`}>
-                    <div className="flex flex-col items-center p-3.5">
+                    <div className="flex flex-col items-center" style={{ padding: '14px' }}>
                       <div style={{ color: '#FFFFFF' }}>
                         {isOutgoing ? '-' : '+'}{formatAmount(tx)}
                       </div>
@@ -131,7 +131,7 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
           )}
         </div>
 
-        <div className="p-3.5">
+        <div style={{ padding: '14px' }}>
           <button className="w-full rounded-lg py-2.5 px-5 items-center justify-center gap-2 border flex flex-row gap-2" style={{ color: '#EEEEF0', borderColor: '#272830' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             onClick={() => window.open(`https://www.spacescan.io/address/${address}`, '_blank')}
           >

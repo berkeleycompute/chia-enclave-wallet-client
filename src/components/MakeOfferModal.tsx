@@ -869,9 +869,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                     type="button"
                     onClick={submitOffer}
                     disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
-                    className="flex items-center justify-center gap-2 px-5 py-2 bg-transparent border rounded font-medium w-3/4"
+                    className="flex items-center justify-center gap-2 px-5 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
                     style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e56e8'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
                   >
                     {(isSubmitting || isCreatingOffer) ? (

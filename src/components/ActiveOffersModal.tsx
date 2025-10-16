@@ -413,7 +413,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
                   (offer.requestedPayment.assetName || '').toLowerCase().includes(term)
                 );
               }).map((offer) => (
-                <div key={offer.id} className="p-3.5 border-none rounded" style={{ backgroundColor: '#1B1C22' }}>
+                <div key={offer.id} className="border-none rounded" style={{ backgroundColor: '#1B1C22', padding: '14px' }}>
                   <div className="flex flex-col items-center gap-3">
                     <div className="flex flex-row items-center justify-between min-w-0">
                       <div className="text-gray-300 text-sm">NFT</div>
