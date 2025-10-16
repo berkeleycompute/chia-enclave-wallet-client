@@ -479,10 +479,8 @@ export const UnifiedWalletModal: React.FC<UnifiedWalletModalProps> = ({
             maxWidth: '800px',
             width: '90%',
             maxHeight: '90vh',
-            overflow: 'auto',
-            borderRadius: '16px',
           }}
-          className="unified-wallet-modal-container"
+          className="unified-wallet-modal-container rounded-2xl overflow-y-auto"
         >
           {/* Modal Header */}
           <div className="modal-header">

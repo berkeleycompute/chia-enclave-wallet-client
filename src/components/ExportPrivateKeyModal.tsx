@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PiCaretLeft, PiX, PiKey, PiWarning, PiCopy } from 'react-icons/pi';
+import { PiCaretLeft, PiX, PiKey, PiWarning, PiCopy, PiCheck } from 'react-icons/pi';
 import { useWalletConnection, useWalletState } from '../hooks/useChiaWalletSDK';
 import { useMnemonic } from '../hooks/useWalletInfo';
 
@@ -71,22 +71,22 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
       tabIndex={0}
     >
       <div
-        className="w-[90%] max-w-[397px] max-h-[85vh] overflow-y-auto"
+        className="overflow-y-auto rounded-2xl"
         role="document"
         tabIndex={0}
-        style={{ backgroundColor: '#131418', borderRadius: '16px', border: '1px solid #272830', color: '#EEEEF0' }}
+        style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '397px' }}
       >
         <div className="flex justify-between items-center px-4 py-5">
           <button
-            className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
+            className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
             onClick={onClose}
             aria-label="Back"
           >
             <PiCaretLeft size={24} />
           </button>
-          <h3 className=" text-[#EEEEF0] text-xl font-medium text-left">Export Private Key</h3>
+          <h3 className="text-xl font-medium" style={{ color: '#EEEEF0' }}>Export Private Key</h3>
           <button
-            className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
+            className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
             onClick={closeModal}
             aria-label="Close modal"
           >
@@ -97,25 +97,26 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
         <div className="px-6 pb-6">
           {step === 'confirm' && (
             <div className="flex flex-col items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-[#1B1C22] flex items-center justify-center border border-[#272830]">
+              <div className="w-20 h-20 rounded-full flex items-center justify-center border" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
                 <PiKey size={36} />
               </div>
-              <p className="text-center text-white text-sm max-w-[253px]">
+              <p className="text-center text-sm" style={{ color: '#FFFFFF', maxWidth: '253px' }}>
                 Reveal your private key to manage this wallet in a different app.
               </p>
-              <label className="flex items-start gap-3 text-sm text-[#A7A7A7]">
+              <label className="flex items-start gap-3 text-sm text-gray-300">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded-[4px] border border-[#52525b] bg-[#3f3f46] accent-[#4b5563] focus:outline-none focus:ring-0"
+                  style={{ borderColor: '#52525b', backgroundColor: '#3f3f46', accentColor: '#4b5563', borderRadius: '4px' }}
+                  className="mt-0.5 h-4 w-4 focus:outline-none focus:ring-0"
                   checked={ackRisks}
                   onChange={(e) => setAckRisks(e.target.checked)}
                 />
-                <span className="max-w-[253px]">
+                <span style={{ maxWidth: '253px' }}>
                   I understand the risks of owning my private key and am fully responsible for keeping it secure.
                 </span>
               </label>
               <button
-                className="w-full px-5 py-3 bg-[#2C64F8] rounded text-[#EEEEF0] font-medium hover:bg-[#1E56E8] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-5 py-3 rounded font-medium" style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'  }
                 disabled={!ackRisks}
                 onClick={doExport}
               >
@@ -125,15 +126,15 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
           )}
 
           {step === 'loading' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4 text-[#A7A7A7]">
-              <div className="w-12 h-12 border-4 border-[#272830] border-t-[#9CD24B] rounded-full animate-spin" />
+            <div className="flex flex-col items-center justify-center py-16 gap-4 text-gray-300">
+              <div className="w-12 h-12 border-4 rounded-full animate-spin" style={{ borderColor: '#272830', borderTopColor: '#9CD24B' }} />
               <div>Retrieving your private key</div>
             </div>
           )}
 
           {step === 'info' && (
             <div className="flex flex-col gap-4">
-              <div className="p-4 rounded bg-[#351F20] text-[#FDBA8C] text-sm flex flex-col items-start gap-1.5">
+              <div className="p-4 rounded text-sm flex flex-col items-start gap-1.5" style={{ backgroundColor: '#351F20', color: '#FDBA8C' }}>
                 <div className="flex flex-row items-center gap-2">
                   <PiWarning size={16} />
                   <div className="font-semibold">Don’t share your private key with anyone</div>
@@ -151,16 +152,14 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
                   : (value || '—');
                 return (
                   <div key={id} className="flex flex-col gap-2">
-                    <div className="text-sm text-[#A7A7A7]">{label}</div>
-                    <div className="flex items-center gap-2 p-3 bg-[#1B1C22] border border-[#272830] rounded">
+                    <div className="text-sm text-gray-300">{label}</div>
+                    <div className="flex items-center gap-2 p-3 border rounded" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
                       <div className="text-xs break-all">{displayValue}</div>
                       <div className="ml-auto cursor-pointer">
                         {copiedKey === id ? (
-                          <svg width="15" height="16" viewBox="0 0 15 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12.25 4.75L5.5 11.5L2.75 8.75" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                          <PiCheck size={16} style={{ color: '#22C55E' }} />
                         ) : (
-                          <PiCopy size={16} className="rounded text-[#888] hover:text-white hover:bg-[#333]" onClick={() => copy(value, id)} />
+                          <PiCopy size={16} className="hover:text-white" style={{ color: '#888' }} onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'} onMouseLeave={(e) => e.currentTarget.style.color = '#888'} onClick={() => copy(value, id)} />
                         )}
                       </div>
                     </div>

@@ -53,8 +53,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   console.log('nftCoins', nftCoins);
   console.log('hydratedCoins', hydratedCoins); */
 
-
-
   // Inject shared modal styles
   React.useEffect(() => {
     injectModalStyles();
@@ -723,21 +721,21 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         tabIndex={0}
       >
         <div
-          className="w-[90%] max-w-[397px] max-h-[80vh] overflow-y-auto"
+          className="overflow-y-auto rounded-2xl"
           role="document"
           tabIndex={0}
-          style={{ backgroundColor: '#131418', borderRadius: '16px', border: '1px solid #272830', color: '#EEEEF0' }}
+          style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '397px' }}
         >
           <div className="flex justify-between items-center px-4 py-5">
             <button
-              className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]"
+              className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
               onClick={onClose}
               aria-label="Back"
             >
               <PiCaretLeft size={24} />
             </button>
-            <h3 className=" text-[#EEEEF0] text-xl font-medium text-left">Make Offer</h3>
-            <button className="text-[#7C7A85] p-1 rounded transition-colors flex items-center justify-center w-6 h-6 hover:text-[#EEEEF0]" onClick={closeModal} aria-label="Close modal">
+            <h3 className="text-xl font-medium text-left" style={{ color: '#EEEEF0' }}>Make Offer</h3>
+            <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={closeModal} aria-label="Close modal">
               <PiX size={24} />
             </button>
           </div>
@@ -761,8 +759,11 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                   {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
                 </span>
                 <button
-                  className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#272830] text-[#EEEEF0] hover:bg-[#1B1C22] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded border disabled:opacity-50 disabled:cursor-not-allowed" 
                   onClick={refreshWalletData}
+                  style={{ borderColor: '#272830', color: '#EEEEF0' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   disabled={isRefreshingWallet}
                 >
                   {isRefreshingWallet ? (
@@ -826,7 +827,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                         value={offerAmount}
                         onChange={(e) => setOfferAmount(e.target.value)}
                         placeholder={`0.0 ${WUSDC_ASSET_ID === 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d' ? 'wUSDC.b' : ''}`}
-                        className="w-full px-4 py-2 bg-[#1B1C22] border border-[#272830] rounded text-[#EEEEF0] text-sm focus:outline-none focus:border-[#2C64F8] placeholder-[#A7A7A7]"
+                        className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
+                        style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+                        onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                        onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
                         disabled={isSubmitting}
                       />
                     </div>
@@ -842,25 +846,37 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                       value={depositAddress}
                       onChange={(e) => setDepositAddress(e.target.value)}
                       placeholder="xch1..."
-                      className="w-full px-4 py-2 bg-[#1B1C22] border border-[#272830] rounded text-[#EEEEF0] text-sm focus:outline-none focus:border-[#2C64F8] placeholder-[#A7A7A7]"
+                      className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
+                      style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
                       disabled={isSubmitting}
                     />
                   </div>
                 </div>
 
                 <div className="flex gap-2  mb-2 p-0">
-                  <button type="button" onClick={closeModal} className="px-5 py-2 bg-transparent border border-[#272830] rounded text-[#EEEEF0]  font-medium hover:bg-[#1B1C22] w-1/4" disabled={isSubmitting || isCreatingOffer}>
+                  <button type="button" onClick={closeModal} 
+                    className="px-5 py-2 bg-transparent border rounded font-medium w-1/4" 
+                    style={{ borderColor: '#272830', color: '#EEEEF0' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    disabled={isSubmitting || isCreatingOffer}
+                  >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={submitOffer}
                     disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
-                    className="flex items-center justify-center gap-2 px-5 py-2 bg-[#2C64F8] rounded text-[#EEEEF0]  font-medium hover:bg-[#1E56E8] disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
+                    className="flex items-center justify-center gap-2 px-5 py-2 bg-transparent border rounded font-medium w-3/4"
+                    style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
                   >
                     {(isSubmitting || isCreatingOffer) ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-[#EEEEF0]/30 border-t-[#EEEEF0] rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(238, 238, 240, 0.3)', borderTopColor: '#EEEEF0' }}></div>
                         Creating Offer...
                       </>
                     ) : !syntheticPublicKey ? (
