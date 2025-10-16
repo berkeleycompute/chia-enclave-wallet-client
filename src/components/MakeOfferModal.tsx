@@ -735,7 +735,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               <PiCaretLeft size={24} />
             </button>
             <h3 className="text-xl font-medium text-left" style={{ color: '#EEEEF0' }}>Make Offer</h3>
-            <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={closeModal} aria-label="Close modal">
+            <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={onClose} aria-label="Close modal">
               <PiX size={24} />
             </button>
           </div>
@@ -856,7 +856,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                 </div>
 
                 <div className="flex gap-2  mb-2 p-0">
-                  <button type="button" onClick={closeModal} 
+                  <button type="button" onClick={onClose} 
                     className="px-5 py-2 bg-transparent border rounded font-medium w-1/4" 
                     style={{ borderColor: '#272830', color: '#EEEEF0' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
