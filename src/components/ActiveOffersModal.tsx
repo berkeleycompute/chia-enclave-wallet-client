@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
-import { PiCaretLeft, PiMagnifyingGlass, PiX } from 'react-icons/pi';
+import { PiMagnifyingGlass } from 'react-icons/pi';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // New: closes the entire wallet modal (parent)
-  onCloseWallet?: () => void;
   onOfferUpdate?: () => void;
   onCreateOffer?: () => void;
   onEditOffer?: (offer: SavedOffer) => void;
@@ -17,7 +15,6 @@ interface ActiveOffersModalProps {
 export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
   isOpen,
   onClose,
-  onCloseWallet,
   onOfferUpdate,
   onCreateOffer,
   onEditOffer
@@ -206,12 +203,6 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     }
   }, [isOpen, address, activeOffers.length, loading, loadActiveOffers]);
 
-  const closeModal = () => {
-    (onCloseWallet || onClose)();
-    setSelectedOffer(null);
-    setShowOfferDetails(false);
-  };
-
   const handleCreateOffer = () => {
     onClose();
     onCreateOffer?.();
@@ -341,17 +332,17 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
         </button>
       </div>
       {loading ? (
-        <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px' }}>
+        <div className="text-center py-12" style={{ color: '#888'}}>
           <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }} />
           <p className=" text-sm">Loading offers...</p>
         </div>
       ) : !address ? (
-        <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px' }}>
+        <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px', wordWrap: 'break-word', whiteSpace: 'normal' }}>
           <h4 className="mb-2 text-white text-lg font-semibold">Wallet Not Connected</h4>
           <p className="text-sm">Please connect your wallet to view active offers.</p>
         </div>
       ) : activeOffers.length === 0 ? (
-        <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px' }}>
+        <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px', wordWrap: 'break-word', whiteSpace: 'normal' }}>
           <h4 className="mb-2 text-white text-lg font-semibold">No Active Offers</h4>
           <p className="text-sm text-wrap">You haven't created any offers yet. Create an offer to see it here.</p>
         </div>

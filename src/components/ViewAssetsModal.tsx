@@ -6,19 +6,17 @@ import {
 } from '../hooks/useChiaWalletSDK';
 import { useNFTs, type NFTWithMetadata } from '../hooks/useNFTs';
 import { ChiaCloudWalletClient } from '../client/ChiaCloudWalletClient';
-import { PiCaretLeft, PiMagnifyingGlass, PiX } from 'react-icons/pi';
+import { PiMagnifyingGlass } from 'react-icons/pi';
 
 interface ViewAssetsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCloseWallet?: () => void;
   onNFTSelected?: (nft: NFTWithMetadata) => void;
 }
 
 export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   isOpen,
   onClose,
-  onCloseWallet,
   onNFTSelected
 }) => {
   const { isConnected } = useWalletConnection();

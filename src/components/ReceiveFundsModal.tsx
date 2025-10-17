@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
-import { PiCaretLeft, PiCheck, PiCopy, PiX } from 'react-icons/pi';
+import { PiCheck, PiCopy } from 'react-icons/pi';
 
 interface ReceiveFundsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCloseWallet?: () => void;
 }
 
 export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
   isOpen,
   onClose,
-  onCloseWallet
 }) => {
   const { isConnected, address } = useWalletConnection();
   const [copied, setCopied] = useState(false);

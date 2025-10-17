@@ -254,33 +254,61 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     if (!animateHeightRef.current) return;
 
     const element = animateHeightRef.current;
+    let debounceTimer: ReturnType<typeof setTimeout>;
     
-    // Get current height before change
-    const currentHeight = element.offsetHeight;
+    const updateHeight = () => {
+      // Get current height before change
+      const currentHeight = element.offsetHeight;
+      
+      // Temporarily remove transition and set height to auto to measure new content
+      element.style.transition = 'none';
+      element.style.height = 'auto';
+      
+      // Force reflow to get the new natural height
+      const newHeight = element.scrollHeight;
+      
+      // Only animate if height actually changed
+      if (Math.abs(newHeight - currentHeight) > 5) {
+        // Set back to current height (no visual change yet)
+        element.style.height = `${currentHeight}px`;
+        
+        // Force reflow
+        element.offsetHeight;
+        
+        // Re-enable transition
+        element.style.transition = 'height 210ms cubic-bezier(0.4, 0, 0.2, 1)';
+        
+        // Now animate to new height
+        requestAnimationFrame(() => {
+          element.style.height = `${newHeight}px`;
+          setModalHeight(newHeight);
+        });
+      } else {
+        // No significant change, just set height without transition
+        element.style.height = `${newHeight}px`;
+        setModalHeight(newHeight);
+      }
+    };
     
-    // Temporarily remove transition and set height to auto to measure new content
-    element.style.transition = 'none';
-    element.style.height = 'auto';
-    
-    // Force reflow to get the new natural height
-    const newHeight = element.scrollHeight;
-    
-    // Set back to current height (no visual change yet)
-    element.style.height = `${currentHeight}px`;
-    
-    // Force reflow
-    element.offsetHeight;
-    
-    // Re-enable transition
-    element.style.transition = 'height 210ms cubic-bezier(0.4, 0, 0.2, 1)';
-    
-    // Now animate to new height
-    requestAnimationFrame(() => {
-      element.style.height = `${newHeight}px`;
-      setModalHeight(newHeight);
+    // Use ResizeObserver to detect content changes (for async-loading modals like MakeOfferModal)
+    const resizeObserver = new ResizeObserver(() => {
+      // Debounce to avoid too many updates
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updateHeight, 50);
     });
     
-  }, [dialogs]);
+    // Observe the container itself
+    resizeObserver.observe(element);
+    
+    // Initial height update with small delay for MakeOfferModal
+    const initialTimer = setTimeout(updateHeight, makeOfferDialog.isOpen ? 150 : 10);
+    
+    return () => {
+      clearTimeout(debounceTimer);
+      clearTimeout(initialTimer);
+      resizeObserver.disconnect();
+    };
+  }, [dialogs, makeOfferDialog.isOpen]);
 
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -570,7 +598,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         >
           <div
             ref={animateHeightRef}
-            className={`overflow-y-auto rounded-2xl ${isClosing ? 'modal-exit-animation' : 'modal-enter-animation'}`}
+            className={`overflow-visible rounded-2xl ${isClosing ? 'modal-exit-animation' : 'modal-enter-animation'}`}
             role="document"
             tabIndex={0}
             style={{
@@ -625,23 +653,18 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
             <SendFundsModal
               isOpen={sendFundsDialog.isOpen}
               onClose={sendFundsDialog.close}
-              onCloseWallet={closeModal}
               onTransactionSent={handleTransactionSent}
             />
             <ReceiveFundsModal
               isOpen={receiveFundsDialog.isOpen}
               onClose={receiveFundsDialog.close}
-              onCloseWallet={closeModal}
             />
             <TransactionsModal
               isOpen={transactionsDialog.isOpen}
-              onClose={transactionsDialog.close}
-              onCloseWallet={closeModal}
             />
             <ViewAssetsModal
               isOpen={viewAssetsDialog.isOpen}
               onClose={viewAssetsDialog.close}
-              onCloseWallet={closeModal}
               onNFTSelected={(nft) => {
                 try {
                   nftDetailsDialog.open((nft as unknown) as HydratedCoin);
@@ -653,7 +676,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
             <MakeOfferModal
               isOpen={makeOfferDialog.isOpen}
               onClose={makeOfferDialog.close}
-              onCloseWallet={closeModal}
               onOfferCreated={() => {
                 refreshOffersCount();
               }}
@@ -662,7 +684,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
             <ActiveOffersModal
               isOpen={activeOffersDialog.isOpen}
               onClose={activeOffersDialog.close}
-              onCloseWallet={closeModal}
               onOfferUpdate={() => {
                 console.log('Offers updated');
               }}
@@ -673,13 +694,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
             <NFTDetailsModal
               isOpen={nftDetailsDialog.isOpen}
               onClose={nftDetailsDialog.close}
-              onCloseWallet={closeModal}
               nft={nftDetailsDialog.selectedNft}
             />
             <ExportPrivateKeyModal
               isOpen={exportKeyDialog.isOpen}
-              onClose={exportKeyDialog.close}
-              onCloseWallet={closeModal}
             />
             {!dialogs && (
               <>
@@ -737,7 +755,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       {/* Action Buttons */}
                       <div className="flex gap-2 px-2 mb-4 w-full">
                         <button
-                          className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded border cursor-pointer font-medium transition-colors text-sm"
+                          className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border cursor-pointer font-medium transition-colors text-sm"
                           style={{ borderColor: '#272830', color: '#EEEEF0' }}
                           onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'} onMouseLeave={(e) => e.currentTarget.style.borderColor = '#272830'}
                           onClick={() => sendFundsDialog.open()}
@@ -746,7 +764,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                           <span>Send</span>
                         </button>
                         <button
-                          className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded border cursor-pointer font-medium transition-colors text-sm"
+                          className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border cursor-pointer font-medium transition-colors text-sm"
                           style={{ borderColor: '#272830', color: '#EEEEF0' }}
                           onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'} onMouseLeave={(e) => e.currentTarget.style.borderColor = '#272830'}
                           onClick={() => receiveFundsDialog.open()}
@@ -805,9 +823,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                         </div>
 
                         <button className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg" style={{ backgroundColor: 'transparent', padding: '12px' }} onClick={handleExportPrivateKey} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                          <div className="flex items-center justify-center w-6 h-6">
-                            <BsKey size={16} color="#7C7A85" />
-                          </div>
+                          <BsKey size={24} color="#7C7A85" />
                           <span className="font-medium text-white ">Export private key</span>
                         </button>
                       </div>

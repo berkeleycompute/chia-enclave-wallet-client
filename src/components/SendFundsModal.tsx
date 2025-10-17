@@ -5,13 +5,11 @@ import {
   useSendTransaction
 } from '../hooks/useChiaWalletSDK';
 import { ChiaCloudWalletClient, type Coin } from '../client/ChiaCloudWalletClient';
-import { PiCaretLeft, PiX } from 'react-icons/pi';
 
 interface SendFundsModalProps {
   isOpen: boolean;
   onClose: () => void;
   // New: closes the entire wallet modal (parent)
-  onCloseWallet?: () => void;
   onTransactionSent?: (transaction: any) => void;
   // New props for initial values from global dialog system
   initialRecipientAddress?: string;
@@ -22,7 +20,6 @@ interface SendFundsModalProps {
 export const SendFundsModal: React.FC<SendFundsModalProps> = ({
   isOpen,
   onClose,
-  onCloseWallet,
   onTransactionSent,
   initialRecipientAddress,
   initialAmount,

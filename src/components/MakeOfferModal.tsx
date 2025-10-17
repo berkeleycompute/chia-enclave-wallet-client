@@ -9,14 +9,13 @@ import {
 } from '../hooks/useChiaWalletSDK';
 import { useSpacescanNFTs, type SpacescanNFT } from '../client/SpacescanClient';
 import { injectModalStyles } from './modal-styles';
-import { PiCaretLeft, PiInfo, PiX } from 'react-icons/pi';
+import { PiInfo } from 'react-icons/pi';
 import { SavedOffer } from './types';
 import { Selector, type SelectorItem } from './Selector';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCloseWallet?: () => void;
   selectedNft?: HydratedCoin | null;
   onOfferCreated?: (offerData: any) => void;
   onRefreshWallet?: () => void;
@@ -28,7 +27,6 @@ interface MakeOfferModalProps {
 export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   isOpen,
   onClose,
-  onCloseWallet,
   selectedNft: initialSelectedNft,
   onOfferCreated,
   onRefreshWallet,
@@ -694,7 +692,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     setOfferAmount('');
     setDepositAddress(address || '');
     setError(null);
-    (onCloseWallet || onClose)();
+    (onClose)();
   };
 
   const refreshWalletData = () => {

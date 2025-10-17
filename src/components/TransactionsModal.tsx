@@ -1,5 +1,5 @@
 import React from 'react';
-import { PiArrowSquareOut, PiCaretLeft, PiX } from 'react-icons/pi';
+import { PiArrowSquareOut } from 'react-icons/pi';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
 import {
   useSpacescanXCHTransactions,
@@ -10,14 +10,10 @@ import {
 
 interface TransactionsModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onCloseWallet?: () => void;
 }
 
 export const TransactionsModal: React.FC<TransactionsModalProps> = ({
   isOpen,
-  onClose,
-  onCloseWallet
 }) => {
   const { isConnected, address } = useWalletConnection();
 

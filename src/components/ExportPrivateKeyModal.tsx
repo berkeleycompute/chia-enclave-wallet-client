@@ -1,15 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PiCaretLeft, PiX, PiKey, PiWarning, PiCopy, PiCheck } from 'react-icons/pi';
+import { PiKey, PiWarning, PiCopy, PiCheck } from 'react-icons/pi';
 import { useWalletConnection, useWalletState } from '../hooks/useChiaWalletSDK';
 import { useMnemonic } from '../hooks/useWalletInfo';
 
 interface ExportPrivateKeyModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onCloseWallet?: () => void;
 }
 
-export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ isOpen, onClose, onCloseWallet }) => {
+export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ isOpen }) => {
   const { address } = useWalletConnection();
   const walletState = useWalletState();
   const { syntheticPublicKey } = walletState;
