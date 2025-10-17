@@ -65,7 +65,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
           <div className="w-20 h-20 rounded-full flex items-center justify-center border" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
             <PiKey size={36} />
           </div>
-          <p className="text-center text-sm" style={{ color: '#FFFFFF', maxWidth: '253px' }}>
+          <p className="text-center text-sm" style={{ color: '#FFFFFF', maxWidth: '253px', wordWrap: 'break-word', whiteSpace: 'normal' }}>
             Reveal your private key to manage this wallet in a different app.
           </p>
           <label className="flex items-start gap-3 text-sm text-gray-300">
@@ -76,7 +76,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
               checked={ackRisks}
               onChange={(e) => setAckRisks(e.target.checked)}
             />
-            <span style={{ maxWidth: '253px' }}>
+            <span className='text-left'style={{ maxWidth: '350px', wordWrap: 'break-word', whiteSpace: 'normal' }}>
               I understand the risks of owning my private key and am fully responsible for keeping it secure.
             </span>
           </label>

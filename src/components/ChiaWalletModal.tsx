@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { PiArrowLineDown, PiCaretLeft, PiHandCoins, PiKey, PiPaperPlaneTilt, PiX } from "react-icons/pi";
+import { PiArrowLineDown, PiCaretLeft, PiHandCoins, PiPaperPlaneTilt, PiX } from "react-icons/pi";
+import { BsKey } from "react-icons/bs";
 import {
   useWalletConnection,
   useWalletBalance,
@@ -243,7 +244,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       const timer = setTimeout(() => {
         setIsVisible(false);
         setIsClosing(false);
-      }, 1000); // Match the animation duration
+      }, 300); // Match the animation duration
       return () => clearTimeout(timer);
     }
   }, [isOpen, isVisible]);
@@ -560,7 +561,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         `}</style>
         <div
           className={`fixed inset-0 flex items-center justify-center ${isClosing ? 'modal-background-exit-animation' : 'modal-background-enter-animation'}`}
-          style={{ zIndex: 1000, backgroundColor: 'rgba(0, 0, 0, 0.95)' }}
+          style={{ zIndex: 1000, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
           onClick={handleOverlayClick}
           onKeyDown={handleKeyDown}
           role="dialog"
@@ -805,7 +806,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
                         <button className="flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg" style={{ backgroundColor: 'transparent', padding: '12px' }} onClick={handleExportPrivateKey} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                           <div className="flex items-center justify-center w-6 h-6">
-                            <PiKey size={16} color="#7C7A85" />
+                            <BsKey size={16} color="#7C7A85" />
                           </div>
                           <span className="font-medium text-white ">Export private key</span>
                         </button>
