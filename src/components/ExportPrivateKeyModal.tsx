@@ -53,7 +53,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
       await navigator.clipboard.writeText(text || '');
       setCopiedKey(which);
       setTimeout(() => setCopiedKey(null), 1500);
-    } catch {}
+    } catch { }
   }, []);
 
   const closeModal = () => {
@@ -63,113 +63,80 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-      style={{ zIndex: 1001, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
-      role="dialog"
-      aria-modal="true"
-      tabIndex={0}
-    >
-      <div
-        className="overflow-y-auto rounded-2xl"
-        role="document"
-        tabIndex={0}
-        style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '400px' }}
-      >
-        <div className="flex justify-between items-center px-4 py-5">
+    <div className="px-6 pb-6">
+      {step === 'confirm' && (
+        <div className="flex flex-col items-center gap-6">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center border" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
+            <PiKey size={36} />
+          </div>
+          <p className="text-center text-sm" style={{ color: '#FFFFFF', maxWidth: '253px' }}>
+            Reveal your private key to manage this wallet in a different app.
+          </p>
+          <label className="flex items-start gap-3 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              style={{ borderColor: '#52525b', backgroundColor: '#3f3f46', accentColor: '#4b5563', borderRadius: '4px' }}
+              className="mt-0.5 h-4 w-4 focus:outline-none focus:ring-0"
+              checked={ackRisks}
+              onChange={(e) => setAckRisks(e.target.checked)}
+            />
+            <span style={{ maxWidth: '253px' }}>
+              I understand the risks of owning my private key and am fully responsible for keeping it secure.
+            </span>
+          </label>
           <button
-            className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
-            onClick={onClose}
-            aria-label="Back"
+            className="w-full px-5 py-3 rounded font-medium" style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+            disabled={!ackRisks}
+            onClick={doExport}
           >
-            <PiCaretLeft size={24} />
-          </button>
-          <h3 className="text-xl font-medium" style={{ color: '#EEEEF0' }}>Export Private Key</h3>
-          <button
-            className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
-            onClick={closeModal}
-            aria-label="Close modal"
-          >
-            <PiX size={24} />
+            Continue
           </button>
         </div>
+      )}
 
-        <div className="px-6 pb-6">
-          {step === 'confirm' && (
-            <div className="flex flex-col items-center gap-6">
-              <div className="w-20 h-20 rounded-full flex items-center justify-center border" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
-                <PiKey size={36} />
-              </div>
-              <p className="text-center text-sm" style={{ color: '#FFFFFF', maxWidth: '253px' }}>
-                Reveal your private key to manage this wallet in a different app.
-              </p>
-              <label className="flex items-start gap-3 text-sm text-gray-300">
-                <input
-                  type="checkbox"
-                  style={{ borderColor: '#52525b', backgroundColor: '#3f3f46', accentColor: '#4b5563', borderRadius: '4px' }}
-                  className="mt-0.5 h-4 w-4 focus:outline-none focus:ring-0"
-                  checked={ackRisks}
-                  onChange={(e) => setAckRisks(e.target.checked)}
-                />
-                <span style={{ maxWidth: '253px' }}>
-                  I understand the risks of owning my private key and am fully responsible for keeping it secure.
-                </span>
-              </label>
-              <button
-                className="w-full px-5 py-3 rounded font-medium" style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'  }
-                disabled={!ackRisks}
-                onClick={doExport}
-              >
-                Continue
-              </button>
+      {step === 'loading' && (
+        <div className="flex flex-col items-center justify-center py-16 gap-4 text-gray-300">
+          <div className="w-12 h-12 border-4 rounded-full animate-spin" style={{ borderColor: '#272830', borderTopColor: '#9CD24B' }} />
+          <div>Retrieving your private key</div>
+        </div>
+      )}
+
+      {step === 'info' && (
+        <div className="flex flex-col gap-4">
+          <div className="p-4 rounded text-sm flex flex-col items-start gap-1.5" style={{ backgroundColor: '#351F20', color: '#FDBA8C' }}>
+            <div className="flex flex-row items-center gap-2">
+              <PiWarning size={16} />
+              <div className="font-semibold">Don’t share your private key with anyone</div>
             </div>
-          )}
+            <div className="">This private key grants full access to your wallet and all held assets</div>
+          </div>
 
-          {step === 'loading' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4 text-gray-300">
-              <div className="w-12 h-12 border-4 rounded-full animate-spin" style={{ borderColor: '#272830', borderTopColor: '#9CD24B' }} />
-              <div>Retrieving your private key</div>
-            </div>
-          )}
-
-          {step === 'info' && (
-            <div className="flex flex-col gap-4">
-              <div className="p-4 rounded text-sm flex flex-col items-start gap-1.5" style={{ backgroundColor: '#351F20', color: '#FDBA8C' }}>
-                <div className="flex flex-row items-center gap-2">
-                  <PiWarning size={16} />
-                  <div className="font-semibold">Don’t share your private key with anyone</div>
-                </div>
-                <div className="">This private key grants full access to your wallet and all held assets</div>
-              </div>
-
-              {[
-                { id: 'public' as const, label: 'Public key', value: publicKeyValue },
-                { id: 'private' as const, label: 'Private key', value: privateKeyValue },
-                { id: 'mnemonic' as const, label: '24-word mnemonic', value: mnemonicValue },
-              ].map(({ id, label, value }) => {
-                const displayValue = id === 'mnemonic'
-                  ? (value || (exportingMnemonic ? 'Loading…' : '—'))
-                  : (value || '—');
-                return (
-                  <div key={id} className="flex flex-col gap-2">
-                    <div className="text-sm text-gray-300">{label}</div>
-                    <div className="flex items-center gap-2 p-3 border rounded" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
-                      <div className="text-xs break-all">{displayValue}</div>
-                      <div className="ml-auto cursor-pointer">
-                        {copiedKey === id ? (
-                          <PiCheck size={16} style={{ color: '#22C55E' }} />
-                        ) : (
-                          <PiCopy size={16} className="hover:text-white" style={{ color: '#888' }} onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'} onMouseLeave={(e) => e.currentTarget.style.color = '#888'} onClick={() => copy(value, id)} />
-                        )}
-                      </div>
-                    </div>
+          {[
+            { id: 'public' as const, label: 'Public key', value: publicKeyValue },
+            { id: 'private' as const, label: 'Private key', value: privateKeyValue },
+            { id: 'mnemonic' as const, label: '24-word mnemonic', value: mnemonicValue },
+          ].map(({ id, label, value }) => {
+            const displayValue = id === 'mnemonic'
+              ? (value || (exportingMnemonic ? 'Loading…' : '—'))
+              : (value || '—');
+            return (
+              <div key={id} className="flex flex-col gap-2">
+                <div className="text-sm text-gray-300">{label}</div>
+                <div className="flex items-center gap-2 p-3 border rounded" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
+                  <div className="text-xs break-all">{displayValue}</div>
+                  <div className="ml-auto cursor-pointer">
+                    {copiedKey === id ? (
+                      <PiCheck size={16} style={{ color: '#22C55E' }} />
+                    ) : (
+                      <PiCopy size={16} className="hover:text-white" style={{ color: '#888' }} onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'} onMouseLeave={(e) => e.currentTarget.style.color = '#888'} onClick={() => copy(value, id)} />
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 };

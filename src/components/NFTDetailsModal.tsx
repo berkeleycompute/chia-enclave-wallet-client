@@ -73,195 +73,189 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   const metadata = nftInfo?.metadata;
 
   return (
-    <div className="nft-details-modal-overlay">
-      <div className="nft-details-modal">
-        <div className="modal-header">
-          <h2>🖼️ NFT Details</h2>
-          <button className="header-btn" onClick={onCloseWallet || onClose} aria-label="Close modal">×</button>
-        </div>
+    <>
+      <div className="modal-tabs">
+        <button
+          className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
+          onClick={() => setActiveTab('details')}
+        >
+          📋 Details
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'offer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('offer')}
+          disabled={!isConnected}
+        >
+          💰 Create Offer
+        </button>
+      </div>
 
-        <div className="modal-tabs">
-          <button
-            className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
-            onClick={() => setActiveTab('details')}
-          >
-            📋 Details
-          </button>
-          <button
-            className={`tab-button ${activeTab === 'offer' ? 'active' : ''}`}
-            onClick={() => setActiveTab('offer')}
-            disabled={!isConnected}
-          >
-            💰 Create Offer
-          </button>
-        </div>
+      <div className="modal-body">
+        {activeTab === 'details' && (
+          <div className="details-content">
+            {/* NFT Image */}
+            {metadata?.dataUris?.[0] && (
+              <div className="nft-image-section">
+                <img
+                  src={metadata.dataUris[0]}
+                  alt="NFT"
+                  className="nft-image"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
 
-        <div className="modal-body">
-          {activeTab === 'details' && (
-            <div className="details-content">
-              {/* NFT Image */}
-              {metadata?.dataUris?.[0] && (
-                <div className="nft-image-section">
-                  <img
-                    src={metadata.dataUris[0]}
-                    alt="NFT"
-                    className="nft-image"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
+            {/* Basic Info */}
+            <div className="info-section">
+              <h3>Basic Information</h3>
+              <div className="info-grid">
+                <div className="info-item">
+                  <label>Launcher ID</label>
+                  <code className="info-value">{nftInfo?.launcherId || 'N/A'}</code>
                 </div>
-              )}
-
-              {/* Basic Info */}
-              <div className="info-section">
-                <h3>Basic Information</h3>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <label>Launcher ID</label>
-                    <code className="info-value">{nftInfo?.launcherId || 'N/A'}</code>
-                  </div>
-                  <div className="info-item">
-                    <label>Current Owner</label>
-                    <code className="info-value">{nftInfo?.currentOwner || 'N/A'}</code>
-                  </div>
-                  <div className="info-item">
-                    <label>Edition</label>
-                    <span className="info-value">
-                      {metadata?.editionNumber && metadata?.editionTotal
-                        ? `${metadata.editionNumber} of ${metadata.editionTotal}`
-                        : 'N/A'
-                      }
-                    </span>
-                  </div>
-                  <div className="info-item">
-                    <label>Royalty</label>
-                    <span className="info-value">
-                      {nftInfo?.royaltyTenThousandths
-                        ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
-                        : '0%'
-                      }
-                    </span>
-                  </div>
+                <div className="info-item">
+                  <label>Current Owner</label>
+                  <code className="info-value">{nftInfo?.currentOwner || 'N/A'}</code>
+                </div>
+                <div className="info-item">
+                  <label>Edition</label>
+                  <span className="info-value">
+                    {metadata?.editionNumber && metadata?.editionTotal
+                      ? `${metadata.editionNumber} of ${metadata.editionTotal}`
+                      : 'N/A'
+                    }
+                  </span>
+                </div>
+                <div className="info-item">
+                  <label>Royalty</label>
+                  <span className="info-value">
+                    {nftInfo?.royaltyTenThousandths
+                      ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
+                      : '0%'
+                    }
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {/* Metadata */}
-              {metadata && (
-                <div className="metadata-section">
-                  <h3>Metadata</h3>
-                  <div className="metadata-grid">
-                    {metadata.dataHash && (
-                      <div className="metadata-item">
-                        <label>Data Hash</label>
-                        <code className="metadata-value">{metadata.dataHash}</code>
-                      </div>
-                    )}
-                    {metadata.metadataHash && (
-                      <div className="metadata-item">
-                        <label>Metadata Hash</label>
-                        <code className="metadata-value">{metadata.metadataHash}</code>
-                      </div>
-                    )}
-                    {metadata.licenseHash && (
-                      <div className="metadata-item">
-                        <label>License Hash</label>
-                        <code className="metadata-value">{metadata.licenseHash}</code>
-                      </div>
-                    )}
-                  </div>
-
-                  {metadata.dataUris && metadata.dataUris.length > 0 && (
-                    <div className="uris-section">
-                      <label>Data URIs</label>
-                      <div className="uris-list">
-                        {metadata.dataUris.map((uri, index) => (
-                          <a key={index} href={uri} target="_blank" rel="noopener noreferrer" className="uri-link">
-                            {uri}
-                          </a>
-                        ))}
-                      </div>
+            {/* Metadata */}
+            {metadata && (
+              <div className="metadata-section">
+                <h3>Metadata</h3>
+                <div className="metadata-grid">
+                  {metadata.dataHash && (
+                    <div className="metadata-item">
+                      <label>Data Hash</label>
+                      <code className="metadata-value">{metadata.dataHash}</code>
+                    </div>
+                  )}
+                  {metadata.metadataHash && (
+                    <div className="metadata-item">
+                      <label>Metadata Hash</label>
+                      <code className="metadata-value">{metadata.metadataHash}</code>
+                    </div>
+                  )}
+                  {metadata.licenseHash && (
+                    <div className="metadata-item">
+                      <label>License Hash</label>
+                      <code className="metadata-value">{metadata.licenseHash}</code>
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* Coin Details */}
-              <div className="coin-section">
-                <h3>Coin Information</h3>
-                <div className="coin-details">
-                  <div className="coin-item">
-                    <label>Parent Coin Info</label>
-                    <code className="coin-value">{nft.coin.parentCoinInfo}</code>
+                {metadata.dataUris && metadata.dataUris.length > 0 && (
+                  <div className="uris-section">
+                    <label>Data URIs</label>
+                    <div className="uris-list">
+                      {metadata.dataUris.map((uri, index) => (
+                        <a key={index} href={uri} target="_blank" rel="noopener noreferrer" className="uri-link">
+                          {uri}
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                  <div className="coin-item">
-                    <label>Puzzle Hash</label>
-                    <code className="coin-value">{nft.coin.puzzleHash}</code>
-                  </div>
-                  <div className="coin-item">
-                    <label>Amount</label>
-                    <span className="coin-value">{nft.coin.amount} mojos</span>
-                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Coin Details */}
+            <div className="coin-section">
+              <h3>Coin Information</h3>
+              <div className="coin-details">
+                <div className="coin-item">
+                  <label>Parent Coin Info</label>
+                  <code className="coin-value">{nft.coin.parentCoinInfo}</code>
+                </div>
+                <div className="coin-item">
+                  <label>Puzzle Hash</label>
+                  <code className="coin-value">{nft.coin.puzzleHash}</code>
+                </div>
+                <div className="coin-item">
+                  <label>Amount</label>
+                  <span className="coin-value">{nft.coin.amount} mojos</span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {activeTab === 'offer' && (
-            <div className="offer-content">
-              {!isConnected ? (
-                <div className="error-state">
-                  <p>❌ Wallet not connected. Please connect your wallet to create offers.</p>
+        {activeTab === 'offer' && (
+          <div className="offer-content">
+            {!isConnected ? (
+              <div className="error-state">
+                <p>❌ Wallet not connected. Please connect your wallet to create offers.</p>
+              </div>
+            ) : (
+              <>
+                <div className="offer-info">
+                  <h3>Create NFT Offer</h3>
+                  <p>Set a price for your NFT. This will create an offer that buyers can accept.</p>
                 </div>
-              ) : (
-                <>
-                  <div className="offer-info">
-                    <h3>Create NFT Offer</h3>
-                    <p>Set a price for your NFT. This will create an offer that buyers can accept.</p>
+
+                <div className="offer-form">
+                  <div className="form-group">
+                    <label htmlFor="offerPrice">Price (XCH)</label>
+                    <input
+                      id="offerPrice"
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={offerPrice}
+                      onChange={(e) => setOfferPrice(e.target.value)}
+                      placeholder="1.5"
+                      className="form-input"
+                    />
                   </div>
 
-                  <div className="offer-form">
-                    <div className="form-group">
-                      <label htmlFor="offerPrice">Price (XCH)</label>
-                      <input
-                        id="offerPrice"
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        value={offerPrice}
-                        onChange={(e) => setOfferPrice(e.target.value)}
-                        placeholder="1.5"
-                        className="form-input"
-                      />
+                  {offerError && (
+                    <div className="error-message">
+                      ❌ {offerError}
                     </div>
+                  )}
 
-                    {offerError && (
-                      <div className="error-message">
-                        ❌ {offerError}
-                      </div>
-                    )}
+                  {offerSuccess && (
+                    <div className="success-message">
+                      ✅ Offer created successfully! You can now share it with potential buyers.
+                    </div>
+                  )}
 
-                    {offerSuccess && (
-                      <div className="success-message">
-                        ✅ Offer created successfully! You can now share it with potential buyers.
-                      </div>
-                    )}
+                  <button
+                    onClick={handleCreateOffer}
+                    disabled={offerLoading || !offerPrice.trim()}
+                    className="create-offer-button"
+                  >
+                    {offerLoading ? '⏳ Creating Offer...' : '💰 Create Offer'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
-                    <button
-                      onClick={handleCreateOffer}
-                      disabled={offerLoading || !offerPrice.trim()}
-                      className="create-offer-button"
-                    >
-                      {offerLoading ? '⏳ Creating Offer...' : '💰 Create Offer'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        <style>{`
+      <style>{`
           .nft-details-modal-overlay {
             position: fixed;
             top: 0;
@@ -562,7 +556,6 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             }
           }
         `}</style>
-      </div>
-    </div>
+    </>
   );
 }; 

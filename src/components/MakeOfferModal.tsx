@@ -711,185 +711,153 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   }
 
   return (
-    <>
-      <div
-        className="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-        style={{ zIndex: 1001, backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
-        onClick={(e) => e.target === e.currentTarget && closeModal()}
-        role="dialog"
-        aria-modal="true"
-        tabIndex={0}
-      >
-        <div
-          className="overflow-y-auto rounded-2xl"
-          role="document"
-          tabIndex={0}
-          style={{ backgroundColor: '#131418', border: '1px solid #272830', color: '#EEEEF0', maxHeight: '90vh', width: '90%', maxWidth: '400px' }}
-        >
-          <div className="flex justify-between items-center px-4 py-5">
-            <button
-              className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
-              onClick={onClose}
-              aria-label="Back"
-            >
-              <PiCaretLeft size={24} />
-            </button>
-            <h3 className="text-xl font-medium text-left" style={{ color: '#EEEEF0' }}>Make Offer</h3>
-            <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={onClose} aria-label="Close modal">
-              <PiX size={24} />
-            </button>
-          </div>
+    <div className="px-6 pb-4">
+      {error && (
+        <div className="p-3 rounded border border-red-300 text-red-500 bg-red-500/10 text-sm my-2 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
 
-          <div className="px-6 pb-4">
-            {error && (
-              <div className="p-3 rounded border border-red-300 text-red-500 bg-red-500/10 text-sm my-2 flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                  <line x1="12" y1="9" x2="12" y2="13"></line>
-                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      {!syntheticPublicKey && (
+        <div className="p-3 rounded border border-blue-300 text-blue-400 bg-blue-500/10 text-sm my-2 flex items-center gap-2">
+          <PiInfo size={16} />
+          <span>
+            {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
+          </span>
+          <button
+            className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded border disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={refreshWalletData}
+            style={{ borderColor: '#272830', color: '#EEEEF0' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            disabled={isRefreshingWallet}
+          >
+            {isRefreshingWallet ? (
+              <>
+                <div className="w-3.5 h-3.5 border border-blue-300 border-t-blue-500 rounded-full animate-spin"></div>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 4v6h6"></path>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
                 </svg>
-                <span>{error}</span>
-              </div>
+                Refresh
+              </>
             )}
+          </button>
+        </div>
+      )}
 
-            {!syntheticPublicKey && (
-              <div className="p-3 rounded border border-blue-300 text-blue-400 bg-blue-500/10 text-sm my-2 flex items-center gap-2">
-                <PiInfo size={16} />
-                <span>
-                  {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
-                </span>
-                <button
-                  className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded border disabled:opacity-50 disabled:cursor-not-allowed" 
-                  onClick={refreshWalletData}
-                  style={{ borderColor: '#272830', color: '#EEEEF0' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  disabled={isRefreshingWallet}
-                >
-                  {isRefreshingWallet ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border border-blue-300 border-t-blue-500 rounded-full animate-spin"></div>
-                      Refreshing...
-                    </>
-                  ) : (
-                    <>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 4v6h6"></path>
-                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                      </svg>
-                      Refresh
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
+      <div className="flex flex-col gap-4">
+        {/* Select GPU */}
+        <div className="flex flex-col gap-1">
+          <label className="text-white text-sm font-medium text-left">Select GPU</label>
+          {(() => {
+            const idForNft = (n: EnrichedNftCoin) => getLauncherId(n) || (n.spacescanData?.nft_id) || `${n.coin.parentCoinInfo}_${n.coin.puzzleHash}`;
+            const items: SelectorItem[] = nftCoinsToDisplay.map((n) => ({ id: idForNft(n), label: getNftDisplayName(n) }));
+            const selectedId = selectedNft ? idForNft(selectedNft) : null;
+            return (
+              <Selector
+                items={items}
+                selectedId={selectedId || undefined}
+                onSelect={(itemId) => {
+                  const found = nftCoinsToDisplay.find((n) => idForNft(n) === itemId);
+                  if (found) selectNft(found);
+                }}
+                placeholder="Select a GPU to sell"
+              />
+            );
+          })()}
+        </div>
 
-            <div className="flex flex-col gap-4">
-                {/* Select GPU */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-white text-sm font-medium text-left">Select GPU</label>
-                  {(() => {
-                    const idForNft = (n: EnrichedNftCoin) => getLauncherId(n) || (n.spacescanData?.nft_id) || `${n.coin.parentCoinInfo}_${n.coin.puzzleHash}`;
-                    const items: SelectorItem[] = nftCoinsToDisplay.map((n) => ({ id: idForNft(n), label: getNftDisplayName(n) }));
-                    const selectedId = selectedNft ? idForNft(selectedNft) : null;
-                    return (
-                      <Selector
-                        items={items}
-                        selectedId={selectedId || undefined}
-                        onSelect={(itemId) => {
-                          const found = nftCoinsToDisplay.find((n) => idForNft(n) === itemId);
-                          if (found) selectNft(found);
-                        }}
-                        placeholder="Select a GPU to sell"
-                      />
-                    );
-                  })()}
-                </div>
-
-                {/* Requested currency and Amount */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-white text-sm font-medium text-left">Requested currency</label>
-                    <Selector
-                      items={[{ id: 'wusdc', label: 'wUSDC.b' }]}
-                      selectedId={'wusdc'}
-                      onSelect={() => {}}
-                      placeholder="Select currency"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-white text-sm font-medium text-left">Amount</label>
-                    <div className="relative flex items-center">
-                      <input
-                        type="number"
-                        step="0.000001"
-                        min="0"
-                        value={offerAmount}
-                        onChange={(e) => setOfferAmount(e.target.value)}
-                        placeholder={`0.0 ${WUSDC_ASSET_ID === 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d' ? 'wUSDC.b' : ''}`}
-                        className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
-                        style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
-                        onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
-                        onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Deposit address */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-white text-sm font-medium text-left">Deposit address</label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="text"
-                      value={depositAddress}
-                      onChange={(e) => setDepositAddress(e.target.value)}
-                      placeholder="xch1..."
-                      className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
-                      style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
-                      onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
-                      onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2  mb-2 p-0">
-                  <button type="button" onClick={onClose} 
-                    className="px-5 py-2 bg-transparent border rounded font-medium w-1/4" 
-                    style={{ borderColor: '#272830', color: '#EEEEF0' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    disabled={isSubmitting || isCreatingOffer}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={submitOffer}
-                    disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
-                    className="flex items-center justify-center gap-2 px-5 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
-                    style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e56e8'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
-                  >
-                    {(isSubmitting || isCreatingOffer) ? (
-                      <>
-                        <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(238, 238, 240, 0.3)', borderTopColor: '#EEEEF0' }}></div>
-                        Creating Offer...
-                      </>
-                    ) : !syntheticPublicKey ? (
-                      'Wallet Not Ready'
-                    ) : (
-                      'Create Offer'
-                    )}
-                  </button>
-                </div>
-              </div>
+        {/* Requested currency and Amount */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-white text-sm font-medium text-left">Requested currency</label>
+            <Selector
+              items={[{ id: 'wusdc', label: 'wUSDC.b' }]}
+              selectedId={'wusdc'}
+              onSelect={() => { }}
+              placeholder="Select currency"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-white text-sm font-medium text-left">Amount</label>
+            <div className="relative flex items-center">
+              <input
+                type="number"
+                step="0.000001"
+                min="0"
+                value={offerAmount}
+                onChange={(e) => setOfferAmount(e.target.value)}
+                placeholder={`0.0 ${WUSDC_ASSET_ID === 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d' ? 'wUSDC.b' : ''}`}
+                className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
+                style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
         </div>
+
+        {/* Deposit address */}
+        <div className="flex flex-col gap-1">
+          <label className="text-white text-sm font-medium text-left">Deposit address</label>
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={depositAddress}
+              onChange={(e) => setDepositAddress(e.target.value)}
+              placeholder="xch1..."
+              className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
+              style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+              disabled={isSubmitting}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2  mb-2 p-0">
+          <button type="button" onClick={onClose}
+            className="px-5 py-2 bg-transparent border rounded font-medium w-1/4"
+            style={{ borderColor: '#272830', color: '#EEEEF0' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            disabled={isSubmitting || isCreatingOffer}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submitOffer}
+            disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
+            className="flex items-center justify-center gap-2 px-5 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
+            style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e56e8'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+          >
+            {(isSubmitting || isCreatingOffer) ? (
+              <>
+                <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(238, 238, 240, 0.3)', borderTopColor: '#EEEEF0' }}></div>
+                Creating Offer...
+              </>
+            ) : !syntheticPublicKey ? (
+              'Wallet Not Ready'
+            ) : (
+              'Create Offer'
+            )}
+          </button>
+        </div>
       </div>
-    </>
+    </div>
   );
 }; 

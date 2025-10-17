@@ -11,7 +11,8 @@ export type DialogType =
   | 'nftDetails'
   | 'walletMain'
   | 'transactions'
-  | 'viewAssets';
+  | 'viewAssets'
+  | 'exportKey';
 
 export interface DialogState {
   [key: string]: {
@@ -40,6 +41,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     walletMain: { isOpen: false },
     transactions: { isOpen: false },
     viewAssets: { isOpen: false },
+    exportKey: { isOpen: false },
   });
 
   const openDialog = useCallback((dialog: DialogType, data?: any) => {
@@ -138,6 +140,12 @@ export interface ViewAssetsDialogState {
   close: () => void;
 }
 
+export interface ExportKeyDialogState {
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+}
+
 // Individual dialog hooks
 export function useSendFundsDialog(): SendFundsDialogState {
   const { dialogStates, openDialog, closeDialog } = useDialogContext();
@@ -218,6 +226,16 @@ export function useViewAssetsDialog(): ViewAssetsDialogState {
     isOpen: dialogStates.viewAssets?.isOpen || false,
     open: () => openDialog('viewAssets'),
     close: () => closeDialog('viewAssets'),
+  };
+}
+
+export function useExportKeyDialog(): ExportKeyDialogState {
+  const { dialogStates, openDialog, closeDialog } = useDialogContext();
+  
+  return {
+    isOpen: dialogStates.exportKey?.isOpen || false,
+    open: () => openDialog('exportKey'),
+    close: () => closeDialog('exportKey'),
   };
 }
 

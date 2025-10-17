@@ -71,121 +71,86 @@ export const ReceiveFundsModal: React.FC<ReceiveFundsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed top-0 right-0 left-0 flex items-center justify-center w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 backdrop-blur-sm max-h-full"
-      onClick={handleOverlayClick}
-      onKeyDown={handleKeyDown}
-      role="dialog"
-      aria-modal="true"
-      tabIndex={0}
-      style={{ 
-        zIndex: 1001, 
-        height: 'calc(100% - 1rem)', 
-        backgroundColor: 'rgba(0, 0, 0, 0.7)'
-      }}
-    >
-      <div 
-        className="relative overflow-y-auto rounded-2xl border max-h-full" 
-        role="document" 
-        tabIndex={0}
-        style={{
-          width: '90%',
-          maxWidth: '400px',
-          backgroundColor: '#131418',
-          borderColor: '#272830',
-          color: '#EEEEF0'
-        }}
-      >
-          <div className="flex items-center justify-between px-4 py-5">
-            <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={onClose} aria-label="Back">
-              <PiCaretLeft size={20} />
-            </button>
-            <h3 className="text-xl font-medium" style={{ color: '#EEEEF0' }}>Receive XCH</h3>
-              <button className="p-1 rounded transition-colors flex items-center justify-center w-6 h-6" style={{ color: '#7C7A85' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EEEEF0'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'} onClick={onCloseWallet || onClose} aria-label="Close modal">
-              <PiX size={20} />
-            </button>
-          </div>
-
-          <div className="p-4 md:p-5 space-y-6">
-            {!isConnected ? (
-              <div className="p-4 mb-4 text-sm text-red-500 rounded-lg text-center">
-                <p style={{ color: '#ef4444' }}>Wallet not connected. Please connect your wallet first.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {/* QR Code Section */}
-                <div className="flex justify-center">
-                  <div className="flex justify-center items-center p-2 bg-white rounded-md">
-                    {qrLoading ? (
-                      <div className="flex flex-col items-center justify-center p-10 text-gray-500">
-                        <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-                        <p className="text-sm">Generating QR Code...</p>
-                      </div>
-                    ) : qrCodeUrl ? (
-                      <img 
-                        src={qrCodeUrl} 
-                        alt="Wallet Address QR Code" 
-                        className="block rounded-md" 
-                        style={{ width: '200px', height: '200px' }}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-10 text-gray-500">
-                        <div className="mb-3 text-gray-500">
-                          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <rect x="7" y="7" width="3" height="3"></rect>
-                            <rect x="14" y="7" width="3" height="3"></rect>
-                            <rect x="7" y="14" width="3" height="3"></rect>
-                            <rect x="14" y="14" width="3" height="3"></rect>
-                          </svg>
-                        </div>
-                        <p className="text-sm">QR Code unavailable</p>
-                      </div>
-                    )}
+    <div className="p-4 md:p-5 space-y-6">
+      {!isConnected ? (
+        <div className="p-4 mb-4 text-sm text-red-500 rounded-lg text-center">
+          <p style={{ color: '#ef4444' }}>Wallet not connected. Please connect your wallet first.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {/* QR Code Section */}
+          <div className="flex justify-center">
+            <div className="flex justify-center items-center p-2 bg-white rounded-md">
+              {qrLoading ? (
+                <div className="flex flex-col items-center justify-center p-10 text-gray-500">
+                  <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+                  <p className="text-sm">Generating QR Code...</p>
+                </div>
+              ) : qrCodeUrl ? (
+                <img
+                  src={qrCodeUrl}
+                  alt="Wallet Address QR Code"
+                  className="block rounded-md"
+                  style={{ width: '200px', height: '200px' }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-10 text-gray-500">
+                  <div className="mb-3 text-gray-500">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <rect x="7" y="7" width="3" height="3"></rect>
+                      <rect x="14" y="7" width="3" height="3"></rect>
+                      <rect x="7" y="14" width="3" height="3"></rect>
+                      <rect x="14" y="14" width="3" height="3"></rect>
+                    </svg>
                   </div>
+                  <p className="text-sm">QR Code unavailable</p>
                 </div>
-
-                {/* Address Section */}
-                <div 
-                  className="flex items-center justify-between rounded-lg border py-2.5" 
-                  style={{ 
-                    backgroundColor: '#1B1C22', 
-                    borderColor: '#272830',
-                    padding: '12px'
-                  }}
-                >
-                  <span className="font-mono" style={{ color: '#EEEEF0' }}>{address?.slice(0, 7)}...{address?.slice(-4)}</span>
-                  <button
-                    onClick={handleCopyAddress}
-                    className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${copied ? '' : 'hover:text-[#EEEEF0] hover:bg-[#23242b]'}`}
-                    style={copied ? { color: '#22c55e', backgroundColor: '#1f2a21' } : { color: '#7C7A85' }}
-                    onMouseEnter={(e) => { if (!copied) { 
-                        e.currentTarget.style.color = '#EEEEF0'; 
-                        e.currentTarget.style.backgroundColor = '#23242b';
-                      }
-                    }}
-                    onMouseLeave={(e) => { if (!copied) { 
-                        e.currentTarget.style.color = '#7C7A85'; 
-                      } else {
-                        e.currentTarget.style.color = '#22c55e';
-                      }
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                    title={copied ? 'Copied!' : 'Copy address'}
-                    aria-label="Copy address"
-                  >
-                    {copied ? (
-                      <PiCheck size={20} color="#22c55e" />
-                    ) : (
-                      <PiCopy size={20} />
-                    )}
-                  </button>
-                </div>
-                <p className="text-center text-sm" style={{ color: '#7C7A85' }}>Copy the address to send funds to this wallet</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-      </div>
+
+          {/* Address Section */}
+          <div
+            className="flex items-center justify-between rounded-lg border py-2.5"
+            style={{
+              backgroundColor: '#1B1C22',
+              borderColor: '#272830',
+              padding: '12px'
+            }}
+          >
+            <span className="font-mono" style={{ color: '#EEEEF0' }}>{address?.slice(0, 7)}...{address?.slice(-4)}</span>
+            <button
+              onClick={handleCopyAddress}
+              className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${copied ? '' : 'hover:text-[#EEEEF0] hover:bg-[#23242b]'}`}
+              style={copied ? { color: '#22c55e', backgroundColor: '#1f2a21' } : { color: '#7C7A85' }}
+              onMouseEnter={(e) => {
+                if (!copied) {
+                  e.currentTarget.style.color = '#EEEEF0';
+                  e.currentTarget.style.backgroundColor = '#23242b';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!copied) {
+                  e.currentTarget.style.color = '#7C7A85';
+                } else {
+                  e.currentTarget.style.color = '#22c55e';
+                }
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title={copied ? 'Copied!' : 'Copy address'}
+              aria-label="Copy address"
+            >
+              {copied ? (
+                <PiCheck size={20} color="#22c55e" />
+              ) : (
+                <PiCopy size={20} />
+              )}
+            </button>
+          </div>
+          <p className="text-center text-sm" style={{ color: '#7C7A85' }}>Copy the address to send funds to this wallet</p>
+        </div>
+      )}
     </div>
   );
 }; 
