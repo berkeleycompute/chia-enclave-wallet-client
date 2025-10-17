@@ -147,15 +147,16 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
   const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
 
-  // Auto-connect when JWT token is provided
+  // Auto-connect when JWT token is provided and not already connected/connecting
+  // Only trigger if the modal is open to avoid unnecessary connection attempts
   useEffect(() => {
-    if (jwtToken && !isConnected && !isConnecting) {
-      console.log('🔑 Auto-connecting with provided JWT token');
+    if (isOpen && jwtToken && !isConnected && !isConnecting) {
+      console.log('[ChiaWalletModal] Auto-connecting with provided JWT token');
       setJwtToken(jwtToken).then(() => {
         connect();
       });
     }
-  }, [jwtToken, isConnected, isConnecting, setJwtToken, connect]);
+  }, [isOpen, jwtToken, isConnected, isConnecting, setJwtToken, connect]);
 
   // Memoize wallet data to prevent unnecessary re-renders
   const walletData = useMemo(() => {
