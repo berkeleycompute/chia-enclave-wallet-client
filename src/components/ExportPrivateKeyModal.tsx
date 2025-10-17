@@ -56,10 +56,6 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
     } catch { }
   }, []);
 
-  const closeModal = () => {
-    (onCloseWallet || onClose)();
-  };
-
   if (!isOpen) return null;
 
   return (
