@@ -142,6 +142,20 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // Animation states for opening/closing
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  
+  // Track if we're on mobile for responsive styling
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint is 768px
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // NFT metadata state (keep this as it's specific to this modal)
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
@@ -587,6 +601,19 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
           .modal-background-exit-animation {
             animation: backgroundExit 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
           }
+
+
+          @keyframes modalMobileEnter {
+            from {
+              transform: translateY(80px);
+            }
+            to {
+              transform: translateY(0);
+            }
+          }
+          .modal-mobile-enter-animation {
+            animation: modalMobileEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+          }
         `}</style>
         <div
           className={`fixed inset-0 flex items-center justify-center ${isClosing ? 'modal-background-exit-animation' : 'modal-background-enter-animation'}`}
@@ -599,7 +626,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         >
           <div
             ref={animateHeightRef}
-            className={`overflow-visible rounded-2xl ${isClosing ? 'modal-exit-animation' : 'modal-enter-animation'}`}
+            className={`overflow-visible fixed md:relative bottom-0 inset-x-0 md:inset-0 rounded-2xl w-full ${isClosing ? 'modal-exit-animation' : isMobile ? 'modal-mobile-enter-animation' : 'modal-enter-animation'}`}
             role="document"
             tabIndex={0}
             style={{
@@ -607,10 +634,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               border: '1px solid #272830',
               color: '#EEEEF0',
               boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
-              maxWidth: '400px',
-              maxHeight: '90vh',
+              maxWidth: isMobile ? '100%' : '400px',
               height: modalHeight ? `${modalHeight}px` : 'auto',
-              width: '90%'
             }}
           >
             {/* Unified Header for Dialogs */}
