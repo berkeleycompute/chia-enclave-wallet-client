@@ -436,7 +436,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const getNftImageUrl = useCallback((nft: EnrichedNftCoin): string | undefined => {
     // Prioritize Spacescan thumbnail if available
     if (nft.spacescanData) {
-      return `https://edgedev.silicon.net/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
+      return `https://edgedev.silicon.net/v1/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
     }
 
     // Fall back to metadata from HydratedCoin

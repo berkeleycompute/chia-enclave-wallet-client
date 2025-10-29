@@ -980,13 +980,13 @@ export class ChiaCloudWalletClient {
     console.log('Environment:', this.environment);
     switch (this.environment) {
       case 'development':
-        return 'https://edgedev.silicon.net';
+        return 'https://edgedev.silicon.net/v1';
       case 'production':
-        return 'https://edge.silicon-prod.net';
+        return 'https://edge.silicon-prod.net/v1';
       case 'test':
-        return 'https://edge.silicon-test.net'; // Use development URL for test environment
+        return 'https://edge.silicon-test.net/v1'; // Use development URL for test environment
       default:
-        return 'https://edge.silicon-prod.net'; // Default to development
+        return 'https://edge.silicon-prod.net/v1'; // Default to development
     }
   }
 
