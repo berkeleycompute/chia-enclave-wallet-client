@@ -518,18 +518,6 @@ body {
   padding: 0 1rem;
 }
 
-.main-view {
-  /* Main view specific styles */
-}
-
-.components-view {
-  /* Components view specific styles */
-}
-
-.dialogs-view {
-  /* Dialogs view specific styles */
-}
-
 /* Client Status in Header */
 .client-status {
   margin-top: 0.5rem;
@@ -893,11 +881,6 @@ body {
   font-size: 0.8rem;
   overflow-x: auto;
   margin: 0;
-}
-
-/* Coins View Styles */
-.coins-view {
-  /* Coins view specific styles */
 }
 
 .nft-mint-view {

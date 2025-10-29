@@ -9,7 +9,10 @@ export type DialogType =
   | 'receiveFunds'
   | 'activeOffers'
   | 'nftDetails'
-  | 'walletMain';
+  | 'walletMain'
+  | 'transactions'
+  | 'viewAssets'
+  | 'exportKey';
 
 export interface DialogState {
   [key: string]: {
@@ -36,6 +39,9 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     activeOffers: { isOpen: false },
     nftDetails: { isOpen: false, data: null },
     walletMain: { isOpen: false },
+    transactions: { isOpen: false },
+    viewAssets: { isOpen: false },
+    exportKey: { isOpen: false },
   });
 
   const openDialog = useCallback((dialog: DialogType, data?: any) => {
@@ -122,6 +128,24 @@ export interface WalletMainDialogState {
   close: () => void;
 }
 
+export interface TransactionsDialogState {
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+}
+
+export interface ViewAssetsDialogState {
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+}
+
+export interface ExportKeyDialogState {
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+}
+
 // Individual dialog hooks
 export function useSendFundsDialog(): SendFundsDialogState {
   const { dialogStates, openDialog, closeDialog } = useDialogContext();
@@ -185,6 +209,36 @@ export function useWalletMainDialog(): WalletMainDialogState {
   };
 }
 
+export function useTransactionsDialog(): TransactionsDialogState {
+  const { dialogStates, openDialog, closeDialog } = useDialogContext();
+  
+  return {
+    isOpen: dialogStates.transactions?.isOpen || false,
+    open: () => openDialog('transactions'),
+    close: () => closeDialog('transactions'),
+  };
+}
+
+export function useViewAssetsDialog(): ViewAssetsDialogState {
+  const { dialogStates, openDialog, closeDialog } = useDialogContext();
+  
+  return {
+    isOpen: dialogStates.viewAssets?.isOpen || false,
+    open: () => openDialog('viewAssets'),
+    close: () => closeDialog('viewAssets'),
+  };
+}
+
+export function useExportKeyDialog(): ExportKeyDialogState {
+  const { dialogStates, openDialog, closeDialog } = useDialogContext();
+  
+  return {
+    isOpen: dialogStates.exportKey?.isOpen || false,
+    open: () => openDialog('exportKey'),
+    close: () => closeDialog('exportKey'),
+  };
+}
+
 // Compound hook that provides all dialog managers
 export function useAllDialogs() {
   const sendFundsDialog = useSendFundsDialog();
@@ -193,6 +247,8 @@ export function useAllDialogs() {
   const activeOffersDialog = useActiveOffersDialog();
   const nftDetailsDialog = useNFTDetailsDialog();
   const walletMainDialog = useWalletMainDialog();
+  const transactionsDialog = useTransactionsDialog();
+  const viewAssetsDialog = useViewAssetsDialog();
   const { closeAllDialogs, isAnyDialogOpen } = useDialogContext();
 
   return {
@@ -202,6 +258,8 @@ export function useAllDialogs() {
     activeOffers: activeOffersDialog,
     nftDetails: nftDetailsDialog,
     walletMain: walletMainDialog,
+    transactions: transactionsDialog,
+    viewAssets: viewAssetsDialog,
     closeAllDialogs,
     isAnyDialogOpen,
   };

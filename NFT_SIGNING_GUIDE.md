@@ -173,9 +173,9 @@ See `src/examples/NFTMintWithSigningExample.tsx` for a complete React component 
 
 The client automatically uses the appropriate endpoints:
 
-- **Unsigned Mint**: `https://edge.silicon-dev.net/chia/make_unsigned_nft_mint/mint-nft`
+- **Unsigned Mint**: `https://edgedev.silicon.net//chia/make_unsigned_nft_mint/mint-nft`
 - **Signing**: `https://qugucpyccrhmsusuvpvz.supabase.co/functions/v1/api/enclave/sign-spendbundle`
-- **Broadcasting**: `https://edge.silicon-dev.net/chia/chia_public_api/broadcast`
+- **Broadcasting**: `https://edgedev.silicon.net//chia/chia_public_api/broadcast`
 
 ## Troubleshooting
 

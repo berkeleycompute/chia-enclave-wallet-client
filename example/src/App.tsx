@@ -303,26 +303,26 @@ const ComponentsView: React.FC<{
                                 onWalletUpdate={handleWalletUpdate}
                                 footer={
                                     <button
-                                        className="menu-item"
+                                        className="w-full flex items-center gap-3 text-white cursor-pointer transition-all rounded-lg"
+                                        style={{ padding: '12px' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1b1c22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                         onClick={() => alert('Connect to Base Wallet')}
                                     >
-                                        <div className="menu-icon-large">
-                                            <div style={{
-                                                width: '24px',
-                                                height: '24px',
-                                                borderRadius: '50%',
-                                                background: '#0052ff',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
+                                        <div style={{
+                                            width: '24px',
+                                            height: '24px',
+                                            borderRadius: '50%',
+                                            background: '#0052ff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
 
-                                            }}>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                                                </svg>
-                                            </div>
+                                        }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                            </svg>
                                         </div>
-                                        <span>Base Wallet</span>
+                                        <span className="font-medium text-white">Base Wallet</span>
                                     </button>
                                 }
                             />

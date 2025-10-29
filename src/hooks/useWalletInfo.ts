@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChiaCloudWalletClient, type PublicKeyResponse } from '../client/ChiaCloudWalletClient';
+import { ChiaCloudWalletClient, type PublicKeyResponse, type ErrorResult } from '../client/ChiaCloudWalletClient';
 import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
 import { bech32m } from 'bech32';
 
@@ -419,7 +419,10 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
     try {
       const result = await client.exportMnemonic();
       if (!result.success) {
-        throw new Error(result.error);
+        if (typeof result === 'object' && 'error' in result) {
+          throw new Error(result.error);
+        }
+        throw new Error('Failed to export mnemonic');
       }
 
       const mnemonicPhrase = result.data.mnemonic;

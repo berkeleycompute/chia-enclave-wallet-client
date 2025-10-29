@@ -9,7 +9,9 @@ import {
 } from '../hooks/useChiaWalletSDK';
 import { useSpacescanNFTs, type SpacescanNFT } from '../client/SpacescanClient';
 import { injectModalStyles } from './modal-styles';
+import { PiInfo } from 'react-icons/pi';
 import { SavedOffer } from './types';
+import { Selector, type SelectorItem } from './Selector';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -49,8 +51,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   console.log('nftCoins', nftCoins);
   console.log('hydratedCoins', hydratedCoins); */
 
-
-
   // Inject shared modal styles
   React.useEffect(() => {
     injectModalStyles();
@@ -68,50 +68,27 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [depositAddress, setDepositAddress] = useState(initialDepositAddress || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'select-nft' | 'confirm'>('select-nft');
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const hasRefreshedOnOpen = useRef(false);
-  const hasUserSelectedNft = useRef(false);
 
   // Handle modal opening/closing and initial setup
   useEffect(() => {
-    console.log('🔄 Modal state useEffect triggered:', {
-      isOpen,
-      hasInitialSelectedNft: !!initialSelectedNft,
-      currentStep: step,
-      hasSelectedNft: !!selectedNft,
-      hasUserSelectedNft: hasUserSelectedNft.current
-    });
-
     if (isOpen) {
-      // Update initial values when modal opens
       setOfferAmount(initialOfferAmount || '');
       setDepositAddress(initialDepositAddress || (address || ''));
       setError(null);
 
-      // Handle initial NFT selection
       if (initialSelectedNft) {
-        console.log('🎯 Setting up initial selected NFT');
-        // Enrich the initial selected NFT with Spacescan data
         const enrichedInitialNft = enrichNftWithSpacescanData(initialSelectedNft);
         setSelectedNft(enrichedInitialNft);
-        setStep('confirm'); // Skip NFT selection step if NFT is pre-selected
-      } else if (!hasUserSelectedNft.current) {
-        console.log('🔄 Resetting to select-nft step (no user selection yet)');
-        // Only reset to selection step if user hasn't manually selected an NFT
-        setStep('select-nft');
-        setSelectedNft(null);
       }
 
-      // Refresh hydrated coins when modal opens for the first time only
       if (!hasRefreshedOnOpen.current) {
         hasRefreshedOnOpen.current = true;
         refreshCoins();
       }
     } else {
-      // Reset flags when modal closes
       hasRefreshedOnOpen.current = false;
-      hasUserSelectedNft.current = false;
     }
   }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address]);
 
@@ -325,7 +302,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   // Utility functions
   const formatAddress = (address: string): string => {
     if (!address) return '';
-    return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
+    return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   };
 
   const convertIpfsUrl = (url: string): string => {
@@ -459,7 +436,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const getNftImageUrl = useCallback((nft: EnrichedNftCoin): string | undefined => {
     // Prioritize Spacescan thumbnail if available
     if (nft.spacescanData) {
-      return `https://edge.silicon-dev.net/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
+      return `https://edgedev.silicon.net/v1/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
     }
 
     // Fall back to metadata from HydratedCoin
@@ -536,34 +513,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   // Event handlers
   const selectNft = (nft: EnrichedNftCoin) => {
-    console.log('🎯 NFT selected:', {
-      nft: nft,
-      displayName: getNftDisplayName(nft),
-      collectionName: getNftCollectionName(nft),
-      editionInfo: getNftEditionInfo(nft),
-      launcherId: getLauncherId(nft),
-      spacescanData: nft.spacescanData,
-      metadata: getNftMetadata(nft)
-    });
-
-    console.log('🔄 Setting selectedNft and step to confirm');
-    // Mark that user has manually selected an NFT
-    hasUserSelectedNft.current = true;
-
-    // Store the enriched NFT for display purposes
     setSelectedNft(nft);
-    setStep('confirm');
-  };
-
-  const goBack = () => {
-    if (step === 'confirm') {
-      setStep('select-nft');
-      setSelectedNft(null);
-      setOfferAmount('');
-      setDepositAddress(address || '');
-      // Reset the user selection flag when going back
-      hasUserSelectedNft.current = false;
-    }
   };
 
   // Validation function for Chia addresses
@@ -708,7 +658,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         dexieOfferId: dexieResult.success ? dexieResult.data?.id : undefined,
         dexieOfferUrl: dexieResult.success ? dexieResult.data?.offer_url : undefined
       };
-      
+
       // Save to localStorage with Dexie information
 
       // Save to localStorage first
@@ -741,9 +691,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     setSelectedNft(null);
     setOfferAmount('');
     setDepositAddress(address || '');
-    setStep('select-nft');
     setError(null);
-    onClose();
+    (onClose)();
   };
 
   const refreshWalletData = () => {
@@ -760,677 +709,153 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   }
 
   return (
-    <>
-      <div className="modal-overlay make-offer-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-        <div className="modal-content make-offer-content">
-          <div className="modal-header">
-            <div className="header-content">
-              {step !== 'select-nft' && (
-                <button className="back-btn" onClick={goBack}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M19 12H5"></path>
-                    <path d="M12 19l-7-7 7-7"></path>
-                  </svg>
-                </button>
-              )}
-              <h3>
-                {step === 'select-nft' ? 'Make Offer - Select NFT' : 'Make Offer - Confirm'}
-              </h3>
-            </div>
-            <button className="close-btn" onClick={closeModal}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
+    <div className="px-6 pb-4">
+      {error && (
+        <div className="p-3 rounded border border-red-300 text-red-500 bg-red-500/10 text-sm my-2 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
 
-          <div className="modal-body">
-            {error && (
-              <div className="error-message">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                  <line x1="12" y1="9" x2="12" y2="13"></line>
-                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                </svg>
-                <span>{error}</span>
-              </div>
-            )}
-
-            {!syntheticPublicKey && (
-              <div className="info-message">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
-                <span>
-                  {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
-                </span>
-                <button
-                  className="refresh-wallet-btn"
-                  onClick={refreshWalletData}
-                  disabled={isRefreshingWallet}
-                >
-                  {isRefreshingWallet ? (
-                    <>
-                      <div className="refresh-spinner"></div>
-                      Refreshing...
-                    </>
-                  ) : (
-                    <>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 4v6h6"></path>
-                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                      </svg>
-                      Refresh
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {step === 'select-nft' ? (
-              <div className="step-content">
-                <p className="step-description">Select the NFT you want to make an offer for:</p>
-
-                {nftCoinsToDisplay.length === 0 ? (
-                  <div className="no-items">
-                    <p>No NFTs found in your wallet</p>
-                    {nftsLoading && <p>Loading NFTs from Spacescan...</p>}
-                    {nftsError && <p>Error loading NFTs: {nftsError}</p>}
-                  </div>
-                ) : (
-                  <div className="nft-grid">
-                    {nftCoinsToDisplay.map((nft: EnrichedNftCoin, index: number) => {
-                      // const metadata = getNftMetadata(nft);
-                      const isLoading = isNftMetadataLoading(nft);
-                      const editionInfo = getNftEditionInfo(nft);
-
-                      return (
-                        <div key={index} className="nft-card" onClick={() => selectNft(nft)}>
-                          <div className="nft-image">
-                            {isLoading ? (
-                              <div className="nft-loading">
-                                <div className="nft-spinner"></div>
-                              </div>
-                            ) : (() => {
-                              const imageUrl = getNftImageUrl(nft);
-                              return imageUrl ? (
-                                <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(nft)} />
-                              ) : (
-                                <div className="nft-placeholder">🖼️</div>
-                              );
-                            })()}
-                          </div>
-                          <div className="nft-info">
-                            <h4>{getNftDisplayName(nft)}</h4>
-                            <p className="nft-collection">{getNftCollectionName(nft)}</p>
-                            {editionInfo && <p className="nft-edition">{editionInfo}</p>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+      {!syntheticPublicKey && (
+        <div className="p-3 rounded border border-blue-300 text-blue-400 bg-blue-500/10 text-sm my-2 flex items-center gap-2">
+          <PiInfo size={16} />
+          <span>
+            {isRefreshingWallet ? 'Refreshing wallet connection...' : 'Wallet is still connecting... Please wait for the connection to complete.'}
+          </span>
+          <button
+            className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded border disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={refreshWalletData}
+            style={{ borderColor: '#272830', color: '#EEEEF0' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            disabled={isRefreshingWallet}
+          >
+            {isRefreshingWallet ? (
+              <>
+                <div className="w-3.5 h-3.5 border border-blue-300 border-t-blue-500 rounded-full animate-spin"></div>
+                Refreshing...
+              </>
             ) : (
-              <div className="step-content">
-                <div className="offer-summary">
-                  <h4>Offer Summary</h4>
-
-                  <div className="summary-section">
-                    <h5>NFT to Offer:</h5>
-                    <div className="nft-summary-card">
-                      <div className="nft-summary-image">
-                        {selectedNft && isNftMetadataLoading(selectedNft) ? (
-                          <div className="nft-loading">
-                            <div className="nft-spinner"></div>
-                          </div>
-                        ) : selectedNft ? (
-                          (() => {
-                            const imageUrl = getNftImageUrl(selectedNft);
-                            return imageUrl ? (
-                              <img src={convertIpfsUrl(imageUrl)} alt={getNftDisplayName(selectedNft)} />
-                            ) : (
-                              '🖼️'
-                            );
-                          })()
-                        ) : null}
-                      </div>
-                      <div className="nft-summary-info">
-                        <h6>{selectedNft ? getNftDisplayName(selectedNft) : ''}</h6>
-                        <p>{selectedNft ? getNftCollectionName(selectedNft) : ''}</p>
-                        {selectedNft && getNftEditionInfo(selectedNft) && (
-                          <p className="nft-edition">{getNftEditionInfo(selectedNft)}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="summary-section">
-                    <h5>Payment Token:</h5>
-                    <div className="cat-summary-card">
-                      <div className="cat-summary-icon">💰</div>
-                      <div className="cat-summary-info">
-                        <h6>wUSDC.b</h6>
-                        <p>Asset ID: {formatAddress(WUSDC_ASSET_ID)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="summary-section">
-                    <h5>Offer Amount:</h5>
-                    <div className="amount-input-group">
-                      <input
-                        type="number"
-                        step="0.000001"
-                        min="0"
-                        value={offerAmount}
-                        onChange={(e) => setOfferAmount(e.target.value)}
-                        placeholder="Enter amount..."
-                        className="amount-input"
-                        disabled={isSubmitting}
-                      />
-                      <span className="amount-unit">wUSDC.b</span>
-                    </div>
-                  </div>
-
-                  <div className="summary-section">
-                    <h5>Deposit Address:</h5>
-                    <input
-                      type="text"
-                      value={depositAddress}
-                      onChange={(e) => setDepositAddress(e.target.value)}
-                      placeholder="Enter Chia address (xch...) or puzzle hash..."
-                      className="deposit-address-input"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                </div>
-
-                <div className="action-buttons">
-                  <button className="cancel-btn" onClick={closeModal} disabled={isSubmitting || isCreatingOffer}>
-                    Cancel
-                  </button>
-                  <button
-                    className="submit-btn"
-                    onClick={submitOffer}
-                    disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
-                  >
-                    {isSubmitting || isCreatingOffer ? (
-                      <>
-                        <div className="button-spinner"></div>
-                        Creating Offer...
-                      </>
-                    ) : !syntheticPublicKey ? (
-                      'Wallet Not Ready'
-                    ) : (
-                      'Create Offer'
-                    )}
-                  </button>
-                </div>
-              </div>
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 4v6h6"></path>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                Refresh
+              </>
             )}
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {/* Select GPU */}
+        <div className="flex flex-col gap-1">
+          <label className="text-white text-sm font-medium text-left">Select GPU</label>
+          {(() => {
+            const idForNft = (n: EnrichedNftCoin) => getLauncherId(n) || (n.spacescanData?.nft_id) || `${n.coin.parentCoinInfo}_${n.coin.puzzleHash}`;
+            const items: SelectorItem[] = nftCoinsToDisplay.map((n) => ({ id: idForNft(n), label: getNftDisplayName(n) }));
+            const selectedId = selectedNft ? idForNft(selectedNft) : null;
+            return (
+              <Selector
+                items={items}
+                selectedId={selectedId || undefined}
+                onSelect={(itemId) => {
+                  const found = nftCoinsToDisplay.find((n) => idForNft(n) === itemId);
+                  if (found) selectNft(found);
+                }}
+                placeholder="Select a GPU to sell"
+              />
+            );
+          })()}
+        </div>
+
+        {/* Requested currency and Amount */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-white text-sm font-medium text-left">Requested currency</label>
+            <Selector
+              items={[{ id: 'wusdc', label: 'wUSDC.b' }]}
+              selectedId={'wusdc'}
+              onSelect={() => { }}
+              placeholder="Select currency"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-white text-sm font-medium text-left">Amount</label>
+            <div className="relative flex items-center">
+              <input
+                type="number"
+                step="0.000001"
+                min="0"
+                value={offerAmount}
+                onChange={(e) => setOfferAmount(e.target.value)}
+                placeholder={`0.0 ${WUSDC_ASSET_ID === 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d' ? 'wUSDC.b' : ''}`}
+                className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
+                style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
         </div>
+
+        {/* Deposit address */}
+        <div className="flex flex-col gap-1">
+          <label className="text-white text-sm font-medium text-left">Deposit address</label>
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={depositAddress}
+              onChange={(e) => setDepositAddress(e.target.value)}
+              placeholder="xch1..."
+              className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
+              style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+              disabled={isSubmitting}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2  mb-2 p-0">
+          <button type="button" onClick={onClose}
+            className="px-5 py-2 bg-transparent border rounded font-medium w-1/4"
+            style={{ borderColor: '#272830', color: '#EEEEF0' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            disabled={isSubmitting || isCreatingOffer}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submitOffer}
+            disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
+            className="flex items-center justify-center gap-2 px-5 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
+            style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e56e8'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+          >
+            {(isSubmitting || isCreatingOffer) ? (
+              <>
+                <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(238, 238, 240, 0.3)', borderTopColor: '#EEEEF0' }}></div>
+                Creating Offer...
+              </>
+            ) : !syntheticPublicKey ? (
+              'Wallet Not Ready'
+            ) : (
+              'Create Offer'
+            )}
+          </button>
+        </div>
       </div>
-
-      {/* MakeOfferModal-specific styles */}
-      <style>{`
-        /* Make Offer Modal Specific Styles */
-        .modal-overlay.make-offer-overlay {
-          z-index: 1100;
-        }
-
-        .modal-content.make-offer-content {
-          width: 90%;
-          max-width: 600px;
-          max-height: 80vh;
-          overflow-y: auto;
-        }
-
-        .header-content {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .header-content h3 {
-          margin: 0;
-          color: white;
-          font-size: 18px;
-          font-weight: 600;
-        }
-
-        .back-btn {
-          background: none;
-          border: none;
-          color: #888;
-          cursor: pointer;
-          padding: 8px;
-          border-radius: 8px;
-          transition: all 0.2s;
-        }
-
-        .back-btn:hover {
-          color: white;
-          background: #333;
-        }
-
-        .close-btn {
-          background: none;
-          border: none;
-          color: #888;
-          cursor: pointer;
-          padding: 4px;
-          border-radius: 4px;
-          transition: all 0.2s;
-        }
-
-        .close-btn:hover {
-          color: white;
-          background: #333;
-        }
-
-        .error-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px;
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          border-radius: 8px;
-          margin-bottom: 20px;
-          color: #ef4444;
-          font-size: 14px;
-        }
-
-        .info-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.3);
-          border-radius: 8px;
-          margin-bottom: 20px;
-          color: #3b82f6;
-          font-size: 14px;
-        }
-
-        .refresh-wallet-btn {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 6px 12px;
-          background: rgba(59, 130, 246, 0.2);
-          border: 1px solid rgba(59, 130, 246, 0.4);
-          border-radius: 6px;
-          color: #3b82f6;
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-          margin-left: auto;
-        }
-
-        .refresh-wallet-btn:hover:not(:disabled) {
-          background: rgba(59, 130, 246, 0.3);
-          border-color: rgba(59, 130, 246, 0.6);
-        }
-
-        .refresh-wallet-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .refresh-spinner {
-          width: 12px;
-          height: 12px;
-          border: 1.5px solid rgba(59, 130, 246, 0.3);
-          border-top: 1.5px solid #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-
-        .step-content {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .step-description {
-          margin: 0;
-          color: #ccc;
-          font-size: 14px;
-        }
-
-        .no-items {
-          text-align: center;
-          padding: 40px 20px;
-          color: #888;
-          background: #262626;
-          border-radius: 12px;
-          border: 1px solid #333;
-        }
-
-        .no-items p {
-          margin: 0;
-          font-size: 14px;
-        }
-
-        .nft-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 16px;
-        }
-
-        .nft-card {
-          background: #262626;
-          border-radius: 12px;
-          border: 1px solid #333;
-          padding: 16px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .nft-card:hover {
-          background: #333;
-          border-color: #6bc36b;
-          transform: translateY(-2px);
-        }
-
-        .nft-image {
-          width: 100%;
-          height: 120px;
-          border-radius: 8px;
-          overflow: hidden;
-          margin-bottom: 12px;
-          background: #333;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .nft-placeholder {
-          font-size: 48px;
-          color: #666;
-        }
-
-        .nft-loading {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-        }
-
-        .nft-spinner {
-          width: 24px;
-          height: 24px;
-          border: 2px solid #333;
-          border-top: 2px solid #6bc36b;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        .nft-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .nft-info h4 {
-          margin: 0 0 4px 0;
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          line-height: 1.3;
-        }
-
-        .nft-collection {
-          margin: 0 0 4px 0;
-          color: #888;
-          font-size: 12px;
-          line-height: 1.3;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-
-        .nft-edition {
-          margin: 0;
-          color: #6bc36b;
-          font-size: 11px;
-          font-weight: 500;
-        }
-
-        .offer-summary {
-          background: #262626;
-          border-radius: 12px;
-          padding: 20px;
-          border: 1px solid #333;
-        }
-
-        .offer-summary h4 {
-          margin: 0 0 20px 0;
-          color: white;
-          font-size: 16px;
-          font-weight: 600;
-        }
-
-        .summary-section {
-          margin-bottom: 20px;
-        }
-
-        .summary-section:last-child {
-          margin-bottom: 0;
-        }
-
-        .summary-section h5 {
-          margin: 0 0 8px 0;
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-        }
-
-        .nft-summary-card {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px;
-          background: #333;
-          border-radius: 8px;
-        }
-
-        .nft-summary-image {
-          width: 48px;
-          height: 48px;
-          border-radius: 8px;
-          background: #333;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
-          flex-shrink: 0;
-          overflow: hidden;
-        }
-
-        .nft-summary-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .nft-summary-info h6 {
-          margin: 0;
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-        }
-
-        .nft-summary-info p {
-          margin: 4px 0 0 0;
-          color: #888;
-          font-size: 12px;
-        }
-
-        .cat-summary-card {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px;
-          background: #333;
-          border-radius: 8px;
-        }
-
-        .cat-summary-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: #404040;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 16px;
-          flex-shrink: 0;
-        }
-
-        .cat-summary-info h6 {
-          margin: 0;
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-        }
-
-        .cat-summary-info p {
-          margin: 4px 0 0 0;
-          color: #888;
-          font-size: 12px;
-        }
-
-        .amount-input-group {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .amount-input {
-          flex: 1;
-          padding: 12px;
-          background: #333;
-          border: 1px solid #404040;
-          border-radius: 8px;
-          color: white;
-          font-size: 14px;
-          font-family: monospace;
-        }
-
-        .amount-input:focus {
-          outline: none;
-          border-color: #6bc36b;
-        }
-
-        .amount-input:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .amount-unit {
-          color: #888;
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .deposit-address-input {
-          width: 100%;
-          padding: 12px;
-          background: #333;
-          border: 1px solid #404040;
-          border-radius: 8px;
-          color: white;
-          font-size: 14px;
-          font-family: monospace;
-        }
-
-        .deposit-address-input:focus {
-          outline: none;
-          border-color: #6bc36b;
-        }
-
-        .deposit-address-input:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .action-buttons {
-          display: flex;
-          gap: 12px;
-          margin-top: 20px;
-        }
-
-        .cancel-btn {
-          flex: 1;
-          padding: 12px;
-          background: none;
-          border: 1px solid #333;
-          border-radius: 8px;
-          color: #888;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .cancel-btn:hover:not(:disabled) {
-          background: #333;
-          color: white;
-        }
-
-        .cancel-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .submit-btn {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 12px;
-          background: #6bc36b;
-          border: none;
-          border-radius: 8px;
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .submit-btn:hover:not(:disabled) {
-          background: #4a9f4a;
-        }
-
-        .submit-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .button-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top: 2px solid white;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-      `}</style>
-    </>
+    </div>
   );
 }; 

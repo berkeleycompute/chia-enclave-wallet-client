@@ -290,11 +290,11 @@ export class ChiaWalletDialogsWrapper extends React.Component<ChiaWalletDialogsW
         />
 
         {/* NFT Details Dialog */}
-                  <NFTDetailsModal
-            isOpen={nftDetailsDialogOpen}
-            onClose={() => this.setState({ nftDetailsDialogOpen: false, selectedNft: null })}
-            nft={selectedNft}
-          />
+        <NFTDetailsModal
+          isOpen={nftDetailsDialogOpen}
+          onClose={() => this.setState({ nftDetailsDialogOpen: false, selectedNft: null })}
+          nft={selectedNft}
+        />
 
         {/* Main Wallet Dialog - Commented out due to complex dependencies */}
         {/* <ChiaWalletModal
