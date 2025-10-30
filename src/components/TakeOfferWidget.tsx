@@ -10,6 +10,7 @@ import { useNFTMetadata } from '../hooks/useNFTs';
 import { type HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { type NFTMetadata, type DexieOfferData, type DexieOfferResult, type TakeOfferWidgetProps } from './types';
 import { injectModalStyles } from './modal-styles';
+import { convertIpfsUrl } from '../utils/ipfs';
 
 // wUSDC asset ID constant
 const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
@@ -94,30 +95,14 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         injectModalStyles();
     }, []);
 
-    // IPFS URL conversion utility (from existing components)
-    const convertIpfsUrl = useCallback((url: string): string => {
-        if (!url) return url;
-
-        if (url.startsWith('ipfs://')) {
-            const hash = url.replace('ipfs://', '');
-            return `https://ipfs.io/ipfs/${hash}`;
-        }
-
-        if (!url.startsWith('http') && url.length > 40) {
-            return `https://ipfs.io/ipfs/${url}`;
-        }
-
-        return url;
-    }, []);
-
-    // Get NFT image URL
+    // Get NFT image URL using centralized IPFS utility
     const getNftImageUrl = useCallback((): string | null => {
 
         // First priority: Use provided imageUrl prop if available
         if (providedImageUrl) {
             const convertedUrl = convertIpfsUrl(providedImageUrl);
             console.log('✅ Using provided imageUrl prop:', convertedUrl);
-            return convertedUrl;
+            return convertedUrl || providedImageUrl;
         }
 
         // Second priority: Get image from Dexie offer data (nft_data.data_uris)
@@ -125,7 +110,7 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
         if (nftOffered?.nft_data?.data_uris?.[0]) {
             const imageUrl = convertIpfsUrl(nftOffered.nft_data.data_uris[0]);
             console.log('✅ Using Dexie NFT data image:', imageUrl);
-            return imageUrl;
+            return imageUrl || nftOffered.nft_data.data_uris[0];
         }
 
         // Third priority: Fallback to provided metadata if available
@@ -137,13 +122,13 @@ export const TakeOfferWidget: React.FC<TakeOfferWidgetProps> = ({
             if (imageUrl) {
                 const convertedUrl = convertIpfsUrl(imageUrl);
                 console.log('✅ Using provided metadata image:', convertedUrl);
-                return convertedUrl;
+                return convertedUrl || imageUrl;
             }
         }
 
         console.log('❌ No image URL found');
         return null;
-    }, [providedImageUrl, dexieOfferData, nftMetadata, convertIpfsUrl, providedMetadata, metadataLoading, metadataError]);
+    }, [providedImageUrl, dexieOfferData, nftMetadata, providedMetadata, metadataLoading, metadataError]);
 
     // Get NFT display name
     const getNftDisplayName = useCallback((): string => {

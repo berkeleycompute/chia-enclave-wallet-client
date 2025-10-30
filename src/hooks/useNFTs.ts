@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { ChiaWalletSDK } from '../client/ChiaWalletSDK';
+import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
+import { convertIpfsUrl as convertIpfs } from '../utils/ipfs';
 
 // NFT metadata interface
 export interface NFTMetadata {
@@ -78,10 +80,18 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     enableLogging = true
   } = config;
 
+  // Try to get SDK from context if not provided
+  const contextSDK = useChiaWalletSDK();
+  
+  // Use provided SDK or fall back to context SDK
+  const effectiveSDK = externalSDK || contextSDK;
+
   // Internal client if none provided
   const internalClient = useRef<ChiaCloudWalletClient | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
   const metadataLoadingRef = useRef<Set<string>>(new Set());
+  const metadataLoadedRef = useRef<Set<string>>(new Set()); // Track which NFTs have metadata loaded/loading
+  const isLoadingAllMetadataRef = useRef<boolean>(false); // Prevent concurrent loadAllMetadata calls
 
   const [nfts, setNfts] = useState<NFTWithMetadata[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,7 +103,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
   // Get or create client
   const getClient = useCallback((): ChiaCloudWalletClient | null => {
     // Prefer SDK client if available
-    if (externalSDK) return externalSDK.client;
+    if (effectiveSDK) return effectiveSDK.client;
     if (externalClient) return externalClient;
 
     if (!internalClient.current && (jwtToken || baseUrl)) {
@@ -107,7 +117,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     }
 
     return internalClient.current;
-  }, [externalClient, externalSDK, jwtToken, baseUrl, enableLogging]);
+  }, [externalClient, effectiveSDK, jwtToken, baseUrl, enableLogging]);
 
   // Get wallet address (SDK-aware)
   const getAddress = useCallback(async (): Promise<string | null> => {
@@ -115,9 +125,9 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     if (address) return address;
 
     // If SDK is available, use its cached method
-    if (externalSDK) {
+    if (effectiveSDK) {
       try {
-        const result = await externalSDK.getWalletInfo();
+        const result = await effectiveSDK.getWalletInfo();
         if (result.success) {
           setAddress(result.data.address);
           return result.data.address;
@@ -143,16 +153,28 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     }
 
     return null;
-  }, [externalAddress, address, externalSDK, getClient]);
+  }, [externalAddress, address, effectiveSDK, getClient]);
 
   // Extract metadata URI from NFT data
   const extractMetadataUri = useCallback((nft: HydratedCoin): string | null => {
     try {
       const driverInfo = nft.parentSpendInfo?.driverInfo;
-      if (driverInfo?.type === 'NFT' && (driverInfo as any).also) {
-        // Look for metadata URI in the NFT data structure
+      if (driverInfo?.type === 'NFT') {
+        // First try to get from info.metadata.metadataUris (current API format)
+        const metadata = driverInfo.info?.metadata as any;
+        if (metadata?.metadataUris && Array.isArray(metadata.metadataUris) && metadata.metadataUris.length > 0) {
+          return metadata.metadataUris[0];
+        }
+        
+        // Fallback: try dataUris if metadataUris not available
+        if (metadata?.dataUris && Array.isArray(metadata.dataUris) && metadata.dataUris.length > 0) {
+          return metadata.dataUris[0];
+        }
+        
+        // Fallback: try legacy format (also)
         const nftData = (driverInfo as any).also;
-        return nftData.metadata_uris?.[0] || nftData.data_uris?.[0] || null;
+        if (nftData?.metadata_uris?.[0]) return nftData.metadata_uris[0];
+        if (nftData?.data_uris?.[0]) return nftData.data_uris[0];
       }
     } catch (error) {
       console.warn('Error extracting metadata URI:', error);
@@ -163,27 +185,45 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
   // Load metadata for a single NFT
   const loadMetadata = useCallback(async (nft: HydratedCoin): Promise<NFTMetadata | null> => {
     const metadataUri = extractMetadataUri(nft);
-    if (!metadataUri) return null;
+    if (!metadataUri) {
+      if (enableLogging) {
+        console.log('⚠️ No metadata URI found for NFT:', nft.coinId);
+      }
+      return null;
+    }
+
+    // Convert IPFS URLs to HTTP gateway using centralized utility
+    const fetchUrl = convertIpfs(metadataUri) || metadataUri;
 
     // Check cache first
-    const cached = metadataCache.get(metadataUri);
+    const cached = metadataCache.get(fetchUrl);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      if (enableLogging) {
+        console.log('✅ Using cached metadata for:', fetchUrl);
+      }
       return cached.data;
     }
 
     // Prevent duplicate requests
-    if (metadataLoadingRef.current.has(metadataUri)) {
+    if (metadataLoadingRef.current.has(fetchUrl)) {
+      if (enableLogging) {
+        console.log('⏳ Metadata already loading for:', fetchUrl);
+      }
       return null;
     }
 
-    metadataLoadingRef.current.add(metadataUri);
+    metadataLoadingRef.current.add(fetchUrl);
 
     try {
+      if (enableLogging) {
+        console.log('📥 Fetching NFT metadata from:', fetchUrl);
+      }
+
       // Configure fetch to properly handle redirects and timeouts
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      const response = await fetch(metadataUri, {
+      const response = await fetch(fetchUrl, {
         method: 'GET',
         redirect: 'follow', // Explicitly follow redirects
         mode: 'cors', // Handle CORS properly
@@ -220,57 +260,104 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       }
 
       // Cache the metadata
-      metadataCache.set(metadataUri, {
+      metadataCache.set(fetchUrl, {
         data: metadata,
         timestamp: Date.now()
       });
 
+      if (enableLogging) {
+        console.log('✅ Successfully loaded metadata:', { fetchUrl, metadata });
+      }
+
       return metadata;
     } catch (error) {
-      console.warn(`Failed to load NFT metadata from ${metadataUri}:`, error);
+      if (enableLogging) {
+        console.warn(`❌ Failed to load NFT metadata from ${fetchUrl}:`, error);
+      }
       return null;
     } finally {
-      metadataLoadingRef.current.delete(metadataUri);
+      metadataLoadingRef.current.delete(fetchUrl);
     }
-  }, [extractMetadataUri]);
+  }, [extractMetadataUri, enableLogging]);
 
   // Load metadata for all NFTs
   const loadAllMetadata = useCallback(async (): Promise<void> => {
-    if (nfts.length === 0) return;
+    // Prevent concurrent calls
+    if (isLoadingAllMetadataRef.current) {
+      if (enableLogging) {
+        console.log('🚫 loadAllMetadata already running, skipping');
+      }
+      return;
+    }
 
+    isLoadingAllMetadataRef.current = true;
     setMetadataLoading(true);
 
-    const promises = nfts.map(async (nft) => {
-      if (!nft.metadata && !nft.metadataLoading) {
-        const metadata = await loadMetadata(nft);
-        return { nft, metadata };
-      }
-      return { nft, metadata: nft.metadata };
-    });
-
     try {
-      const results = await Promise.all(promises);
-
-      setNfts(prevNfts =>
-        prevNfts.map(nft => {
-          const result = results.find(r => r.nft === nft);
-          if (result && result.metadata && !nft.metadata) {
-            return {
-              ...nft,
-              metadata: result.metadata,
-              metadataLoading: false,
-              metadataError: undefined
-            };
+      // Use function form to get current state without dependency
+      await new Promise<void>((resolve) => {
+        setNfts(prevNfts => {
+          if (prevNfts.length === 0) {
+            resolve();
+            return prevNfts;
           }
-          return nft;
-        })
-      );
-    } catch (error) {
-      console.warn('Error loading metadata for NFTs:', error);
+
+          // Filter NFTs that need metadata loaded
+          const nftsNeedingMetadata = prevNfts.filter(nft => {
+            const key = nft.coinId || `${nft.coin.parentCoinInfo}_${nft.coin.puzzleHash}`;
+            return !nft.metadata && !metadataLoadedRef.current.has(key);
+          });
+
+          if (nftsNeedingMetadata.length === 0) {
+            resolve();
+            return prevNfts;
+          }
+
+          if (enableLogging) {
+            console.log(`📥 Loading metadata for ${nftsNeedingMetadata.length} NFTs`);
+          }
+
+          // Load metadata for NFTs that need it
+          Promise.all(
+            nftsNeedingMetadata.map(async (nft) => {
+              const key = nft.coinId || `${nft.coin.parentCoinInfo}_${nft.coin.puzzleHash}`;
+              metadataLoadedRef.current.add(key);
+              
+              const metadata = await loadMetadata(nft);
+              return { key, metadata };
+            })
+          ).then(results => {
+            // Update NFTs with loaded metadata
+            setNfts(currentNfts =>
+              currentNfts.map(nft => {
+                const key = nft.coinId || `${nft.coin.parentCoinInfo}_${nft.coin.puzzleHash}`;
+                const result = results.find(r => r.key === key);
+                
+                if (result?.metadata && !nft.metadata) {
+                  return {
+                    ...nft,
+                    metadata: result.metadata,
+                    metadataLoading: false,
+                    metadataError: undefined
+                  };
+                }
+                return nft;
+              })
+            );
+            resolve();
+          }).catch(error => {
+            console.warn('Error loading metadata for NFTs:', error);
+            resolve();
+          });
+
+          return prevNfts;
+        });
+      });
     } finally {
       setMetadataLoading(false);
+      isLoadingAllMetadataRef.current = false;
     }
-  }, [nfts, loadMetadata]);
+  }, [loadMetadata, enableLogging]);
 
   // Refresh NFT data
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -301,36 +388,46 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
         throw new Error(result.error);
       }
 
-      // Filter only NFTs
+      // Filter only NFTs - result.data is directly the array of HydratedCoin[]
       const nftCoins = result.data.data.filter((coin: HydratedCoin) =>
         coin.parentSpendInfo?.driverInfo?.type === 'NFT'
       );
 
-      // Transform to NFTWithMetadata format
-      const nftsWithMetadata: NFTWithMetadata[] = nftCoins.map(coin => {
-        // Check if we already have this NFT with metadata
-        const existingNft = nfts.find(n =>
-          n.coin.parentCoinInfo === coin.coin.parentCoinInfo &&
-          n.coin.puzzleHash === coin.coin.puzzleHash
-        );
+      // Transform to NFTWithMetadata format - use function form to avoid nfts dependency
+      setNfts(prevNfts => {
+        const nftsWithMetadata: NFTWithMetadata[] = nftCoins.map(coin => {
+          // Check if we already have this NFT with metadata
+          const existingNft = prevNfts.find(n =>
+            n.coin.parentCoinInfo === coin.coin.parentCoinInfo &&
+            n.coin.puzzleHash === coin.coin.puzzleHash
+          );
 
-        return {
-          ...coin,
-          metadata: existingNft?.metadata,
-          metadataUri: extractMetadataUri(coin) || undefined,
-          metadataLoading: existingNft?.metadataLoading || false,
-          metadataError: existingNft?.metadataError
-        };
+          return {
+            ...coin,
+            metadata: existingNft?.metadata,
+            metadataUri: extractMetadataUri(coin) || undefined,
+            metadataLoading: existingNft?.metadataLoading || false,
+            metadataError: existingNft?.metadataError
+          };
+        });
+
+        // Auto-load metadata if enabled - only if we have new NFTs without metadata
+        if (autoLoadMetadata && nftsWithMetadata.length > 0) {
+          const hasUnloadedMetadata = nftsWithMetadata.some(nft => {
+            const key = nft.coinId || `${nft.coin.parentCoinInfo}_${nft.coin.puzzleHash}`;
+            return !nft.metadata && !metadataLoadedRef.current.has(key);
+          });
+          
+          if (hasUnloadedMetadata && !isLoadingAllMetadataRef.current) {
+            setTimeout(() => loadAllMetadata(), 100);
+          }
+        }
+
+        return nftsWithMetadata;
       });
 
-      setNfts(nftsWithMetadata);
       setLastUpdate(Date.now());
       setLoading(false);
-
-      // Auto-load metadata if enabled
-      if (autoLoadMetadata && nftsWithMetadata.length > 0) {
-        setTimeout(() => loadAllMetadata(), 100);
-      }
 
       return true;
     } catch (error) {
@@ -339,7 +436,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       setLoading(false);
       return false;
     }
-  }, [getClient, getAddress, nfts, extractMetadataUri, autoLoadMetadata, loadAllMetadata]);
+  }, [getClient, getAddress, extractMetadataUri, autoLoadMetadata, loadAllMetadata]);
 
   // Reset hook state
   const reset = useCallback(() => {
@@ -354,8 +451,10 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       refreshIntervalRef.current = null;
     }
 
-    // Clear any pending metadata requests
+    // Clear any pending metadata requests and tracking
     metadataLoadingRef.current.clear();
+    metadataLoadedRef.current.clear();
+    isLoadingAllMetadataRef.current = false;
   }, []);
 
   // Get NFT by coin ID
@@ -412,12 +511,14 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
     };
   }, [autoRefresh, refreshInterval]);
 
-  // Auto-refresh when dependencies change
+  // Auto-refresh when dependencies change - only once on mount or when SDK/auth changes
+  const hasInitializedRef = useRef(false);
   useEffect(() => {
-    if (jwtToken || externalClient || externalAddress) {
+    if ((effectiveSDK || jwtToken || externalClient || externalAddress) && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
       refresh();
     }
-  }, [jwtToken, externalClient, externalAddress]);
+  }, [effectiveSDK, jwtToken, externalClient, externalAddress]);
 
   return {
     nfts,
@@ -458,11 +559,9 @@ export function useNFTMetadata(nftUri?: string) {
     try {
       console.log('🔄 Attempting to fetch metadata from:', uri);
 
-      // Convert IPFS URLs to HTTP gateway URLs (similar to RTK Query approach)
-      let fetchUrl = uri;
-      if (uri.startsWith('ipfs://')) {
-        const hash = uri.replace('ipfs://', '');
-        fetchUrl = `https://ipfs.io/ipfs/${hash}`;
+      // Convert IPFS URLs to HTTP gateway URLs using centralized utility
+      const fetchUrl = convertIpfs(uri) || uri;
+      if (uri !== fetchUrl) {
         console.log('🔄 Converted IPFS URL to:', fetchUrl);
       }
 

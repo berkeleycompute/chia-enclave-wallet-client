@@ -3,6 +3,7 @@ import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
 import { PiMagnifyingGlass } from 'react-icons/pi';
+import { convertIpfsUrl } from '../utils/ipfs';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
@@ -165,22 +166,6 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     if (diff < 2592000000) return `${Math.floor(diff / 86400000)}d ago`;
 
     return new Date(timestamp).toLocaleDateString();
-  }, []);
-
-  // Convert IPFS URL
-  const convertIpfsUrl = useCallback((url: string): string => {
-    if (!url) return url;
-
-    if (url.startsWith('ipfs://')) {
-      const hash = url.replace('ipfs://', '');
-      return `https://ipfs.io/ipfs/${hash}`;
-    }
-
-    if (!url.startsWith('http') && url.length > 40) {
-      return `https://ipfs.io/ipfs/${url}`;
-    }
-
-    return url;
   }, []);
 
   // Load offers when modal opens OR when address becomes available

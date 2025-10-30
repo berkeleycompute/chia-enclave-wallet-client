@@ -12,6 +12,7 @@ import { injectModalStyles } from './modal-styles';
 import { PiInfo } from 'react-icons/pi';
 import { SavedOffer } from './types';
 import { Selector, type SelectorItem } from './Selector';
+import { convertIpfsUrl } from '../utils/ipfs';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -303,21 +304,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const formatAddress = (address: string): string => {
     if (!address) return '';
     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
-  };
-
-  const convertIpfsUrl = (url: string): string => {
-    if (!url) return url;
-
-    if (url.startsWith('ipfs://')) {
-      const hash = url.replace('ipfs://', '');
-      return `https://ipfs.io/ipfs/${hash}`;
-    }
-
-    if (!url.startsWith('http') && url.length > 40) {
-      return `https://ipfs.io/ipfs/${url}`;
-    }
-
-    return url;
   };
 
   const getNftMetadata = (nft: EnrichedNftCoin): any => {
