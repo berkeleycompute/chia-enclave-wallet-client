@@ -43,6 +43,7 @@ export { useHydratedCoins } from './hooks/useHydratedCoins';
 export { useMintNFT, useNFTMintMetadata } from './hooks/useMintNFT';
 export { useChiaNFTMint, useChiaNFTMetadata, encodeLauncherIdAsNftAddress } from './hooks/useChiaNFTMint';
 export { useTwinNFTMint } from './hooks/useTwinNFTMint';
+export { useTransferAssets } from './hooks/useTransferAssets';
 export { useUploadFile } from './hooks/useUploadFile';
 export { useOfferHistory, useActiveOffers, useCompletedOffers, OFFER_STATUS } from './hooks/useOfferHistory';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
@@ -92,6 +93,7 @@ export {
   StreamlinedChiaNFTMintForm
 } from './examples/ChiaNFTMintExample';
 export { TwinNFTMintExample } from './examples/TwinNFTMintExample';
+export { TransferAssetsExample } from './examples/TransferAssetsExample';
 export { OfferHistoryExample, SimpleOfferHistoryExample } from './examples/OfferHistoryExample';
 
 // Export dialog hooks from GlobalDialogProvider
@@ -152,6 +154,15 @@ export type {
   TwinNFTSignedSpendBundle,
   TwinNFTEVMNFT,
 
+  // Transfer Asset types
+  XchTransfer,
+  CatTransfer,
+  NftTransfer,
+  MakeUnsignedTransferRequest,
+  MakeUnsignedTransferResponse,
+  TransferAssetsRequest,
+  TransferAssetsResponse,
+
   // Offer History types
   GetOfferHistoryResponse,
   OfferHistoryItem,
@@ -202,6 +213,13 @@ export type {
   UseTwinNFTMintConfig,
   UseTwinNFTMintResult
 } from './hooks/useTwinNFTMint';
+
+// Export Transfer Assets hook types
+export type {
+  TransferRecord,
+  UseTransferAssetsConfig,
+  UseTransferAssetsResult
+} from './hooks/useTransferAssets';
 
 // Export Chia NFT mint service types
 export type {
