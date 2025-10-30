@@ -123,11 +123,11 @@ export function convertCoinSpendToSnakeCase(coinSpend: CoinSpend): CoinSpendSnak
  */
 function isValidCoinSnakeCase(coin: any): boolean {
   return coin &&
-         typeof coin.parent_coin_info === 'string' &&
-         typeof coin.puzzle_hash === 'string' &&
-         typeof coin.amount === 'number' &&
-         coin.parent_coin_info.length > 0 &&
-         coin.puzzle_hash.length > 0;
+    typeof coin.parent_coin_info === 'string' &&
+    typeof coin.puzzle_hash === 'string' &&
+    typeof coin.amount === 'number' &&
+    coin.parent_coin_info.length > 0 &&
+    coin.puzzle_hash.length > 0;
 }
 
 /**
@@ -1119,7 +1119,7 @@ export class ChiaCloudWalletClient {
     this.logInfo(`Environment updated to: ${environment}, Base URL: ${this.baseUrl}`);
   }
 
- 
+
 
   /**
    * Convert API format CoinSpend to internal format
@@ -1222,7 +1222,7 @@ export class ChiaCloudWalletClient {
             metadata: { raw: driverInfo.info.metadata }
           };
         }
-      } catch {/* best-effort normalization */}
+      } catch {/* best-effort normalization */ }
 
       // Calculate coinId if not already present
       if (!normalizedCoin.coinId) {
@@ -1302,11 +1302,11 @@ export class ChiaCloudWalletClient {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const result = await response.json();
-        this.logInfo(`Request successful for ${endpoint} with result: ${JSON.stringify(result)}`);
+
         return result;
       } else {
         const result = await response.text() as T;
-        this.logInfo(`Request successful for ${endpoint} with result: ${JSON.stringify(result)}`);
+
         return result;
       }
     } catch (error) {
@@ -1711,7 +1711,7 @@ export class ChiaCloudWalletClient {
    */
   async getUnspentHydratedCoins(address: string): Promise<Result<UnspentHydratedCoinsResponse>> {
     try {
-   
+
       const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
         method: 'GET',
       }, true); // Require JWT authentication
@@ -1804,7 +1804,7 @@ export class ChiaCloudWalletClient {
         nftCoinId: normalizedNFTData.coinId?.substring(0, 10) + '...',
         hasNftCoinId: !!normalizedNFTData.coinId
       });
-  
+
       const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('/make_any_offer/make-offer', {
 
         method: 'POST',
@@ -2730,6 +2730,8 @@ export class ChiaCloudWalletClient {
         };
       }
 
+      this.logInfo(`🔍 Processing ${hydratedResult.data.data.length} hydrated coins for categorization`);
+
       let totalBalance = 0;
       const xchCoins: HydratedCoin[] = [];
       const catCoins: HydratedCoin[] = [];
@@ -2741,18 +2743,42 @@ export class ChiaCloudWalletClient {
 
           // Categorize coins by type
           const driverInfo = hydratedCoin.parentSpendInfo.driverInfo;
+
+          // Debug logging for coin categorization
+          if (this.enableLogging) {
+            console.log('🪙 Coin details:', {
+              coinId: hydratedCoin.coinId.substring(0, 16) + '...',
+              amount: hydratedCoin.coin.amount,
+              hasParentSpendInfo: !!hydratedCoin.parentSpendInfo,
+              hasDriverInfo: !!driverInfo,
+              driverType: driverInfo?.type,
+              assetInfo: driverInfo?.info
+            });
+          }
+
           if (driverInfo?.type === 'CAT') {
             catCoins.push(hydratedCoin);
+            this.logInfo(`✅ Categorized as CAT: ${driverInfo.assetId || 'unknown'}`);
           } else if (driverInfo?.type === 'NFT') {
             nftCoins.push(hydratedCoin);
+            this.logInfo(`✅ Categorized as NFT: ${driverInfo.info?.launcherId || 'unknown'}`);
           } else {
             xchCoins.push(hydratedCoin);
+            this.logInfo('✅ Categorized as XCH');
           }
         } catch (error) {
           this.logError(`Invalid coin amount in enhanced balance calculation: ${hydratedCoin.coin.amount}`, error);
           // Continue with other coins instead of failing entirely
         }
       }
+
+      this.logInfo(`📊 Categorization complete:`, {
+        totalCoins: hydratedResult.data.data.length,
+        xchCoins: xchCoins.length,
+        catCoins: catCoins.length,
+        nftCoins: nftCoins.length,
+        totalBalance: `${totalBalance} mojos`
+      });
 
       return {
         success: true,
@@ -3041,16 +3067,16 @@ export class ChiaCloudWalletClient {
 
       // Use the NFT offers API endpoint
       const endpoint = `/nft-offers/offers/${address}`;
-      
-      this.logInfo('Fetching offer history', { 
-        address: address.substring(0, 16) + '...' 
+
+      this.logInfo('Fetching offer history', {
+        address: address.substring(0, 16) + '...'
       });
 
       const result = await this.makeRequest<GetOfferHistoryResponse>(
-        endpoint, 
+        endpoint,
         {
           method: 'GET',
-        }, 
+        },
         true // Require JWT authentication
       );
 

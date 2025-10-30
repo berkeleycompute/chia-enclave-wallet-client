@@ -5,8 +5,10 @@ import {
   useWalletCoins
 } from '../hooks/useChiaWalletSDK';
 import { useNFTs, type NFTWithMetadata } from '../hooks/useNFTs';
-import { ChiaCloudWalletClient } from '../client/ChiaCloudWalletClient';
+import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { PiMagnifyingGlass } from 'react-icons/pi';
+import { useTransferAssets } from '../hooks/useTransferAssets';
+import { convertIpfsUrl } from '../utils/ipfs';
 
 interface ViewAssetsModalProps {
   isOpen: boolean;
@@ -21,14 +23,31 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
 }) => {
   const { isConnected } = useWalletConnection();
   const { xchCoins, catCoins, nftCoins, isLoading: coinsLoading } = useWalletCoins();
-  const { nfts, loading: nftsLoading, metadataLoading, refresh: refreshNFTs } = useNFTs({ autoLoadMetadata: true, autoRefresh: false });
+  const { nfts, loading: nftsLoading, metadataLoading, refresh: refreshNFTs, loadAllMetadata } = useNFTs({ 
+    autoLoadMetadata: true, 
+    autoRefresh: false,
+    enableLogging: true  // Enable logging to debug metadata loading
+  });
+  const { transferNFT, isTransferring, transferError, lastResponse } = useTransferAssets({ enableLogging: true });
 
   const [search, setSearch] = useState('');
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedNFT, setSelectedNFT] = useState<HydratedCoin | null>(null);
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [transferFee, setTransferFee] = useState('100000000');
 
   // Ensure shared modal styles are available
   useEffect(() => {
     injectModalStyles();
   }, []);
+
+  // Force metadata loading when nftCoins change
+  useEffect(() => {
+    if (isConnected && nftCoins.length > 0 && !nftsLoading && !metadataLoading) {
+      console.info('🔄 Triggering metadata load for', nftCoins.length, 'NFTs');
+      loadAllMetadata();
+    }
+  }, [isConnected, nftCoins.length, loadAllMetadata]);
 
   // Close when clicking outside content
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -52,29 +71,141 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     return result.success ? result.data.toFixed(6) : '0';
   };
 
-  const filteredNFTs = useMemo(() => {
-    if (!search.trim()) return nfts;
-    const q = search.toLowerCase();
-    return nfts.filter((n) =>
-      (n.metadata?.name?.toLowerCase().includes(q)) ||
-      (n.metadata?.collection?.name?.toLowerCase().includes(q)) ||
-      (n.metadata?.description?.toLowerCase().includes(q))
-    );
-  }, [nfts, search]);
+  // Helper to extract NFT info from HydratedCoin
+  const extractNFTInfo = (coin: HydratedCoin) => {
+    const driverInfo = coin.parentSpendInfo?.driverInfo;
+    if (driverInfo?.type === 'NFT') {
+      const onChainMetadata = driverInfo.info?.metadata;
+      console.info('🔍 Extracting NFT info:', { coin, driverInfo, onChainMetadata });
+      return {
+        coin,
+        coinId: coin.coinId,
+        launcherId: driverInfo.info?.launcherId || coin.coinId,
+        onChainMetadata: typeof onChainMetadata === 'object' && onChainMetadata !== null ? onChainMetadata : undefined
+      };
+    }
+    return null;
+  };
 
-  const convertIpfsUrl = (url?: string): string | undefined => {
-    if (!url) return url;
-    if (url.startsWith('ipfs://')) {
-      const hash = url.replace('ipfs://', '');
-      return `https://ipfs.io/ipfs/${hash}`;
+  // Create a combined list of NFTs from nftCoins (primary source) enriched with metadata from nfts
+  const allDisplayNFTs = useMemo(() => {
+    const displayList: Array<{
+      coin: HydratedCoin;
+      coinId: string;
+      launcherId: string;
+      name: string;
+      collection: string;
+      description?: string;
+      imageUrl?: string;
+      hasDownloadedMetadata: boolean;
+    }> = [];
+
+    console.info('📦 Building NFT display list:', {
+      nftCoinsCount: nftCoins.length,
+      nftsWithMetadataCount: nfts.length,
+      nftsWithMetadata: nfts.filter(n => n.metadata).length
+    });
+
+    // Add all NFTs from nftCoins (direct from blockchain)
+    for (const nftCoin of nftCoins) {
+      const info = extractNFTInfo(nftCoin);
+      if (info) {
+        // Try to find downloaded metadata from nfts hook
+        const matchingNft = nfts.find(n => 
+          n.coinId === info.coinId || 
+          n.coin.parentCoinInfo === nftCoin.coin.parentCoinInfo
+        );
+        
+        const downloadedMetadata = matchingNft?.metadata;
+        const onChainMeta = info.onChainMetadata as any;
+
+        console.info('🎨 NFT details:', {
+          coinId: info.coinId.substring(0, 16) + '...',
+          launcherId: info.launcherId.substring(0, 16) + '...',
+          hasDownloadedMetadata: !!downloadedMetadata,
+          downloadedMetadata,
+          onChainMetadata: onChainMeta
+        });
+        
+        displayList.push({
+          coin: nftCoin,
+          coinId: info.coinId,
+          launcherId: info.launcherId,
+          // Prefer downloaded metadata over on-chain metadata
+          name: downloadedMetadata?.name || onChainMeta?.name || `NFT #${info.coinId.substring(0, 8)}`,
+          collection: downloadedMetadata?.collection?.name || onChainMeta?.collection?.name || 'Unknown Collection',
+          description: downloadedMetadata?.description || onChainMeta?.description,
+          imageUrl: downloadedMetadata?.image || onChainMeta?.image,
+          hasDownloadedMetadata: !!downloadedMetadata
+        });
+      }
     }
-    if (!url.startsWith('http') && url.length > 40) {
-      return `https://ipfs.io/ipfs/${url}`;
+
+    console.info('✅ Built display list:', {
+      total: displayList.length,
+      withMetadata: displayList.filter(n => n.hasDownloadedMetadata).length
+    });
+
+    return displayList;
+  }, [nftCoins, nfts]);
+
+  const filteredNFTs = useMemo(() => {
+    if (!search.trim()) return allDisplayNFTs;
+    const q = search.toLowerCase();
+    return allDisplayNFTs.filter((n) =>
+      n.name.toLowerCase().includes(q) ||
+      n.collection.toLowerCase().includes(q) ||
+      n.description?.toLowerCase().includes(q)
+    );
+  }, [allDisplayNFTs, search]);
+
+  const handleNFTClick = (nft: typeof allDisplayNFTs[0]) => {
+    // If parent provided a callback, use that
+    if (onNFTSelected) {
+      // Convert to NFTWithMetadata format for backward compatibility
+      const nftWithMetadata: NFTWithMetadata = nft.coin as NFTWithMetadata;
+      onNFTSelected(nftWithMetadata);
+      // Close this modal to avoid stacking
+      onClose();
+    } else {
+      // Otherwise, open our built-in transfer modal
+      setSelectedNFT(nft.coin);
+      setShowTransferModal(true);
     }
-    return url;
+  };
+
+  const handleTransferNFT = async () => {
+    if (!selectedNFT || !recipientAddress.trim()) return;
+
+    const info = extractNFTInfo(selectedNFT);
+    if (!info) {
+      alert('Failed to extract NFT information');
+      return;
+    }
+
+    const result = await transferNFT(
+      info.coinId,
+      info.launcherId,
+      recipientAddress,
+      parseInt(transferFee) || 100000000
+    );
+
+    if (result.success) {
+      alert(`NFT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
+      setShowTransferModal(false);
+      setSelectedNFT(null);
+      setRecipientAddress('');
+      // Refresh the NFT list
+      refreshNFTs();
+    } else {
+      alert(`Transfer failed: ${result.error}`);
+    }
   };
 
   if (!isOpen) return null;
+
+  // Show loading spinner only on initial load (no data yet)
+  const isInitialLoading = coinsLoading && nftCoins.length === 0;
 
   return (
     <div className="px-6 pb-4">
@@ -82,7 +213,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
         <div className="text-center text-sm" style={{ padding: '40px' }}>
           <p className="text-red-500">Wallet not connected. Please connect your wallet first.</p>
         </div>
-      ) : (coinsLoading || nftsLoading) ? (
+      ) : isInitialLoading ? (
         <div className="text-center text-sm" style={{ padding: '40px' }}>
           <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }}></div>
           <p>Loading assets...</p>
@@ -127,16 +258,24 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
             {/* NFT List */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <label className="text-white text-sm font-medium  text-left">NFTs</label>
+                <div className="flex items-center gap-2">
+                  <label className="text-white text-sm font-medium text-left">NFTs</label>
+                  {metadataLoading && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }}></div>
+                      <span className="text-xs" style={{ color: '#7C7A85' }}>Loading metadata...</span>
+                    </div>
+                  )}
+                </div>
                 <button
                   className="px-3 py-1 rounded border text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                  onMouseEnter={(e) => !metadataLoading && (e.currentTarget.style.backgroundColor = '#1B1C22')}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   onClick={refreshNFTs}
-                  disabled={nftsLoading || metadataLoading}
+                  disabled={metadataLoading}
                 >
-                  {nftsLoading || metadataLoading ? 'Refreshing...' : 'Refresh'}
+                  {metadataLoading ? 'Loading...' : 'Refresh'}
                 </button>
               </div>
 
@@ -154,33 +293,49 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                 />
               </div>
 
-              {filteredNFTs.length === 0 ? (
-                <div style={{ color: '#7C7A85' }} className="text-center py-6 text-sm">No NFTs found</div>
+              {filteredNFTs.length === 0 && !coinsLoading ? (
+                <div style={{ color: '#7C7A85' }} className="text-center py-6 text-sm">
+                  {nftCoins.length === 0 ? 'No NFTs in your wallet' : 'No NFTs match your search'}
+                </div>
               ) : (
                 <div className="flex flex-col gap-2">
                   {filteredNFTs.map((nft, idx) => {
-                    const name = nft.metadata?.name || 'Unnamed NFT';
-                    const collection = nft.metadata?.collection?.name || 'Unknown Collection';
-                    const imageUrl = convertIpfsUrl(nft.metadata?.image);
+                    const imageUrl = convertIpfsUrl(nft.imageUrl);
+                    const isLoadingMetadata = metadataLoading && !nft.hasDownloadedMetadata;
+                    
                     return (
                       <div
                         key={idx}
                         className="flex items-center gap-3 p-3 border rounded transition-colors cursor-pointer"
-                        style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}
+                        style={{ 
+                          backgroundColor: '#1B1C22', 
+                          borderColor: '#272830',
+                          opacity: isLoadingMetadata ? 0.7 : 1
+                        }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
-                        onClick={() => onNFTSelected?.(nft)}
+                        onClick={() => handleNFTClick(nft)}
                       >
-                        <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#272830' }}>
+                        <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0 relative" style={{ backgroundColor: '#272830' }}>
                           {imageUrl ? (
-                            <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+                            <img src={imageUrl} alt={nft.name} className="w-full h-full object-cover" />
                           ) : (
                             <div style={{ color: '#666' }}>🖼️</div>
                           )}
+                          {isLoadingMetadata && (
+                            <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                              <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'transparent', borderTopColor: '#2C64F8' }}></div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-medium truncate">{name}</div>
-                          <div style={{ color: '#7C7A85' }} className="text-xs truncate">{collection}</div>
+                          <div className="text-white text-sm font-medium truncate">
+                            {nft.name}
+                            {isLoadingMetadata && (
+                              <span className="ml-2 text-xs" style={{ color: '#7C7A85' }}>(loading...)</span>
+                            )}
+                          </div>
+                          <div style={{ color: '#7C7A85' }} className="text-xs truncate">{nft.collection}</div>
                         </div>
                         <div style={{ color: '#666' }} className="ml-2 shrink-0">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -192,6 +347,155 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer NFT Modal - Renderizado fuera del modal principal */}
+      {showTransferModal && selectedNFT && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center"
+          style={{ 
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 9999  // Asegurar que esté por encima de todo
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTransferModal(false);
+              setSelectedNFT(null);
+            }
+          }}
+        >
+          <div 
+            className="rounded-lg shadow-xl max-w-md w-full mx-4"
+            style={{ backgroundColor: '#14151A', border: '1px solid #272830' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#272830' }}>
+              <h3 className="text-lg font-semibold text-white">Transfer NFT</h3>
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setSelectedNFT(null);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              {/* NFT Info */}
+              <div className="flex items-center gap-3 p-3 border rounded" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
+                <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#272830' }}>
+                  {(() => {
+                    const info = extractNFTInfo(selectedNFT);
+                    const metadata = info?.onChainMetadata as any;
+                    const imageUrl = convertIpfsUrl(metadata?.image);
+                    return imageUrl ? (
+                      <img src={imageUrl} alt="NFT" className="w-full h-full object-cover" />
+                    ) : (
+                      <div style={{ color: '#666' }}>🖼️</div>
+                    );
+                  })()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-sm font-medium truncate">
+                    {(() => {
+                      const info = extractNFTInfo(selectedNFT);
+                      const metadata = info?.onChainMetadata as any;
+                      return metadata?.name || 'Unnamed NFT';
+                    })()}
+                  </div>
+                  <div style={{ color: '#7C7A85' }} className="text-xs truncate">
+                    ID: {selectedNFT.coinId.substring(0, 16)}...
+                  </div>
+                </div>
+              </div>
+
+              {/* Recipient Address */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Recipient Address
+                </label>
+                <input
+                  type="text"
+                  value={recipientAddress}
+                  onChange={(e) => setRecipientAddress(e.target.value)}
+                  placeholder="xch1..."
+                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
+                  style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                />
+              </div>
+
+              {/* Fee */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Transaction Fee (mojos)
+                </label>
+                <input
+                  type="text"
+                  value={transferFee}
+                  onChange={(e) => setTransferFee(e.target.value)}
+                  placeholder="100000000"
+                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
+                  style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                />
+                <p className="text-xs mt-1" style={{ color: '#7C7A85' }}>
+                  Default: 0.0001 XCH (100,000,000 mojos)
+                </p>
+              </div>
+
+              {/* Error Display */}
+              {transferError && (
+                <div className="p-3 rounded border" style={{ backgroundColor: '#2a1a1a', borderColor: '#6b2828' }}>
+                  <p className="text-sm text-red-400">{transferError}</p>
+                </div>
+              )}
+
+              {/* Success Display */}
+              {lastResponse && (
+                <div className="p-3 rounded border" style={{ backgroundColor: '#1a2a1a', borderColor: '#286b28' }}>
+                  <p className="text-sm text-green-400">Transfer successful!</p>
+                  <p className="text-xs mt-1" style={{ color: '#7C7A85' }}>TX: {lastResponse.transaction_id?.substring(0, 16)}...</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowTransferModal(false);
+                    setSelectedNFT(null);
+                  }}
+                  className="flex-1 px-4 py-2 rounded border text-sm font-medium transition-colors"
+                  style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  disabled={isTransferring}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTransferNFT}
+                  className="flex-1 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: '#2C64F8', color: 'white' }}
+                  onMouseEnter={(e) => !isTransferring && (e.currentTarget.style.backgroundColor = '#1E4FD9')}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+                  disabled={isTransferring || !recipientAddress.trim()}
+                >
+                  {isTransferring ? 'Transferring...' : 'Transfer NFT'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

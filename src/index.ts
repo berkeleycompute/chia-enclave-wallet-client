@@ -32,6 +32,15 @@ export {
 // Export providers
 export { ChiaWalletSDKProvider } from './providers/ChiaWalletSDKProvider';
 
+// Export utility functions
+export { 
+  convertIpfsUrl, 
+  extractIpfsCid, 
+  isIpfsUrl, 
+  convertIpfsUrls,
+  getBestImageUrl
+} from './utils/ipfs';
+
 // Export hooks
 export { useChiaWallet } from './hooks/useChiaWallet';
 export { useBalance } from './hooks/useBalance';

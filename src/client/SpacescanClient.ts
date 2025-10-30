@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import type { ChiaCloudWalletClient, HydratedCoin } from './ChiaCloudWalletClient';
 
 export interface SpacescanBalanceResponse {
   status: 'success' | 'error';
@@ -163,6 +164,7 @@ export interface SpacescanConfig {
   apiKey: string;
   baseUrl?: string;
   timeout?: number;
+  walletClient?: ChiaCloudWalletClient; // Optional wallet client for local coin data
 }
 
 // Cache interface for storing API responses
@@ -289,12 +291,14 @@ export class SpacescanClient {
   private baseUrl: string;
   private timeout: number;
   private requestManager: DebouncedRequestManager;
+  private walletClient?: ChiaCloudWalletClient;
 
   constructor(config: SpacescanConfig) {
     // this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || 'https://edgedev.silicon.net/v1/spacescan';
     this.timeout = config.timeout || 10000; // 10 seconds
     this.requestManager = new DebouncedRequestManager();
+    this.walletClient = config.walletClient;
   }
 
   /**
@@ -365,67 +369,106 @@ export class SpacescanClient {
 
   /**
    * Get XCH balance for a specific address
+   * Uses local coin data from wallet client if available, otherwise falls back to Spacescan API
    * @param address - The XCH address to query (xch...)
    * @returns Promise with balance information
    */
   async getXchBalance(address: string): Promise<SpacescanBalanceResponse> {
-      if (!address || !address.startsWith('xch')) {
+    if (!address || !address.startsWith('xch')) {
+      return {
+        status: 'error',
+        error: 'Invalid address format. Address must start with "xch"'
+      };
+    }
+
+    // If wallet client is available, use local coin data instead of API
+    if (this.walletClient) {
+      try {
+        const balanceResult = await this.walletClient.getWalletBalanceEnhanced(address);
+        
+        if (balanceResult.success && balanceResult.data) {
+          // Calculate XCH balance from XCH coins only
+          const xchCoins = balanceResult.data.xchCoins;
+          const totalMojos = xchCoins.reduce((sum, coin) => {
+            return sum + parseInt(coin.coin.amount);
+          }, 0);
+          
+          const xch = totalMojos / 1000000000000; // Convert mojos to XCH
+          
+          return {
+            status: 'success',
+            xch: xch,
+            mojo: totalMojos
+          };
+        } else {
+          // If wallet balance fetch fails, return zero balance
+          return {
+            status: 'success',
+            xch: 0,
+            mojo: 0
+          };
+        }
+      } catch (error) {
+        console.warn('Failed to get XCH balance from wallet client, returning zero:', error);
         return {
-          status: 'error',
-          error: 'Invalid address format. Address must start with "xch"'
+          status: 'success',
+          xch: 0,
+          mojo: 0
         };
       }
+    }
 
+    // Fallback to Spacescan API if no wallet client is available
     const cacheKey = `xch-balance:${address}`;
     
     return this.requestManager.executeRequest(cacheKey, async () => {
       try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-      const url = `${this.baseUrl}/address/xch-balance/${address}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit',
-        signal: controller.signal
-      });
+        const url = `${this.baseUrl}/address/xch-balance/${address}`;
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit',
+          signal: controller.signal
+        });
 
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
-      if (!response.ok) {
+        if (!response.ok) {
+          return {
+            status: 'success',
+            xch: 0,
+            mojo: 0
+          };
+        }
+
+        const data = await response.json().catch(() => ({}));
+        
+        // Validate response structure
+        if (data.status === 'success' && typeof data.xch === 'number' && typeof data.mojo === 'number') {
+          return {
+            status: 'success',
+            xch: data.xch,
+            mojo: data.mojo
+          };
+        } else {
+          return {
+            status: 'success',
+            xch: 0,
+            mojo: 0
+          };
+        }
+
+      } catch (error) {
         return {
           status: 'success',
           xch: 0,
           mojo: 0
         };
       }
-
-      const data = await response.json().catch(() => ({}));
-      
-      // Validate response structure
-      if (data.status === 'success' && typeof data.xch === 'number' && typeof data.mojo === 'number') {
-        return {
-          status: 'success',
-          xch: data.xch,
-          mojo: data.mojo
-        };
-      } else {
-        return {
-          status: 'success',
-          xch: 0,
-          mojo: 0
-        };
-      }
-
-    } catch (error) {
-      return {
-        status: 'success',
-        xch: 0,
-        mojo: 0
-      };
-    }
     });
   }
 
