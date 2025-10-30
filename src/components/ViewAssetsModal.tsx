@@ -37,7 +37,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   const [selectedCAT, setSelectedCAT] = useState<{ coins: HydratedCoin[], assetId: string, name: string } | null>(null);
   const [recipientAddress, setRecipientAddress] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
-  const [transferFee, setTransferFee] = useState('100000000');
+  const [transferFee, setTransferFee] = useState('0.0001'); // Store as XCH
 
   // Ensure shared modal styles are available
   useEffect(() => {
@@ -226,11 +226,14 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
       return;
     }
 
+    // Convert XCH to mojos (1 XCH = 1,000,000,000,000 mojos)
+    const feeInMojos = Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000);
+
     const result = await transferNFT(
       info.coinId,
       info.launcherId,
       recipientAddress,
-      parseInt(transferFee) || 100000000
+      feeInMojos
     );
 
     if (result.success) {
@@ -256,6 +259,9 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
       return;
     }
 
+    // Convert XCH to mojos (1 XCH = 1,000,000,000,000 mojos)
+    const feeInMojos = Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000);
+
     // Get coin IDs for the transfer
     const coinIds = selectedCAT.coins.map(c => c.coinId);
 
@@ -264,7 +270,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
       selectedCAT.assetId,
       recipientAddress,
       amountMojos,
-      parseInt(transferFee) || 100000000
+      feeInMojos
     );
 
     if (result.success) {
@@ -600,20 +606,22 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
               {/* Fee */}
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
-                  Transaction Fee (mojos)
+                  Transaction Fee (XCH)
                 </label>
                 <input
-                  type="text"
+                  type="number"
+                  step="0.00001"
+                  min="0"
                   value={transferFee}
                   onChange={(e) => setTransferFee(e.target.value)}
-                  placeholder="100000000"
+                  placeholder="0.0001"
                   className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
                   style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
                   onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
                   onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
                 />
                 <p className="text-xs mt-1" style={{ color: '#7C7A85' }}>
-                  Default: 0.0001 XCH (100,000,000 mojos)
+                  {Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos
                 </p>
               </div>
 

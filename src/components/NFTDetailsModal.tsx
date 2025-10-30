@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { injectModalStyles } from './modal-styles';
 import { useNFTOffers, useWalletConnection } from '../hooks/useChiaWalletSDK';
+import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
 import { useTransferAssets } from '../hooks/useTransferAssets';
 import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { convertIpfsUrl } from '../utils/ipfs';
@@ -23,15 +24,19 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   useEffect(() => {
     injectModalStyles();
   }, []);
+  const sdk = useChiaWalletSDK();
   const { isConnected } = useWalletConnection();
   const { createNFTOffer, isCreatingOffer: offerLoading } = useNFTOffers();
-  const { transferNFT, isTransferring, transferError } = useTransferAssets({ enableLogging: true });
+  const { transferNFT, isTransferring, transferError } = useTransferAssets({ 
+    sdk,
+    enableLogging: true 
+  });
   const [activeTab, setActiveTab] = useState<'details' | 'offer' | 'transfer'>('details');
   const [offerPrice, setOfferPrice] = useState('');
   const [offerError, setOfferError] = useState<string | null>(null);
   const [offerSuccess, setOfferSuccess] = useState(false);
   const [recipientAddress, setRecipientAddress] = useState('');
-  const [transferFee, setTransferFee] = useState('100000000');
+  const [transferFee, setTransferFee] = useState('0.0001'); // Store as XCH
   const [transferSuccess, setTransferSuccess] = useState(false);
 
   const handleCreateOffer = async () => {
@@ -66,14 +71,25 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   const handleTransferNFT = async () => {
     if (!nft || !recipientAddress.trim()) return;
 
-    const nftInfo = nft.parentSpendInfo.driverInfo?.info;
+    const nftInfo = nft.parentSpendInfo?.driverInfo?.info;
     const launcherId = nftInfo?.launcherId || nft.coinId;
+
+    // Convert XCH to mojos (1 XCH = 1,000,000,000,000 mojos)
+    const feeInMojos = Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000);
+
+    console.log('🔄 Transferring NFT:', {
+      coinId: nft.coinId,
+      launcherId,
+      recipient: recipientAddress,
+      feeXCH: transferFee,
+      feeMojos: feeInMojos
+    });
 
     const result = await transferNFT(
       nft.coinId,
       launcherId,
       recipientAddress,
-      parseInt(transferFee) || 100000000
+      feeInMojos
     );
 
     if (result.success) {
@@ -93,6 +109,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
       setOfferError(null);
       setOfferSuccess(false);
       setRecipientAddress('');
+      setTransferFee('0.0001');
       setTransferSuccess(false);
     }
   }, [isOpen]);
@@ -319,16 +336,20 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="transferFee">Fee (mojos)</label>
+                    <label htmlFor="transferFee">Fee (XCH)</label>
                     <input
                       id="transferFee"
                       type="number"
+                      step="0.00001"
+                      min="0"
                       value={transferFee}
                       onChange={(e) => setTransferFee(e.target.value)}
-                      placeholder="100000000"
+                      placeholder="0.0001"
                       className="form-input"
                     />
-                    <small className="form-hint">Default: 0.0001 XCH (100000000 mojos)</small>
+                    <small className="form-hint">
+                      Recommended: 0.0001 XCH ({Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos)
+                    </small>
                   </div>
 
                   {transferError && (
