@@ -1366,7 +1366,7 @@ export class ChiaCloudWalletClient {
       const endpoint = '/enclave_proxy/api/enclave/health';
       const result = await this.makeRequest<HealthCheckResponse>(endpoint, {
         method: 'GET',
-      }, false);
+      }, true); // Require JWT authentication
       return { success: true, data: result };
     } catch (error) {
       return {
@@ -1385,7 +1385,7 @@ export class ChiaCloudWalletClient {
       const endpoint = '/version';
       const result = await this.makeRequest<VersionResponse>(endpoint, {
         method: 'GET',
-      }, false);
+      }, true); // Require JWT authentication
       return { success: true, data: result };
     } catch (error) {
       return {
@@ -1409,7 +1409,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<PublicKeyResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
-      });
+      }, true); // Require JWT authentication
       return { success: true, data: result };
     } catch (error) {
       console.error(`❌ [${timestamp}] getPublicKey() failed:`, error);
@@ -1430,7 +1430,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<MnemonicResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify({}),
-      });
+      }, true); // Require JWT authentication
       return { success: true, data: result };
     } catch (error) {
       return {
@@ -1491,7 +1491,7 @@ export class ChiaCloudWalletClient {
       const apiResponse = await this.makeRequest<SignSpendBundleApiResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
-      });
+      }, true); // Require JWT authentication
 
       // Construct the full SignedSpendBundleResponse by combining server response with original coin_spends
       let coinSpends: CoinSpendSnakeCase[];
@@ -1566,7 +1566,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<SendXCHResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
-      });
+      }, true); // Require JWT authentication
       return { success: true, data: result };
     } catch (error) {
       return {
@@ -1649,7 +1649,7 @@ export class ChiaCloudWalletClient {
    
       const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
         method: 'GET',
-      }, false);
+      }, true); // Require JWT authentication
 
       // Normalize the response to handle different formats between environments
       const normalizedCoins = await this.normalizeHydratedCoinsResponse(result);
@@ -1693,7 +1693,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<SignOfferResponse>(endpoint, {
         method: 'POST',
         body: JSON.stringify(request),
-      });
+      }, true); // Require JWT authentication
 
       return { success: true, data: result };
     } catch (error) {
@@ -1744,7 +1744,7 @@ export class ChiaCloudWalletClient {
 
         method: 'POST',
         body: JSON.stringify(normalizedRequest),
-      });
+      }, true); // Require JWT authentication
 
       // The API now returns a signed offer directly, so we need to adapt the response
       // to match what the existing code expects
@@ -1935,7 +1935,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<TakeOfferResponse>('/take_unsigned_offer/take-offer', {
         method: 'POST',
         body: JSON.stringify(apiRequest),
-      });
+      }, true); // Require JWT authentication
 
       return { success: true, data: result };
     } catch (error) {
@@ -1966,7 +1966,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<ParsedOfferData>('/wallet/offer/parse', {
         method: 'POST',
         body: JSON.stringify({ offer_string: offerString }),
-      });
+      }, true); // Require JWT authentication
 
       return { success: true, data: result };
     } catch (error) {
@@ -2005,7 +2005,7 @@ export class ChiaCloudWalletClient {
       formData.append('file', file);
 
       const endpoint = '/make_unsigned_nft_mint/upload-file';
-      const result = await this.makeFileUploadRequest<UploadFileResponse>(endpoint, formData, false);
+      const result = await this.makeFileUploadRequest<UploadFileResponse>(endpoint, formData, true); // Require JWT authentication
 
       this.logInfo('File uploaded successfully', {
         hash: result.hash,
@@ -2054,7 +2054,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<any>(endpoint, {
         method: 'POST',
         body: JSON.stringify(request),
-      }, false);
+      }, true); // Require JWT authentication
 
       console.log('🔧 Unsigned mint result:', result);
 
@@ -2243,7 +2243,7 @@ export class ChiaCloudWalletClient {
         const result = await this.makeRequest<MintNFTResponse>(endpoint, {
           method: 'POST',
           body: JSON.stringify(request),
-        }, false);
+        }, true); // Require JWT authentication
 
         return { success: true, data: result };
       }
@@ -2416,7 +2416,7 @@ export class ChiaCloudWalletClient {
           coin_spends: normalizedCoinSpends,
           aggregated_signature: request.aggregated_signature
         }),
-      });
+      }, true); // Require JWT authentication
       return { success: true, data: result };
     } catch (error) {
       return {
@@ -2449,7 +2449,7 @@ export class ChiaCloudWalletClient {
       const result = await this.makeRequest<DecodeOfferResponse>('/offers_encoder_decoder/decode-offer', {
         method: 'POST',
         body: JSON.stringify(request),
-      }, false);
+      }, true); // Require JWT authentication
 
       return { success: true, data: result };
     } catch (error) {
@@ -2986,7 +2986,7 @@ export class ChiaCloudWalletClient {
         {
           method: 'GET',
         }, 
-        false // No auth required for this endpoint
+        true // Require JWT authentication
       );
 
       this.logInfo('Offer history retrieved', {
