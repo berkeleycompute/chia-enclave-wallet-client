@@ -28,12 +28,15 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     autoRefresh: false,
     enableLogging: true  // Enable logging to debug metadata loading
   });
-  const { transferNFT, isTransferring, transferError, lastResponse } = useTransferAssets({ enableLogging: true });
+  const { transferNFT, transferCAT, isTransferring, transferError, lastResponse } = useTransferAssets({ enableLogging: true });
 
   const [search, setSearch] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferType, setTransferType] = useState<'nft' | 'cat'>('nft');
   const [selectedNFT, setSelectedNFT] = useState<HydratedCoin | null>(null);
+  const [selectedCAT, setSelectedCAT] = useState<{ coins: HydratedCoin[], assetId: string, name: string } | null>(null);
   const [recipientAddress, setRecipientAddress] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
   const [transferFee, setTransferFee] = useState('100000000');
 
   // Ensure shared modal styles are available
@@ -86,6 +89,33 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     }
     return null;
   };
+
+  // Group CAT coins by asset ID
+  const groupedCATs = useMemo(() => {
+    const groups = new Map<string, { coins: HydratedCoin[], assetId: string, totalAmount: bigint }>();
+    
+    for (const coin of catCoins) {
+      const driverInfo = coin.parentSpendInfo?.driverInfo;
+      if (driverInfo?.type === 'CAT') {
+        const assetId = driverInfo.assetId || 'unknown';
+        const existing = groups.get(assetId);
+        const amount = BigInt(coin.coin.amount);
+        
+        if (existing) {
+          existing.coins.push(coin);
+          existing.totalAmount += amount;
+        } else {
+          groups.set(assetId, {
+            coins: [coin],
+            assetId,
+            totalAmount: amount
+          });
+        }
+      }
+    }
+    
+    return Array.from(groups.values());
+  }, [catCoins]);
 
   // Create a combined list of NFTs from nftCoins (primary source) enriched with metadata from nfts
   const allDisplayNFTs = useMemo(() => {
@@ -169,9 +199,22 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
       onClose();
     } else {
       // Otherwise, open our built-in transfer modal
+      setTransferType('nft');
       setSelectedNFT(nft.coin);
+      setSelectedCAT(null);
       setShowTransferModal(true);
     }
+  };
+
+  const handleCATClick = (cat: typeof groupedCATs[0]) => {
+    setTransferType('cat');
+    setSelectedCAT({
+      coins: cat.coins,
+      assetId: cat.assetId,
+      name: `CAT ${cat.assetId.substring(0, 8)}...`
+    });
+    setSelectedNFT(null);
+    setShowTransferModal(true);
   };
 
   const handleTransferNFT = async () => {
@@ -195,10 +238,53 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
       setShowTransferModal(false);
       setSelectedNFT(null);
       setRecipientAddress('');
+      setTransferAmount('');
       // Refresh the NFT list
       refreshNFTs();
     } else {
       alert(`Transfer failed: ${result.error}`);
+    }
+  };
+
+  const handleTransferCAT = async () => {
+    if (!selectedCAT || !recipientAddress.trim() || !transferAmount.trim()) return;
+
+    // Parse amount in mojos (CATs use 1000 mojos = 1 CAT typically)
+    const amountMojos = Math.floor(parseFloat(transferAmount) * 1000);
+    if (isNaN(amountMojos) || amountMojos <= 0) {
+      alert('Invalid amount');
+      return;
+    }
+
+    // Get coin IDs for the transfer
+    const coinIds = selectedCAT.coins.map(c => c.coinId);
+
+    const result = await transferCAT(
+      coinIds,
+      selectedCAT.assetId,
+      recipientAddress,
+      amountMojos,
+      parseInt(transferFee) || 100000000
+    );
+
+    if (result.success) {
+      alert(`CAT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
+      setShowTransferModal(false);
+      setSelectedCAT(null);
+      setRecipientAddress('');
+      setTransferAmount('');
+      // Refresh the coin list
+      window.location.reload(); // Simple refresh for now
+    } else {
+      alert(`Transfer failed: ${result.error}`);
+    }
+  };
+
+  const handleTransfer = () => {
+    if (transferType === 'nft') {
+      handleTransferNFT();
+    } else {
+      handleTransferCAT();
     }
   };
 
@@ -254,6 +340,48 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                 <span className="text-white font-medium ">{nftCoins.length}</span>
               </div>
             </div>
+
+            {/* CAT List */}
+            {groupedCATs.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <label className="text-white text-sm font-medium text-left">CAT Tokens</label>
+                <div className="flex flex-col gap-2">
+                  {groupedCATs.map((cat, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors"
+                      style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#272830'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                      onClick={() => handleCATClick(cat)}
+                    >
+                      <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#272830' }}>
+                        <span className="text-2xl">💰</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-sm font-medium truncate">
+                          CAT Token
+                        </div>
+                        <div style={{ color: '#7C7A85' }} className="text-xs truncate">
+                          {cat.assetId.substring(0, 16)}...
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <div className="text-white text-sm font-medium">
+                          {(Number(cat.totalAmount) / 1000).toLocaleString()}
+                        </div>
+                        <div style={{ color: '#7C7A85' }} className="text-xs">
+                          {cat.coins.length} coins
+                        </div>
+                      </div>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M7 4L13 10L7 16" stroke="#7C7A85" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* NFT List */}
             <div className="flex flex-col gap-2">
@@ -352,18 +480,19 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
         </div>
       )}
 
-      {/* Transfer NFT Modal - Renderizado fuera del modal principal */}
-      {showTransferModal && selectedNFT && (
+      {/* Transfer Modal - Unified for NFTs and CATs */}
+      {showTransferModal && (selectedNFT || selectedCAT) && (
         <div 
           className="fixed inset-0 flex items-center justify-center"
           style={{ 
             backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            zIndex: 9999  // Asegurar que esté por encima de todo
+            zIndex: 9999
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowTransferModal(false);
               setSelectedNFT(null);
+              setSelectedCAT(null);
             }
           }}
         >
@@ -374,11 +503,14 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#272830' }}>
-              <h3 className="text-lg font-semibold text-white">Transfer NFT</h3>
+              <h3 className="text-lg font-semibold text-white">
+                {transferType === 'nft' ? 'Transfer NFT' : 'Transfer CAT'}
+              </h3>
               <button
                 onClick={() => {
                   setShowTransferModal(false);
                   setSelectedNFT(null);
+                  setSelectedCAT(null);
                 }}
                 className="text-gray-400 hover:text-white transition-colors"
               >
@@ -390,10 +522,10 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
 
             {/* Content */}
             <div className="p-4 space-y-4">
-              {/* NFT Info */}
+              {/* Asset Info */}
               <div className="flex items-center gap-3 p-3 border rounded" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
                 <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#272830' }}>
-                  {(() => {
+                  {transferType === 'nft' && selectedNFT ? (() => {
                     const info = extractNFTInfo(selectedNFT);
                     const metadata = info?.onChainMetadata as any;
                     const imageUrl = convertIpfsUrl(metadata?.image);
@@ -402,21 +534,51 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     ) : (
                       <div style={{ color: '#666' }}>🖼️</div>
                     );
-                  })()}
+                  })() : (
+                    <span className="text-2xl">💰</span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-white text-sm font-medium truncate">
-                    {(() => {
+                    {transferType === 'nft' && selectedNFT ? (() => {
                       const info = extractNFTInfo(selectedNFT);
                       const metadata = info?.onChainMetadata as any;
                       return metadata?.name || 'Unnamed NFT';
-                    })()}
+                    })() : selectedCAT?.name || 'CAT Token'}
                   </div>
                   <div style={{ color: '#7C7A85' }} className="text-xs truncate">
-                    ID: {selectedNFT.coinId.substring(0, 16)}...
+                    {transferType === 'nft' && selectedNFT 
+                      ? `ID: ${selectedNFT.coinId.substring(0, 16)}...`
+                      : `Asset: ${selectedCAT?.assetId.substring(0, 16)}...`
+                    }
                   </div>
+                  {transferType === 'cat' && selectedCAT && (
+                    <div style={{ color: '#7C7A85' }} className="text-xs">
+                      Available: {(Number(selectedCAT.coins.reduce((sum, c) => sum + BigInt(c.coin.amount), BigInt(0))) / 1000).toLocaleString()} CAT
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Amount Field (only for CATs) */}
+              {transferType === 'cat' && (
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Amount (CAT)
+                  </label>
+                  <input
+                    type="number"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    placeholder="0.000"
+                    step="0.001"
+                    className="w-full px-4 py-2 border rounded text-sm focus:outline-none"
+                    style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                  />
+                </div>
+              )}
 
               {/* Recipient Address */}
               <div>
@@ -486,14 +648,14 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   Cancel
                 </button>
                 <button
-                  onClick={handleTransferNFT}
+                  onClick={handleTransfer}
                   className="flex-1 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#2C64F8', color: 'white' }}
                   onMouseEnter={(e) => !isTransferring && (e.currentTarget.style.backgroundColor = '#1E4FD9')}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
-                  disabled={isTransferring || !recipientAddress.trim()}
+                  disabled={isTransferring || !recipientAddress.trim() || (transferType === 'cat' && !transferAmount.trim())}
                 >
-                  {isTransferring ? 'Transferring...' : 'Transfer NFT'}
+                  {isTransferring ? 'Transferring...' : `Transfer ${transferType === 'nft' ? 'NFT' : 'CAT'}`}
                 </button>
               </div>
             </div>

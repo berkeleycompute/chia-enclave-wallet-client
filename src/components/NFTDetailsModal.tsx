@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { injectModalStyles } from './modal-styles';
 import { useNFTOffers, useWalletConnection } from '../hooks/useChiaWalletSDK';
+import { useTransferAssets } from '../hooks/useTransferAssets';
 import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
+import { convertIpfsUrl } from '../utils/ipfs';
 
 interface NFTDetailsModalProps {
   isOpen: boolean;
@@ -23,10 +25,14 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   }, []);
   const { isConnected } = useWalletConnection();
   const { createNFTOffer, isCreatingOffer: offerLoading } = useNFTOffers();
-  const [activeTab, setActiveTab] = useState<'details' | 'offer'>('details');
+  const { transferNFT, isTransferring, transferError } = useTransferAssets({ enableLogging: true });
+  const [activeTab, setActiveTab] = useState<'details' | 'offer' | 'transfer'>('details');
   const [offerPrice, setOfferPrice] = useState('');
   const [offerError, setOfferError] = useState<string | null>(null);
   const [offerSuccess, setOfferSuccess] = useState(false);
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [transferFee, setTransferFee] = useState('100000000');
+  const [transferSuccess, setTransferSuccess] = useState(false);
 
   const handleCreateOffer = async () => {
     if (!nft || !offerPrice.trim()) {
@@ -57,6 +63,28 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
     }
   };
 
+  const handleTransferNFT = async () => {
+    if (!nft || !recipientAddress.trim()) return;
+
+    const nftInfo = nft.parentSpendInfo.driverInfo?.info;
+    const launcherId = nftInfo?.launcherId || nft.coinId;
+
+    const result = await transferNFT(
+      nft.coinId,
+      launcherId,
+      recipientAddress,
+      parseInt(transferFee) || 100000000
+    );
+
+    if (result.success) {
+      setTransferSuccess(true);
+      setRecipientAddress('');
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    }
+  };
+
   // Reset state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
@@ -64,13 +92,16 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
       setOfferPrice('');
       setOfferError(null);
       setOfferSuccess(false);
+      setRecipientAddress('');
+      setTransferSuccess(false);
     }
   }, [isOpen]);
 
   if (!isOpen || !nft) return null;
 
-  const nftInfo = nft.parentSpendInfo.driverInfo?.info;
+  const nftInfo = nft.parentSpendInfo?.driverInfo?.info;
   const metadata = nftInfo?.metadata;
+  const imageUrl = convertIpfsUrl((metadata as any)?.image || (metadata as any)?.dataUris?.[0]);
 
   return (
     <>
@@ -88,16 +119,23 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
         >
           💰 Create Offer
         </button>
+        <button
+          className={`tab-button ${activeTab === 'transfer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('transfer')}
+          disabled={!isConnected}
+        >
+          📤 Transfer
+        </button>
       </div>
 
       <div className="modal-body">
         {activeTab === 'details' && (
           <div className="details-content">
             {/* NFT Image */}
-            {metadata?.dataUris?.[0] && (
+            {imageUrl && (
               <div className="nft-image-section">
                 <img
-                  src={metadata.dataUris[0]}
+                  src={imageUrl}
                   alt="NFT"
                   className="nft-image"
                   onError={(e) => {
@@ -253,6 +291,70 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             )}
           </div>
         )}
+
+        {activeTab === 'transfer' && (
+          <div className="transfer-content">
+            {!isConnected ? (
+              <div className="error-state">
+                <p>❌ Wallet not connected. Please connect your wallet to transfer NFTs.</p>
+              </div>
+            ) : (
+              <>
+                <div className="transfer-info">
+                  <h3>Transfer NFT</h3>
+                  <p>Send this NFT to another Chia address.</p>
+                </div>
+
+                <div className="transfer-form">
+                  <div className="form-group">
+                    <label htmlFor="recipientAddress">Recipient Address</label>
+                    <input
+                      id="recipientAddress"
+                      type="text"
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      placeholder="xch1..."
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="transferFee">Fee (mojos)</label>
+                    <input
+                      id="transferFee"
+                      type="number"
+                      value={transferFee}
+                      onChange={(e) => setTransferFee(e.target.value)}
+                      placeholder="100000000"
+                      className="form-input"
+                    />
+                    <small className="form-hint">Default: 0.0001 XCH (100000000 mojos)</small>
+                  </div>
+
+                  {transferError && (
+                    <div className="error-message">
+                      ❌ {transferError}
+                    </div>
+                  )}
+
+                  {transferSuccess && (
+                    <div className="success-message">
+                      ✅ NFT transferred successfully!
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleTransferNFT}
+                    disabled={isTransferring || !recipientAddress.trim()}
+                    className="transfer-button"
+                  >
+                    {isTransferring ? '⏳ Transferring...' : '📤 Transfer NFT'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -262,7 +364,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -276,7 +378,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .nft-details-modal {
-            background: #1f2937;
+            background: #14151A;
             border-radius: 16px;
             width: 90%;
             max-width: 700px;
@@ -286,7 +388,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             flex-direction: column;
             animation: slideUp 0.3s ease;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            border: 1px solid #374151;
+            border: 1px solid #272830;
           }
 
           @keyframes slideUp {
@@ -299,8 +401,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             justify-content: space-between;
             align-items: center;
             padding: 1.5rem;
-            border-bottom: 1px solid #374151;
-            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            border-bottom: 1px solid #272830;
+            background: #14151A;
             color: white;
           }
 
@@ -311,7 +413,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .close-button {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
             border: none;
             color: white;
             font-size: 1.5rem;
@@ -326,13 +428,13 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .close-button:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.2);
           }
 
           .modal-tabs {
             display: flex;
-            background: #111827;
-            border-bottom: 1px solid #374151;
+            background: #14151A;
+            border-bottom: 1px solid #272830;
           }
 
           .tab-button {
@@ -344,18 +446,18 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             font-weight: 500;
             transition: all 0.2s;
             border-bottom: 3px solid transparent;
-            color: #9ca3af;
+            color: #7C7A85;
           }
 
           .tab-button:hover:not(:disabled) {
-            background: #1f2937;
-            color: #d1d5db;
+            background: #1B1C22;
+            color: #EEEEF0;
           }
 
           .tab-button.active {
-            background: #1f2937;
-            border-bottom-color: #6366f1;
-            color: #6366f1;
+            background: #1B1C22;
+            border-bottom-color: #2C64F8;
+            color: #2C64F8;
           }
 
           .tab-button:disabled {
@@ -367,8 +469,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             flex: 1;
             padding: 1.5rem;
             overflow-y: auto;
-            background: #1f2937;
-            color: #f3f4f6;
+            background: #14151A;
+            color: #EEEEF0;
           }
 
           .nft-image-section {
@@ -380,18 +482,23 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             max-width: 200px;
             max-height: 200px;
             border-radius: 12px;
-            border: 2px solid #374151;
+            border: 2px solid #272830;
           }
 
-          .info-section, .metadata-section, .coin-section, .offer-info {
+          .info-section, .metadata-section, .coin-section, .offer-info, .transfer-info {
             margin-bottom: 2rem;
           }
 
-          .info-section h3, .metadata-section h3, .coin-section h3, .offer-info h3 {
+          .info-section h3, .metadata-section h3, .coin-section h3, .offer-info h3, .transfer-info h3 {
             margin: 0 0 1rem 0;
-            color: #f9fafb;
+            color: #EEEEF0;
             font-size: 1.1rem;
             font-weight: 600;
+          }
+
+          .transfer-info p {
+            color: #7C7A85;
+            margin: 0.5rem 0 0 0;
           }
 
           .info-grid, .metadata-grid {
@@ -408,19 +515,19 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .info-item label, .metadata-item label, .coin-item label {
             font-weight: 500;
-            color: #9ca3af;
+            color: #7C7A85;
             font-size: 14px;
           }
 
           .info-value, .metadata-value, .coin-value {
             font-family: monospace;
             font-size: 12px;
-            background: #111827;
+            background: #1B1C22;
             padding: 8px;
             border-radius: 6px;
             word-break: break-all;
-            color: #e5e7eb;
-            border: 1px solid #374151;
+            color: #EEEEF0;
+            border: 1px solid #272830;
           }
 
           .coin-details {
@@ -436,7 +543,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           .uris-section label {
             display: block;
             font-weight: 500;
-            color: #9ca3af;
+            color: #7C7A85;
             margin-bottom: 0.5rem;
           }
 
@@ -447,14 +554,14 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .uri-link {
-            color: #60a5fa;
+            color: #2C64F8;
             text-decoration: underline;
             font-size: 14px;
             word-break: break-all;
           }
 
           .uri-link:hover {
-            color: #93c5fd;
+            color: #4F7EFF;
           }
 
           .error-state {
@@ -463,7 +570,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             color: #f87171;
           }
 
-          .offer-form {
+          .offer-form, .transfer-form {
             max-width: 400px;
           }
 
@@ -475,28 +582,35 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #f3f4f6;
+            color: #EEEEF0;
+          }
+
+          .form-hint {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #7C7A85;
           }
 
           .form-input {
             width: 100%;
             padding: 12px 16px;
-            border: 2px solid #374151;
+            border: 2px solid #272830;
             border-radius: 8px;
             font-size: 14px;
             transition: border-color 0.2s;
             box-sizing: border-box;
-            background: #111827;
-            color: #f3f4f6;
+            background: #1B1C22;
+            color: #EEEEF0;
           }
 
           .form-input:focus {
             outline: none;
-            border-color: #6366f1;
+            border-color: #2C64F8;
           }
 
           .form-input::placeholder {
-            color: #6b7280;
+            color: #7C7A85;
           }
 
           .error-message {
@@ -519,10 +633,10 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             margin: 1rem 0;
           }
 
-          .create-offer-button {
+          .create-offer-button, .transfer-button {
             width: 100%;
             padding: 12px 24px;
-            background: linear-gradient(45deg, #6366f1, #4f46e5);
+            background: #2C64F8;
             color: white;
             border: none;
             border-radius: 8px;
@@ -532,12 +646,13 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             margin-top: 1rem;
           }
 
-          .create-offer-button:hover:not(:disabled) {
+          .create-offer-button:hover:not(:disabled), .transfer-button:hover:not(:disabled) {
+            background: #1E4FD9;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 4px 12px rgba(44, 100, 248, 0.4);
           }
 
-          .create-offer-button:disabled {
+          .create-offer-button:disabled, .transfer-button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
