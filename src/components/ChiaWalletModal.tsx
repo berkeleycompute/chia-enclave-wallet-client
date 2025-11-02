@@ -10,9 +10,6 @@ import {
 } from '../hooks/useChiaWalletSDK';
 import { SentTransaction } from './types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
-import {
-  useSpacescanNFTs,
-} from '../client/SpacescanClient';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
@@ -106,16 +103,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const { closeAllDialogs } = useAllDialogs();
   const dialogs = sendFundsDialog.isOpen || receiveFundsDialog.isOpen || makeOfferDialog.isOpen || activeOffersDialog.isOpen || nftDetailsDialog.isOpen || transactionsDialog.isOpen || viewAssetsDialog.isOpen || exportKeyDialog.isOpen;
 
-  // Use Spacescan for NFTs and balance
-  const {
-    nfts: spacescanNfts,
-    loading: _nftsLoading,
-    error: _nftsError,
-    count: _nftCount,
-    refetch: _refetchNfts
-  } = useSpacescanNFTs(address);
-
-
   // Calculate balance directly from coins (more accurate)
   const xchAvailableMojos = useMemo(() => {
     return xchCoins.reduce((total, coin) => total + parseInt(coin.coin.amount), 0);
@@ -126,12 +113,18 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return result.success ? result.data.toFixed(6) : '0';
   }, []);
 
-  // Use Spacescan NFTs as the primary NFT source
-  const nftCoins = spacescanNfts;
+  // Get NFT coins directly from hydrated coins (no need for Spacescan)
+  const nftCoins = useMemo(() => {
+    return hydratedCoins.filter(coin => {
+      const driverInfo = coin.parentSpendInfo.driverInfo;
+      return driverInfo?.type === 'NFT';
+    });
+  }, [hydratedCoins]);
+  
   const [sentTransactions, setSentTransactions] = useState<SentTransaction[]>([]);
 
   // Asset/offer counts
-  const assetsCount = useMemo(() => (Array.isArray(nftCoins) ? nftCoins.length : 0), [nftCoins]);
+  const assetsCount = useMemo(() => nftCoins.length, [nftCoins]);
   const [offersCount, setOffersCount] = useState<number>(0);
   const [copySuccess, setCopySuccess] = useState(false);
 
@@ -339,8 +332,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         cache: 'default', // Use browser caching
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json, */*',
-          'User-Agent': 'Chia-Wallet-Client/1.0'
+          'Accept': 'application/json, */*'
         }
       });
 
@@ -455,16 +447,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   // Load metadata for all NFT coins when they change
   useEffect(() => {
-    const nftCoins = hydratedCoins.filter(coin => {
-      const driverInfo = coin.parentSpendInfo.driverInfo;
-      return driverInfo?.type === 'NFT';
-    });
-
     // Load metadata for each NFT coin
     nftCoins.forEach(nftCoin => {
       loadNftMetadata(nftCoin);
     });
-  }, [hydratedCoins, loadNftMetadata]);
+  }, [nftCoins, loadNftMetadata]);
 
   // Utility functions
   const formatAddress = useCallback((address: string): string => {

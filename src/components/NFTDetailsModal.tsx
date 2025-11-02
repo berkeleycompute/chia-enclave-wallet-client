@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { injectModalStyles } from './modal-styles';
 import { useNFTOffers, useWalletConnection } from '../hooks/useChiaWalletSDK';
 import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
@@ -38,6 +38,73 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   const [recipientAddress, setRecipientAddress] = useState('');
   const [transferFee, setTransferFee] = useState('0.0001'); // Store as XCH
   const [transferSuccess, setTransferSuccess] = useState(false);
+  const [nftMetadata, setNftMetadata] = useState<any>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
+
+  // Fetch NFT metadata from metadataUris
+  const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(metadataUri, {
+        method: 'GET',
+        redirect: 'follow',
+        mode: 'cors',
+        cache: 'default',
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json, */*'
+        }
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metadata (${response.status})`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      } else {
+        const text = await response.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          console.warn('Metadata response is not valid JSON');
+          return null;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching NFT metadata:', error);
+      return null;
+    }
+  }, []);
+
+  // Load NFT metadata when modal opens or NFT changes
+  useEffect(() => {
+    if (!isOpen || !nft) {
+      setNftMetadata(null);
+      return;
+    }
+
+    const driverInfo = nft.parentSpendInfo?.driverInfo;
+    if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
+      return;
+    }
+
+    const metadataUri = driverInfo.info.metadata.metadataUris[0];
+    
+    const loadMetadata = async () => {
+      setMetadataLoading(true);
+      const metadata = await fetchNftMetadata(metadataUri);
+      setNftMetadata(metadata);
+      setMetadataLoading(false);
+    };
+
+    loadMetadata();
+  }, [isOpen, nft, fetchNftMetadata]);
 
   const handleCreateOffer = async () => {
     if (!nft || !offerPrice.trim()) {
@@ -117,8 +184,43 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   if (!isOpen || !nft) return null;
 
   const nftInfo = nft.parentSpendInfo?.driverInfo?.info;
-  const metadata = nftInfo?.metadata;
-  const imageUrl = convertIpfsUrl((metadata as any)?.image || (metadata as any)?.dataUris?.[0]);
+  const onChainMetadata = nftInfo?.metadata;
+  
+  // Get image URL from downloaded metadata or fallback to on-chain data
+  const getImageUrl = () => {
+    // Try downloaded metadata first
+    if (nftMetadata?.image) {
+      return convertIpfsUrl(nftMetadata.image);
+    }
+    if (nftMetadata?.data_uris && nftMetadata.data_uris.length > 0) {
+      return convertIpfsUrl(nftMetadata.data_uris[0]);
+    }
+    
+    // Fallback to on-chain metadata
+    if (onChainMetadata?.dataUris && onChainMetadata.dataUris.length > 0) {
+      return convertIpfsUrl(onChainMetadata.dataUris[0]);
+    }
+    
+    return undefined;
+  };
+  
+  const imageUrl = getImageUrl();
+  
+  // Get NFT display name from metadata
+  const getNftName = () => {
+    if (nftMetadata?.name) {
+      return nftMetadata.name;
+    }
+    if (onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) {
+      return `NFT Edition ${onChainMetadata.editionNumber}/${onChainMetadata.editionTotal}`;
+    }
+    return nftInfo?.launcherId?.substring(0, 16) + '...' || 'NFT';
+  };
+  
+  // Get NFT description from metadata
+  const getNftDescription = () => {
+    return nftMetadata?.description || null;
+  };
 
   return (
     <>
@@ -148,6 +250,12 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
       <div className="modal-body">
         {activeTab === 'details' && (
           <div className="details-content">
+            {metadataLoading && (
+              <div style={{ textAlign: 'center', padding: '1rem', color: '#7C7A85' }}>
+                Loading metadata...
+              </div>
+            )}
+            
             {/* NFT Image */}
             {imageUrl && (
               <div className="nft-image-section">
@@ -159,6 +267,20 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                     (e.target as HTMLImageElement).style.display = 'none';
                   }}
                 />
+              </div>
+            )}
+            
+            {/* NFT Name and Description */}
+            {(nftMetadata?.name || nftMetadata?.description) && (
+              <div className="info-section">
+                {nftMetadata?.name && (
+                  <h3 style={{ marginBottom: '0.5rem' }}>{nftMetadata.name}</h3>
+                )}
+                {nftMetadata?.description && (
+                  <p style={{ color: '#7C7A85', marginTop: '0.5rem', lineHeight: '1.5' }}>
+                    {nftMetadata.description}
+                  </p>
+                )}
               </div>
             )}
 
@@ -177,8 +299,10 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                 <div className="info-item">
                   <label>Edition</label>
                   <span className="info-value">
-                    {metadata?.editionNumber && metadata?.editionTotal
-                      ? `${metadata.editionNumber} of ${metadata.editionTotal}`
+                    {onChainMetadata?.editionNumber && onChainMetadata?.editionTotal
+                      ? `${onChainMetadata.editionNumber} of ${onChainMetadata.editionTotal}`
+                      : (nftMetadata?.edition_number && nftMetadata?.edition_total)
+                      ? `${nftMetadata.edition_number} of ${nftMetadata.edition_total}`
                       : 'N/A'
                     }
                   </span>
@@ -195,36 +319,64 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
               </div>
             </div>
 
-            {/* Metadata */}
-            {metadata && (
+            {/* Metadata from Downloaded JSON */}
+            {nftMetadata && nftMetadata.attributes && (
               <div className="metadata-section">
-                <h3>Metadata</h3>
+                <h3>Attributes</h3>
                 <div className="metadata-grid">
-                  {metadata.dataHash && (
+                  {nftMetadata.attributes.map((attr: any, index: number) => (
+                    <div key={index} className="metadata-item">
+                      <label>{attr.trait_type || attr.type}</label>
+                      <span className="metadata-value">{String(attr.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* On-Chain Metadata */}
+            {onChainMetadata && (
+              <div className="metadata-section">
+                <h3>On-Chain Metadata</h3>
+                <div className="metadata-grid">
+                  {onChainMetadata.dataHash && (
                     <div className="metadata-item">
                       <label>Data Hash</label>
-                      <code className="metadata-value">{metadata.dataHash}</code>
+                      <code className="metadata-value">{onChainMetadata.dataHash}</code>
                     </div>
                   )}
-                  {metadata.metadataHash && (
+                  {onChainMetadata.metadataHash && (
                     <div className="metadata-item">
                       <label>Metadata Hash</label>
-                      <code className="metadata-value">{metadata.metadataHash}</code>
+                      <code className="metadata-value">{onChainMetadata.metadataHash}</code>
                     </div>
                   )}
-                  {metadata.licenseHash && (
+                  {onChainMetadata.licenseHash && (
                     <div className="metadata-item">
                       <label>License Hash</label>
-                      <code className="metadata-value">{metadata.licenseHash}</code>
+                      <code className="metadata-value">{onChainMetadata.licenseHash}</code>
                     </div>
                   )}
                 </div>
 
-                {metadata.dataUris && metadata.dataUris.length > 0 && (
+                {onChainMetadata.dataUris && onChainMetadata.dataUris.length > 0 && (
                   <div className="uris-section">
                     <label>Data URIs</label>
                     <div className="uris-list">
-                      {metadata.dataUris.map((uri, index) => (
+                      {onChainMetadata.dataUris.map((uri: string, index: number) => (
+                        <a key={index} href={uri} target="_blank" rel="noopener noreferrer" className="uri-link">
+                          {uri}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {onChainMetadata.metadataUris && onChainMetadata.metadataUris.length > 0 && (
+                  <div className="uris-section">
+                    <label>Metadata URIs</label>
+                    <div className="uris-list">
+                      {onChainMetadata.metadataUris.map((uri: string, index: number) => (
                         <a key={index} href={uri} target="_blank" rel="noopener noreferrer" className="uri-link">
                           {uri}
                         </a>

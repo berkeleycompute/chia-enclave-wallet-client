@@ -230,9 +230,7 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
         cache: 'default', // Use browser caching
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json, */*',
-          'Cache-Control': 'max-age=300', // 5 minutes
-          'User-Agent': 'Chia-Wallet-Client/1.0'
+          'Accept': 'application/json, */*'
         }
       });
 
@@ -258,6 +256,8 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
           throw new Error('Invalid JSON response');
         }
       }
+
+      console.log('🔄 Metadata:', metadata);
 
       // Cache the metadata
       metadataCache.set(fetchUrl, {

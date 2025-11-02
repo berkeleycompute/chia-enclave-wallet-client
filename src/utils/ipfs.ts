@@ -7,22 +7,28 @@
 const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs';
 
 // Fallback gateway si Pinata falla
-const FALLBACK_GATEWAY = 'https://ipfs.io/ipfs';
+const FALLBACK_GATEWAY = 'https://edgedev.silicon.net/v1/ipfs';
 
 /**
- * Convert any IPFS URL format to a HTTP gateway URL
+ * Convert any IPFS URL format to a HTTP gateway URL using Pinata
  * Supports:
  * - ipfs://[CID]
  * - ipfs://ipfs/[CID]
  * - /ipfs/[CID]
+ * - https://ipfs.io/ipfs/[CID] (converts to Pinata)
+ * - https://[any-gateway]/ipfs/[CID] (converts to Pinata)
  * - Raw CID (if > 40 chars)
  * 
  * @param url - The IPFS URL or CID to convert
  * @param useFallback - Use fallback gateway instead of Pinata (default: false)
- * @returns HTTP URL using Pinata gateway
+ * @returns HTTP URL using Pinata gateway (or original URL if not IPFS)
  * 
  * @example
  * convertIpfsUrl('ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
+ * // Returns: 'https://gateway.pinata.cloud/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+ * 
+ * @example
+ * convertIpfsUrl('https://ipfs.io/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
  * // Returns: 'https://gateway.pinata.cloud/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
  */
 export function convertIpfsUrl(url?: string | null, useFallback: boolean = false): string | undefined {
@@ -30,8 +36,15 @@ export function convertIpfsUrl(url?: string | null, useFallback: boolean = false
   
   const gateway = useFallback ? FALLBACK_GATEWAY : PINATA_GATEWAY;
   
-  // Already an HTTP URL - return as is
+  // Check if it's already an HTTP URL pointing to an IPFS gateway
   if (url.startsWith('http://') || url.startsWith('https://')) {
+    // Extract CID from common IPFS gateway patterns and convert to our gateway
+    const ipfsMatch = url.match(/\/ipfs\/([a-zA-Z0-9]+(?:\/[^?#]*)?)/);
+    if (ipfsMatch) {
+      // Convert from any IPFS gateway to our preferred gateway
+      return `${gateway}/${ipfsMatch[1]}`;
+    }
+    // Not an IPFS gateway URL, return as is
     return url;
   }
   

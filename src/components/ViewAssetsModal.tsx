@@ -42,6 +42,39 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   // Ensure shared modal styles are available
   useEffect(() => {
     injectModalStyles();
+    
+    // Inject custom scrollbar styles for the grid
+    const styleId = 'nft-grid-scrollbar-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        .nft-grid-container::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .nft-grid-container::-webkit-scrollbar-track {
+          background: #14151A;
+          border-radius: 4px;
+        }
+        .nft-grid-container::-webkit-scrollbar-thumb {
+          background: #272830;
+          border-radius: 4px;
+        }
+        .nft-grid-container::-webkit-scrollbar-thumb:hover {
+          background: #2C64F8;
+        }
+        .nft-grid-container::-webkit-scrollbar-corner {
+          background: #14151A;
+        }
+        /* Firefox scrollbar styling */
+        .nft-grid-container {
+          scrollbar-width: thin;
+          scrollbar-color: #272830 #14151A;
+        }
+      `;
+      document.head.appendChild(style);
+    }
   }, []);
 
   // Force metadata loading when nftCoins change
@@ -432,7 +465,17 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   {nftCoins.length === 0 ? 'No NFTs in your wallet' : 'No NFTs match your search'}
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div 
+                  className="nft-grid-container grid gap-3 p-2 rounded border"
+                  style={{ 
+                    backgroundColor: '#1B1C22', 
+                    borderColor: '#272830',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                    maxHeight: '400px',
+                    overflowY: 'auto',
+                    overflowX: 'auto'
+                  }}
+                >
                   {filteredNFTs.map((nft, idx) => {
                     const imageUrl = convertIpfsUrl(nft.imageUrl);
                     const isLoadingMetadata = metadataLoading && !nft.hasDownloadedMetadata;
@@ -440,41 +483,38 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     return (
                       <div
                         key={idx}
-                        className="flex items-center gap-3 p-3 border rounded transition-colors cursor-pointer"
+                        className="flex flex-col border rounded transition-colors cursor-pointer overflow-hidden"
                         style={{ 
-                          backgroundColor: '#1B1C22', 
+                          backgroundColor: '#14151A', 
                           borderColor: '#272830',
                           opacity: isLoadingMetadata ? 0.7 : 1
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#14151A'}
                         onClick={() => handleNFTClick(nft)}
                       >
-                        <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0 relative" style={{ backgroundColor: '#272830' }}>
+                        <div className="w-full aspect-square overflow-hidden flex items-center justify-center relative" style={{ backgroundColor: '#272830' }}>
                           {imageUrl ? (
                             <img src={imageUrl} alt={nft.name} className="w-full h-full object-cover" />
                           ) : (
-                            <div style={{ color: '#666' }}>🖼️</div>
+                            <div style={{ color: '#666', fontSize: '48px' }}>🖼️</div>
                           )}
                           {isLoadingMetadata && (
                             <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                              <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'transparent', borderTopColor: '#2C64F8' }}></div>
+                              <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'transparent', borderTopColor: '#2C64F8' }}></div>
                             </div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-medium truncate">
+                        <div className="p-2 flex flex-col gap-1">
+                          <div className="text-white text-xs font-medium truncate" title={nft.name}>
                             {nft.name}
                             {isLoadingMetadata && (
-                              <span className="ml-2 text-xs" style={{ color: '#7C7A85' }}>(loading...)</span>
+                              <span className="ml-1 text-xs" style={{ color: '#7C7A85' }}>...</span>
                             )}
                           </div>
-                          <div style={{ color: '#7C7A85' }} className="text-xs truncate">{nft.collection}</div>
-                        </div>
-                        <div style={{ color: '#666' }} className="ml-2 shrink-0">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M9 18l6-6-6-6"></path>
-                          </svg>
+                          <div style={{ color: '#7C7A85' }} className="text-xs truncate" title={nft.collection}>
+                            {nft.collection}
+                          </div>
                         </div>
                       </div>
                     );
