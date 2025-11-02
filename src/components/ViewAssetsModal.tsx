@@ -38,6 +38,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   const [recipientAddress, setRecipientAddress] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferFee, setTransferFee] = useState('0.0001'); // Store as XCH
+  const [showCoinsDetails, setShowCoinsDetails] = useState(false);
 
   // Ensure shared modal styles are available
   useEffect(() => {
@@ -360,25 +361,50 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
 
           {/* Asset Sections */}
           <div className="flex flex-col gap-3">
-            {/* Coins Summary */}
-            <div className="rounded-lg border p-3" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
-              <div className="flex justify-between items-center text-sm ">
-                <span>Total XCH</span>
-                <span className="text-white font-medium ">{formatXCH(xchAvailableMojos)} XCH</span>
+            {/* Coins Details Toggle Button */}
+            <button
+              onClick={() => setShowCoinsDetails(!showCoinsDetails)}
+              className="rounded-lg border p-3 text-sm font-medium transition-colors flex items-center justify-between"
+              style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#272830'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+            >
+              <span>Coin Details</span>
+              <svg 
+                width="20" 
+                height="20" 
+                viewBox="0 0 20 20" 
+                fill="none"
+                style={{ 
+                  transform: showCoinsDetails ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s ease'
+                }}
+              >
+                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {/* Coins Summary - Collapsible */}
+            {showCoinsDetails && (
+              <div className="rounded-lg border p-3" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
+                <div className="flex justify-between items-center text-sm ">
+                  <span>Total XCH</span>
+                  <span className="text-white font-medium ">{formatXCH(xchAvailableMojos)} XCH</span>
+                </div>
+                <div className="flex justify-between items-center text-sm  mt-2">
+                  <span>XCH coins</span>
+                  <span className="text-white font-medium ">{xchCoins.length}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm  mt-2">
+                  <span>CAT coins</span>
+                  <span className="text-white font-medium ">{catCoins.length}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm  mt-2">
+                  <span>NFTs</span>
+                  <span className="text-white font-medium ">{nftCoins.length}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-sm  mt-2">
-                <span>XCH coins</span>
-                <span className="text-white font-medium ">{xchCoins.length}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm  mt-2">
-                <span>CAT coins</span>
-                <span className="text-white font-medium ">{catCoins.length}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm  mt-2">
-                <span>NFTs</span>
-                <span className="text-white font-medium ">{nftCoins.length}</span>
-              </div>
-            </div>
+            )}
 
             {/* CAT List */}
             {groupedCATs.length > 0 && (
@@ -477,7 +503,9 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   }}
                 >
                   {filteredNFTs.map((nft, idx) => {
-                    const imageUrl = convertIpfsUrl(nft.imageUrl);
+                    console.log('🔍 NFT:', nft);
+                    const imageUrl = convertIpfsUrl(nft.coin.parentSpendInfo.driverInfo?.info?.metadata?.dataUris?.[0]);
+                    console.log('🔍 Image URL:', imageUrl);
                     const isLoadingMetadata = metadataLoading && !nft.hasDownloadedMetadata;
                     
                     return (

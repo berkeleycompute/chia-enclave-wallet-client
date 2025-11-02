@@ -183,8 +183,9 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
   if (!isOpen || !nft) return null;
 
-  const nftInfo = nft.parentSpendInfo?.driverInfo?.info;
-  const onChainMetadata = nftInfo?.metadata;
+  const driverInfo = nft.parentSpendInfo?.driverInfo;
+  const nftInfo = driverInfo?.info;
+  const onChainMetadata = nftInfo?.metadata as any; // Cast to any for flexible metadata access
   
   // Get image URL from downloaded metadata or fallback to on-chain data
   const getImageUrl = () => {
@@ -211,6 +212,9 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
     if (nftMetadata?.name) {
       return nftMetadata.name;
     }
+    if (onChainMetadata?.name) {
+      return onChainMetadata.name;
+    }
     if (onChainMetadata?.editionNumber && onChainMetadata?.editionTotal) {
       return `NFT Edition ${onChainMetadata.editionNumber}/${onChainMetadata.editionTotal}`;
     }
@@ -219,315 +223,357 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   
   // Get NFT description from metadata
   const getNftDescription = () => {
-    return nftMetadata?.description || null;
+    return nftMetadata?.description || onChainMetadata?.description || null;
+  };
+
+  // Get collection name
+  const getCollectionName = () => {
+    return nftMetadata?.collection?.name || onChainMetadata?.collection?.name || null;
+  };
+
+  // Get collection family
+  const getCollectionFamily = () => {
+    return nftMetadata?.collection?.family || onChainMetadata?.collection?.family || null;
   };
 
   return (
     <>
-      <div className="modal-tabs">
-        <button
-          className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
-          onClick={() => setActiveTab('details')}
-        >
-          📋 Details
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'offer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('offer')}
-          disabled={!isConnected}
-        >
-          💰 Create Offer
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'transfer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('transfer')}
-          disabled={!isConnected}
-        >
-          📤 Transfer
-        </button>
-      </div>
+      <div 
+        className="nft-details-modal-overlay" 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
+        <div className="nft-details-modal" onClick={(e) => e.stopPropagation()}>
+          {/* Close button in top right */}
+          <button
+            onClick={onClose}
+            className="modal-close-btn"
+            aria-label="Close modal"
+          >
+            ✕
+          </button>
 
-      <div className="modal-body">
-        {activeTab === 'details' && (
-          <div className="details-content">
-            {metadataLoading && (
-              <div style={{ textAlign: 'center', padding: '1rem', color: '#7C7A85' }}>
-                Loading metadata...
-              </div>
-            )}
-            
-            {/* NFT Image */}
-            {imageUrl && (
-              <div className="nft-image-section">
-                <img
-                  src={imageUrl}
-                  alt="NFT"
-                  className="nft-image"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-            
-            {/* NFT Name and Description */}
-            {(nftMetadata?.name || nftMetadata?.description) && (
-              <div className="info-section">
-                {nftMetadata?.name && (
-                  <h3 style={{ marginBottom: '0.5rem' }}>{nftMetadata.name}</h3>
-                )}
-                {nftMetadata?.description && (
-                  <p style={{ color: '#7C7A85', marginTop: '0.5rem', lineHeight: '1.5' }}>
-                    {nftMetadata.description}
-                  </p>
-                )}
-              </div>
-            )}
+          <div className="modal-tabs">
+            <button
+              className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
+              onClick={() => setActiveTab('details')}
+            >
+              📋 Details
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'offer' ? 'active' : ''}`}
+              onClick={() => setActiveTab('offer')}
+              disabled={!isConnected}
+            >
+              💰 Create Offer
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'transfer' ? 'active' : ''}`}
+              onClick={() => setActiveTab('transfer')}
+              disabled={!isConnected}
+            >
+              📤 Transfer
+            </button>
+          </div>
 
-            {/* Basic Info */}
-            <div className="info-section">
-              <h3>Basic Information</h3>
-              <div className="info-grid">
-                <div className="info-item">
-                  <label>Launcher ID</label>
-                  <code className="info-value">{nftInfo?.launcherId || 'N/A'}</code>
-                </div>
-                <div className="info-item">
-                  <label>Current Owner</label>
-                  <code className="info-value">{nftInfo?.currentOwner || 'N/A'}</code>
-                </div>
-                <div className="info-item">
-                  <label>Edition</label>
-                  <span className="info-value">
-                    {onChainMetadata?.editionNumber && onChainMetadata?.editionTotal
-                      ? `${onChainMetadata.editionNumber} of ${onChainMetadata.editionTotal}`
-                      : (nftMetadata?.edition_number && nftMetadata?.edition_total)
-                      ? `${nftMetadata.edition_number} of ${nftMetadata.edition_total}`
-                      : 'N/A'
-                    }
-                  </span>
-                </div>
-                <div className="info-item">
-                  <label>Royalty</label>
-                  <span className="info-value">
-                    {nftInfo?.royaltyTenThousandths
-                      ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
-                      : '0%'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Metadata from Downloaded JSON */}
-            {nftMetadata && nftMetadata.attributes && (
-              <div className="metadata-section">
-                <h3>Attributes</h3>
-                <div className="metadata-grid">
-                  {nftMetadata.attributes.map((attr: any, index: number) => (
-                    <div key={index} className="metadata-item">
-                      <label>{attr.trait_type || attr.type}</label>
-                      <span className="metadata-value">{String(attr.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* On-Chain Metadata */}
-            {onChainMetadata && (
-              <div className="metadata-section">
-                <h3>On-Chain Metadata</h3>
-                <div className="metadata-grid">
-                  {onChainMetadata.dataHash && (
-                    <div className="metadata-item">
-                      <label>Data Hash</label>
-                      <code className="metadata-value">{onChainMetadata.dataHash}</code>
-                    </div>
-                  )}
-                  {onChainMetadata.metadataHash && (
-                    <div className="metadata-item">
-                      <label>Metadata Hash</label>
-                      <code className="metadata-value">{onChainMetadata.metadataHash}</code>
-                    </div>
-                  )}
-                  {onChainMetadata.licenseHash && (
-                    <div className="metadata-item">
-                      <label>License Hash</label>
-                      <code className="metadata-value">{onChainMetadata.licenseHash}</code>
-                    </div>
-                  )}
-                </div>
-
-                {onChainMetadata.dataUris && onChainMetadata.dataUris.length > 0 && (
-                  <div className="uris-section">
-                    <label>Data URIs</label>
-                    <div className="uris-list">
-                      {onChainMetadata.dataUris.map((uri: string, index: number) => (
-                        <a key={index} href={uri} target="_blank" rel="noopener noreferrer" className="uri-link">
-                          {uri}
-                        </a>
-                      ))}
-                    </div>
+          <div className="modal-body">
+            {activeTab === 'details' && (
+              <div className="details-content">
+                {metadataLoading && (
+                  <div className="loading-indicator">
+                    <div className="spinner"></div>
+                    <p>Loading metadata...</p>
                   </div>
                 )}
                 
-                {onChainMetadata.metadataUris && onChainMetadata.metadataUris.length > 0 && (
-                  <div className="uris-section">
-                    <label>Metadata URIs</label>
-                    <div className="uris-list">
-                      {onChainMetadata.metadataUris.map((uri: string, index: number) => (
-                        <a key={index} href={uri} target="_blank" rel="noopener noreferrer" className="uri-link">
-                          {uri}
-                        </a>
+                {/* NFT Image - Larger and more prominent */}
+                {imageUrl && (
+                  <div className="nft-hero-image-section">
+                    <img
+                      src={imageUrl}
+                      alt={getNftName()}
+                      className="nft-hero-image"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* NFT Title Section - Name and Collection */}
+                <div className="nft-title-section">
+                  <h2 className="nft-name">{getNftName()}</h2>
+                  {getCollectionName() && (
+                    <div className="nft-collection">
+                      <span className="collection-label">Collection:</span>
+                      <span className="collection-name">{getCollectionName()}</span>
+                    </div>
+                  )}
+                  {getCollectionFamily() && (
+                    <div className="nft-collection-family">
+                      <span className="collection-label">Family:</span>
+                      <span className="collection-family">{getCollectionFamily()}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                {getNftDescription() && (
+                  <div className="nft-description-section">
+                    <p className="nft-description">{getNftDescription()}</p>
+                  </div>
+                )}
+
+                {/* Key Stats - Edition, Royalty, Owner */}
+                <div className="nft-stats-section">
+                  <div className="stat-card">
+                    <label>Edition</label>
+                    <span className="stat-value">
+                      {onChainMetadata?.editionNumber && onChainMetadata?.editionTotal
+                        ? `${onChainMetadata.editionNumber} / ${onChainMetadata.editionTotal}`
+                        : (nftMetadata?.edition_number && nftMetadata?.edition_total)
+                        ? `${nftMetadata.edition_number} / ${nftMetadata.edition_total}`
+                        : 'N/A'
+                      }
+                    </span>
+                  </div>
+                  <div className="stat-card">
+                    <label>Royalty</label>
+                    <span className="stat-value">
+                      {nftInfo?.royaltyTenThousandths
+                        ? `${(nftInfo.royaltyTenThousandths / 100).toFixed(2)}%`
+                        : '0%'
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                {/* Attributes - More prominent */}
+                {nftMetadata?.attributes && nftMetadata.attributes.length > 0 && (
+                  <div className="attributes-section">
+                    <h3>Attributes</h3>
+                    <div className="attributes-grid">
+                      {nftMetadata.attributes.map((attr: any, index: number) => (
+                        <div key={index} className="attribute-card">
+                          <label className="attribute-type">{attr.trait_type || attr.type}</label>
+                          <span className="attribute-value">{String(attr.value)}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
                 )}
+
+                {/* Technical Details - Collapsible */}
+                <details className="technical-details" open>
+                  <summary>Technical Information</summary>
+                  <div className="technical-content">
+                    <div className="info-item">
+                      <label>Launcher ID</label>
+                      <code className="info-value">{nftInfo?.launcherId || 'N/A'}</code>
+                    </div>
+                    <div className="info-item">
+                      <label>Current Owner</label>
+                      <code className="info-value">{nftInfo?.currentOwner || 'N/A'}</code>
+                    </div>
+                    <div className="info-item">
+                      <label>Coin ID</label>
+                      <code className="info-value">{nft.coinId}</code>
+                    </div>
+                    <div className="info-item">
+                      <label>Parent Coin Info</label>
+                      <code className="info-value">{nft.coin.parentCoinInfo}</code>
+                    </div>
+                    <div className="info-item">
+                      <label>Puzzle Hash</label>
+                      <code className="info-value">{nft.coin.puzzleHash}</code>
+                    </div>
+                    <div className="info-item">
+                      <label>Amount</label>
+                      <span className="info-value">{nft.coin.amount} mojos</span>
+                    </div>
+                    {onChainMetadata?.dataHash && (
+                      <div className="info-item">
+                        <label>Data Hash</label>
+                        <code className="info-value">{onChainMetadata.dataHash}</code>
+                      </div>
+                    )}
+                    {onChainMetadata?.metadataHash && (
+                      <div className="info-item">
+                        <label>Metadata Hash</label>
+                        <code className="info-value">{onChainMetadata.metadataHash}</code>
+                      </div>
+                    )}
+                    {onChainMetadata?.licenseHash && (
+                      <div className="info-item">
+                        <label>License Hash</label>
+                        <code className="info-value">{onChainMetadata.licenseHash}</code>
+                      </div>
+                    )}
+                  </div>
+                </details>
+
+                {/* URIs Section - Collapsible */}
+                {((onChainMetadata?.dataUris && onChainMetadata.dataUris.length > 0) || 
+                  (onChainMetadata?.metadataUris && onChainMetadata.metadataUris.length > 0)) && (
+                  <details className="uris-details">
+                    <summary>Data URIs</summary>
+                    <div className="uris-content">
+                      {onChainMetadata.dataUris && onChainMetadata.dataUris.length > 0 && (
+                        <div className="uri-group">
+                          <label>Data URIs</label>
+                          <div className="uris-list">
+                            {onChainMetadata.dataUris.map((uri: string, index: number) => (
+                              <a key={index} href={convertIpfsUrl(uri)} target="_blank" rel="noopener noreferrer" className="uri-link">
+                                {uri}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {onChainMetadata.metadataUris && onChainMetadata.metadataUris.length > 0 && (
+                        <div className="uri-group">
+                          <label>Metadata URIs</label>
+                          <div className="uris-list">
+                            {onChainMetadata.metadataUris.map((uri: string, index: number) => (
+                              <a key={index} href={convertIpfsUrl(uri)} target="_blank" rel="noopener noreferrer" className="uri-link">
+                                {uri}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                )}
               </div>
             )}
 
-            {/* Coin Details */}
-            <div className="coin-section">
-              <h3>Coin Information</h3>
-              <div className="coin-details">
-                <div className="coin-item">
-                  <label>Parent Coin Info</label>
-                  <code className="coin-value">{nft.coin.parentCoinInfo}</code>
-                </div>
-                <div className="coin-item">
-                  <label>Puzzle Hash</label>
-                  <code className="coin-value">{nft.coin.puzzleHash}</code>
-                </div>
-                <div className="coin-item">
-                  <label>Amount</label>
-                  <span className="coin-value">{nft.coin.amount} mojos</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'offer' && (
-          <div className="offer-content">
-            {!isConnected ? (
-              <div className="error-state">
-                <p>❌ Wallet not connected. Please connect your wallet to create offers.</p>
-              </div>
-            ) : (
-              <>
-                <div className="offer-info">
-                  <h3>Create NFT Offer</h3>
-                  <p>Set a price for your NFT. This will create an offer that buyers can accept.</p>
-                </div>
-
-                <div className="offer-form">
-                  <div className="form-group">
-                    <label htmlFor="offerPrice">Price (XCH)</label>
-                    <input
-                      id="offerPrice"
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={offerPrice}
-                      onChange={(e) => setOfferPrice(e.target.value)}
-                      placeholder="1.5"
-                      className="form-input"
-                    />
+            {activeTab === 'offer' && (
+              <div className="offer-content">
+                {!isConnected ? (
+                  <div className="error-state">
+                    <p>❌ Wallet not connected. Please connect your wallet to create offers.</p>
                   </div>
-
-                  {offerError && (
-                    <div className="error-message">
-                      ❌ {offerError}
+                ) : (
+                  <>
+                    <div className="offer-info">
+                      <h3>Create NFT Offer</h3>
+                      <p>Set a price for your NFT. This will create an offer that buyers can accept.</p>
                     </div>
-                  )}
 
-                  {offerSuccess && (
-                    <div className="success-message">
-                      ✅ Offer created successfully! You can now share it with potential buyers.
+                    <div className="offer-form">
+                      <div className="form-group">
+                        <label htmlFor="offerPrice">Price (XCH)</label>
+                        <input
+                          id="offerPrice"
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          value={offerPrice}
+                          onChange={(e) => setOfferPrice(e.target.value)}
+                          placeholder="1.5"
+                          className="form-input"
+                        />
+                      </div>
+
+                      {offerError && (
+                        <div className="error-message">
+                          ❌ {offerError}
+                        </div>
+                      )}
+
+                      {offerSuccess && (
+                        <div className="success-message">
+                          ✅ Offer created successfully! You can now share it with potential buyers.
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleCreateOffer}
+                        disabled={offerLoading || !offerPrice.trim()}
+                        className="create-offer-button"
+                      >
+                        {offerLoading ? '⏳ Creating Offer...' : '💰 Create Offer'}
+                      </button>
                     </div>
-                  )}
+                  </>
+                )}
+              </div>
+            )}
 
-                  <button
-                    onClick={handleCreateOffer}
-                    disabled={offerLoading || !offerPrice.trim()}
-                    className="create-offer-button"
-                  >
-                    {offerLoading ? '⏳ Creating Offer...' : '💰 Create Offer'}
-                  </button>
-                </div>
-              </>
+            {activeTab === 'transfer' && (
+              <div className="transfer-content">
+                {!isConnected ? (
+                  <div className="error-state">
+                    <p>❌ Wallet not connected. Please connect your wallet to transfer NFTs.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="transfer-info">
+                      <h3>Transfer NFT</h3>
+                      <p>Send this NFT to another Chia address.</p>
+                    </div>
+
+                    <div className="transfer-form">
+                      <div className="form-group">
+                        <label htmlFor="recipientAddress">Recipient Address</label>
+                        <input
+                          id="recipientAddress"
+                          type="text"
+                          value={recipientAddress}
+                          onChange={(e) => setRecipientAddress(e.target.value)}
+                          placeholder="xch1..."
+                          className="form-input"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="transferFee">Fee (XCH)</label>
+                        <input
+                          id="transferFee"
+                          type="number"
+                          step="0.00001"
+                          min="0"
+                          value={transferFee}
+                          onChange={(e) => setTransferFee(e.target.value)}
+                          placeholder="0.0001"
+                          className="form-input"
+                        />
+                        <small className="form-hint">
+                          Recommended: 0.0001 XCH ({Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos)
+                        </small>
+                      </div>
+
+                      {transferError && (
+                        <div className="error-message">
+                          ❌ {transferError}
+                        </div>
+                      )}
+
+                      {transferSuccess && (
+                        <div className="success-message">
+                          ✅ NFT transferred successfully!
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleTransferNFT}
+                        disabled={isTransferring || !recipientAddress.trim()}
+                        className="transfer-button"
+                      >
+                        {isTransferring ? '⏳ Transferring...' : '📤 Transfer NFT'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
-        )}
-
-        {activeTab === 'transfer' && (
-          <div className="transfer-content">
-            {!isConnected ? (
-              <div className="error-state">
-                <p>❌ Wallet not connected. Please connect your wallet to transfer NFTs.</p>
-              </div>
-            ) : (
-              <>
-                <div className="transfer-info">
-                  <h3>Transfer NFT</h3>
-                  <p>Send this NFT to another Chia address.</p>
-                </div>
-
-                <div className="transfer-form">
-                  <div className="form-group">
-                    <label htmlFor="recipientAddress">Recipient Address</label>
-                    <input
-                      id="recipientAddress"
-                      type="text"
-                      value={recipientAddress}
-                      onChange={(e) => setRecipientAddress(e.target.value)}
-                      placeholder="xch1..."
-                      className="form-input"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="transferFee">Fee (XCH)</label>
-                    <input
-                      id="transferFee"
-                      type="number"
-                      step="0.00001"
-                      min="0"
-                      value={transferFee}
-                      onChange={(e) => setTransferFee(e.target.value)}
-                      placeholder="0.0001"
-                      className="form-input"
-                    />
-                    <small className="form-hint">
-                      Recommended: 0.0001 XCH ({Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos)
-                    </small>
-                  </div>
-
-                  {transferError && (
-                    <div className="error-message">
-                      ❌ {transferError}
-                    </div>
-                  )}
-
-                  {transferSuccess && (
-                    <div className="success-message">
-                      ✅ NFT transferred successfully!
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleTransferNFT}
-                    disabled={isTransferring || !recipientAddress.trim()}
-                    className="transfer-button"
-                  >
-                    {isTransferring ? '⏳ Transferring...' : '📤 Transfer NFT'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+        </div>
       </div>
 
       <style>{`
@@ -537,12 +583,13 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.7);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1100;
+            z-index: 10000;
             animation: fadeIn 0.2s ease;
+            backdrop-filter: blur(4px);
           }
 
           @keyframes fadeIn {
@@ -551,7 +598,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .nft-details-modal {
-            background: #14151A;
+            position: relative;
+            background: #1a1a1a;
             border-radius: 16px;
             width: 90%;
             max-width: 700px;
@@ -560,8 +608,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             display: flex;
             flex-direction: column;
             animation: slideUp 0.3s ease;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            border: 1px solid #272830;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border: none;
           }
 
           @keyframes slideUp {
@@ -604,10 +652,36 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             background: rgba(255, 255, 255, 0.2);
           }
 
+          /* Modal Close Button - Top Right */
+          .modal-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 1.5rem;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+            z-index: 100;
+            line-height: 1;
+          }
+
+          .modal-close-btn:hover {
+            background: #333;
+            color: white;
+          }
+
           .modal-tabs {
             display: flex;
-            background: #14151A;
-            border-bottom: 1px solid #272830;
+            background: #1a1a1a;
+            border-bottom: 1px solid #333;
           }
 
           .tab-button {
@@ -619,18 +693,18 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             font-weight: 500;
             transition: all 0.2s;
             border-bottom: 3px solid transparent;
-            color: #7C7A85;
+            color: #888;
           }
 
           .tab-button:hover:not(:disabled) {
-            background: #1B1C22;
-            color: #EEEEF0;
+            background: #262626;
+            color: white;
           }
 
           .tab-button.active {
-            background: #1B1C22;
-            border-bottom-color: #2C64F8;
-            color: #2C64F8;
+            background: #262626;
+            border-bottom-color: #6bc36b;
+            color: #6bc36b;
           }
 
           .tab-button:disabled {
@@ -640,84 +714,304 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .modal-body {
             flex: 1;
+            min-height: 0;
             padding: 1.5rem;
             overflow-y: auto;
-            background: #14151A;
-            color: #EEEEF0;
+            overflow-x: hidden;
+            background: #1a1a1a;
+            color: white;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #333 #1a1a1a;
           }
 
-          .nft-image-section {
+          /* Scrollbar styling for modal body */
+          .modal-body::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          .modal-body::-webkit-scrollbar-track {
+            background: #1a1a1a;
+            border-radius: 4px;
+          }
+
+          .modal-body::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+          }
+
+          .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #6bc36b;
+          }
+
+          /* Loading Indicator */
+          .loading-indicator {
             text-align: center;
-            margin-bottom: 2rem;
+            padding: 2rem;
+            color: #888;
           }
 
-          .nft-image {
-            max-width: 200px;
-            max-height: 200px;
+          .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #6bc36b;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+          }
+
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+
+          /* Hero Image */
+          .nft-hero-image-section {
+            text-align: center;
+            margin-bottom: 1.5rem;
+          }
+
+          .nft-hero-image {
+            max-width: 100%;
+            max-height: 400px;
             border-radius: 12px;
-            border: 2px solid #272830;
+            border: 2px solid #333;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
           }
 
-          .info-section, .metadata-section, .coin-section, .offer-info, .transfer-info {
-            margin-bottom: 2rem;
+          /* Title Section */
+          .nft-title-section {
+            margin-bottom: 1.5rem;
+            text-align: center;
           }
 
-          .info-section h3, .metadata-section h3, .coin-section h3, .offer-info h3, .transfer-info h3 {
-            margin: 0 0 1rem 0;
-            color: #EEEEF0;
-            font-size: 1.1rem;
+          .nft-name {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: white;
+            margin: 0 0 0.75rem 0;
+            line-height: 1.3;
+          }
+
+          .nft-collection,
+          .nft-collection-family {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+          }
+
+          .collection-label {
+            color: #888;
+            font-size: 0.875rem;
+            font-weight: 500;
+          }
+
+          .collection-name,
+          .collection-family {
+            color: #6bc36b;
+            font-size: 0.875rem;
             font-weight: 600;
           }
 
-          .transfer-info p {
-            color: #7C7A85;
-            margin: 0.5rem 0 0 0;
+          /* Description */
+          .nft-description-section {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: #262626;
+            border: 1px solid #333;
+            border-radius: 8px;
           }
 
-          .info-grid, .metadata-grid {
+          .nft-description {
+            color: white;
+            font-size: 0.9375rem;
+            line-height: 1.6;
+            margin: 0;
+          }
+
+          /* Stats Section */
+          .nft-stats-section {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+          }
+
+          .stat-card {
+            background: #262626;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.2s;
+          }
+
+          .stat-card:hover {
+            border-color: #6bc36b;
+            transform: translateY(-2px);
+          }
+
+          .stat-card label {
+            display: block;
+            color: #888;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+          }
+
+          .stat-value {
+            display: block;
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 700;
+          }
+
+          /* Attributes Section */
+          .attributes-section {
+            margin-bottom: 1.5rem;
+          }
+
+          .attributes-section h3 {
+            margin: 0 0 1rem 0;
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 600;
+          }
+
+          .attributes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.75rem;
+          }
+
+          .attribute-card {
+            background: #262626;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 0.875rem;
+            text-align: center;
+            transition: all 0.2s;
+          }
+
+          .attribute-card:hover {
+            border-color: #6bc36b;
+            background: #333;
+          }
+
+          .attribute-type {
+            display: block;
+            color: #888;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+          }
+
+          .attribute-value {
+            display: block;
+            color: white;
+            font-size: 0.9375rem;
+            font-weight: 600;
+          }
+
+          /* Collapsible Details Sections */
+          .technical-details,
+          .uris-details {
+            background: #262626;
+            border: 1px solid #333;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+          }
+
+          .technical-details summary,
+          .uris-details summary {
+            padding: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            transition: background 0.2s;
+          }
+
+          .technical-details summary:hover,
+          .uris-details summary:hover {
+            background: #333;
+          }
+
+          .technical-details summary::after,
+          .uris-details summary::after {
+            content: '▼';
+            font-size: 0.75rem;
+            transition: transform 0.2s;
+            color: #888;
+          }
+
+          .technical-details[open] summary::after,
+          .uris-details[open] summary::after {
+            transform: rotate(180deg);
+          }
+
+          .technical-content,
+          .uris-content {
+            padding: 1rem;
+            border-top: 1px solid #333;
+            display: flex;
+            flex-direction: column;
             gap: 1rem;
           }
 
-          .info-item, .metadata-item, .coin-item {
+          .info-item {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
           }
 
-          .info-item label, .metadata-item label, .coin-item label {
-            font-weight: 500;
-            color: #7C7A85;
-            font-size: 14px;
+          .info-item label {
+            font-weight: 600;
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
           }
 
-          .info-value, .metadata-value, .coin-value {
-            font-family: monospace;
-            font-size: 12px;
-            background: #1B1C22;
-            padding: 8px;
+          .info-value {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+            font-size: 0.8125rem;
+            background: #333;
+            padding: 0.75rem;
             border-radius: 6px;
             word-break: break-all;
-            color: #EEEEF0;
-            border: 1px solid #272830;
+            color: #ccc;
+            border: 1px solid #404040;
+            line-height: 1.4;
           }
 
-          .coin-details {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
+          .uri-group {
+            margin-bottom: 1rem;
           }
 
-          .uris-section {
-            margin-top: 1rem;
+          .uri-group:last-child {
+            margin-bottom: 0;
           }
 
-          .uris-section label {
+          .uri-group label {
             display: block;
-            font-weight: 500;
-            color: #7C7A85;
-            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #888;
+            margin-bottom: 0.75rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
           }
 
           .uris-list {
@@ -727,14 +1021,40 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .uri-link {
-            color: #2C64F8;
-            text-decoration: underline;
-            font-size: 14px;
+            color: #6bc36b;
+            text-decoration: none;
+            font-size: 0.8125rem;
             word-break: break-all;
+            padding: 0.5rem 0.75rem;
+            background: #333;
+            border: 1px solid #404040;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
           }
 
           .uri-link:hover {
-            color: #4F7EFF;
+            color: white;
+            background: #404040;
+            border-color: #6bc36b;
+          }
+
+          .info-section, .metadata-section, .coin-section, .offer-info, .transfer-info {
+            margin-bottom: 2rem;
+          }
+
+          .offer-info h3, .transfer-info h3 {
+            margin: 0 0 1rem 0;
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 600;
+          }
+
+          .transfer-info p,
+          .offer-info p {
+            color: #888;
+            margin: 0.5rem 0 0 0;
+            line-height: 1.6;
           }
 
           .error-state {
@@ -755,35 +1075,35 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #EEEEF0;
+            color: white;
           }
 
           .form-hint {
             display: block;
             margin-top: 4px;
             font-size: 12px;
-            color: #7C7A85;
+            color: #888;
           }
 
           .form-input {
             width: 100%;
             padding: 12px 16px;
-            border: 2px solid #272830;
+            border: 2px solid #333;
             border-radius: 8px;
             font-size: 14px;
             transition: border-color 0.2s;
             box-sizing: border-box;
-            background: #1B1C22;
-            color: #EEEEF0;
+            background: #262626;
+            color: white;
           }
 
           .form-input:focus {
             outline: none;
-            border-color: #2C64F8;
+            border-color: #6bc36b;
           }
 
           .form-input::placeholder {
-            color: #7C7A85;
+            color: #666;
           }
 
           .error-message {
@@ -809,7 +1129,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           .create-offer-button, .transfer-button {
             width: 100%;
             padding: 12px 24px;
-            background: #2C64F8;
+            background: #6bc36b;
             color: white;
             border: none;
             border-radius: 8px;
@@ -820,9 +1140,9 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .create-offer-button:hover:not(:disabled), .transfer-button:hover:not(:disabled) {
-            background: #1E4FD9;
+            background: #4a9f4a;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(44, 100, 248, 0.4);
+            box-shadow: 0 4px 12px rgba(107, 195, 107, 0.4);
           }
 
           .create-offer-button:disabled, .transfer-button:disabled {
