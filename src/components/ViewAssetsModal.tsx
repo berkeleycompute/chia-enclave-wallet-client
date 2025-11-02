@@ -55,23 +55,23 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
           height: 8px;
         }
         .nft-grid-container::-webkit-scrollbar-track {
-          background: #14151A;
+          background: #1a1a1a;
           border-radius: 4px;
         }
         .nft-grid-container::-webkit-scrollbar-thumb {
-          background: #272830;
+          background: #333;
           border-radius: 4px;
         }
         .nft-grid-container::-webkit-scrollbar-thumb:hover {
-          background: #2C64F8;
+          background: #6bc36b;
         }
         .nft-grid-container::-webkit-scrollbar-corner {
-          background: #14151A;
+          background: #1a1a1a;
         }
         /* Firefox scrollbar styling */
         .nft-grid-container {
           scrollbar-width: thin;
-          scrollbar-color: #272830 #14151A;
+          scrollbar-color: #333 #1a1a1a;
         }
       `;
       document.head.appendChild(style);
@@ -341,14 +341,14 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
         </div>
       ) : isInitialLoading ? (
         <div className="text-center text-sm" style={{ padding: '40px' }}>
-          <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }}></div>
+          <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#333', borderTopColor: '#6bc36b' }}></div>
           <p>Loading assets...</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           {/* Balance Info */}
           <div className="flex items-center">
-            <div className="flex items-center gap-3 flex-1 rounded-lg py-2.5 self-stretch border" style={{ borderColor: '#272830', padding: '12px' }}>
+            <div className="flex items-center gap-3 flex-1 rounded-lg py-2.5 self-stretch border" style={{ borderColor: '#333', padding: '12px' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path fillRule="evenodd" clipRule="evenodd" d="M13.2019 6.10456C12.8363 6.12729 12.0596 6.21872 11.7577 6.27461C10.8985 6.43363 10.1713 6.68895 9.59736 7.03318C8.89069 7.45698 8.47902 7.78375 7.93465 8.353L7.58269 8.72104L7.32782 9.07199C7.01028 9.50926 6.89933 9.6915 6.68376 10.1297C6.44521 10.6147 6.24284 11.1842 6.1606 11.6021C6.14587 11.6769 6.11801 11.8104 6.09866 11.8988L6.06349 12.0596L6.03837 13.2961L6.15313 13.9884L6.19481 13.9966C6.21772 14.0011 6.28814 13.9611 6.35129 13.9078C6.90817 13.4378 8.17309 12.7935 9.47599 12.3162C9.62284 12.2624 9.81399 12.1913 9.90077 12.1582C10.1277 12.0717 10.9892 11.7816 11.2601 11.7006C11.3869 11.6626 11.6818 11.5743 11.9154 11.5043C12.1491 11.4342 12.5368 11.3226 12.7771 11.2561C13.0174 11.1896 13.3536 11.0956 13.5242 11.0471C13.971 10.9203 14.0169 10.9287 13.6366 11.0677C13.2292 11.2165 12.2937 11.6074 11.8548 11.8122C11.788 11.8434 11.6296 11.9156 11.5028 11.9728C10.8382 12.2724 9.46424 12.9692 8.86916 13.3084C7.38025 14.1572 6.08485 14.9936 4.90052 15.8708C4.50089 16.1668 4.14444 16.4339 4.05096 16.5074C3.99088 16.5546 3.76696 16.7297 3.55336 16.8966C3.33976 17.0634 3.03244 17.3065 2.87041 17.4367C2.70839 17.5669 2.53637 17.7045 2.48811 17.7425C2.43986 17.7805 2.40039 17.8222 2.40039 17.8352C2.40039 17.8746 2.49792 17.8619 2.56656 17.8136C2.6657 17.7439 2.99387 17.5673 3.55336 17.2827C5.19942 16.4454 6.32192 15.997 6.91186 15.9413L7.09058 15.9243L7.37305 16.2184C7.92215 16.79 8.54068 17.2028 9.28996 17.4978C10.5043 17.9759 11.9229 18.0379 13.2869 17.6726C14.0207 17.4761 14.7341 17.1723 15.2992 16.8157C16.7651 15.8907 18.4099 13.7797 20.2126 10.5096C20.3751 10.2148 20.5081 9.969 20.5081 9.96336C20.5081 9.9577 20.6073 9.76487 20.7286 9.53485C21.0386 8.94693 21.6004 7.77861 21.6004 7.7219V7.67454L20.9754 7.46505C20.4264 7.28105 20.148 7.19088 19.7314 7.06209C18.9531 6.82151 17.4213 6.44182 16.6001 6.28594C16.2209 6.21395 15.6567 6.14915 15.0831 6.11169C14.7481 6.0898 13.5148 6.08513 13.2019 6.10456Z" fill="#0E9F6E" />
               </svg>
@@ -365,9 +365,9 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
             <button
               onClick={() => setShowCoinsDetails(!showCoinsDetails)}
               className="rounded-lg border p-3 text-sm font-medium transition-colors flex items-center justify-between"
-              style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#272830'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+              style={{ backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#262626'}
             >
               <span>Coin Details</span>
               <svg 
@@ -386,7 +386,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
 
             {/* Coins Summary - Collapsible */}
             {showCoinsDetails && (
-              <div className="rounded-lg border p-3" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
+              <div className="rounded-lg border p-3" style={{ backgroundColor: '#262626', borderColor: '#333' }}>
                 <div className="flex justify-between items-center text-sm ">
                   <span>Total XCH</span>
                   <span className="text-white font-medium ">{formatXCH(xchAvailableMojos)} XCH</span>
@@ -415,19 +415,19 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     <div
                       key={idx}
                       className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors"
-                      style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#272830'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                      style={{ backgroundColor: '#262626', borderColor: '#333' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#262626'}
                       onClick={() => handleCATClick(cat)}
                     >
-                      <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#272830' }}>
+                      <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#333' }}>
                         <span className="text-2xl">💰</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-white text-sm font-medium truncate">
                           CAT Token
                         </div>
-                        <div style={{ color: '#7C7A85' }} className="text-xs truncate">
+                        <div style={{ color: '#888' }} className="text-xs truncate">
                           {cat.assetId.substring(0, 16)}...
                         </div>
                       </div>
@@ -435,12 +435,12 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                         <div className="text-white text-sm font-medium">
                           {(Number(cat.totalAmount) / 1000).toLocaleString()}
                         </div>
-                        <div style={{ color: '#7C7A85' }} className="text-xs">
+                        <div style={{ color: '#888' }} className="text-xs">
                           {cat.coins.length} coins
                         </div>
                       </div>
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M7 4L13 10L7 16" stroke="#7C7A85" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7 4L13 10L7 16" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
                   ))}
@@ -455,15 +455,15 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   <label className="text-white text-sm font-medium text-left">NFTs</label>
                   {metadataLoading && (
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }}></div>
-                      <span className="text-xs" style={{ color: '#7C7A85' }}>Loading metadata...</span>
+                      <div className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: '#333', borderTopColor: '#6bc36b' }}></div>
+                      <span className="text-xs" style={{ color: '#888' }}>Loading metadata...</span>
                     </div>
                   )}
                 </div>
                 <button
                   className="px-3 py-1 rounded border text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
-                  onMouseEnter={(e) => !metadataLoading && (e.currentTarget.style.backgroundColor = '#1B1C22')}
+                  style={{ backgroundColor: 'transparent', borderColor: '#333', color: 'white' }}
+                  onMouseEnter={(e) => !metadataLoading && (e.currentTarget.style.backgroundColor = '#262626')}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   onClick={refreshNFTs}
                   disabled={metadataLoading}
@@ -480,22 +480,22 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by name, collection, or description"
                   className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
-                  style={{ paddingLeft: '40px', backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                  style={{ paddingLeft: '40px', backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
                 />
               </div>
 
               {filteredNFTs.length === 0 && !coinsLoading ? (
-                <div style={{ color: '#7C7A85' }} className="text-center py-6 text-sm">
+                <div style={{ color: '#888' }} className="text-center py-6 text-sm">
                   {nftCoins.length === 0 ? 'No NFTs in your wallet' : 'No NFTs match your search'}
                 </div>
               ) : (
                 <div 
                   className="nft-grid-container grid gap-3 p-2 rounded border"
                   style={{ 
-                    backgroundColor: '#1B1C22', 
-                    borderColor: '#272830',
+                    backgroundColor: '#262626', 
+                    borderColor: '#333',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
                     maxHeight: '400px',
                     overflowY: 'auto',
@@ -513,15 +513,15 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                         key={idx}
                         className="flex flex-col border rounded transition-colors cursor-pointer overflow-hidden"
                         style={{ 
-                          backgroundColor: '#14151A', 
-                          borderColor: '#272830',
+                          backgroundColor: '#1a1a1a', 
+                          borderColor: '#333',
                           opacity: isLoadingMetadata ? 0.7 : 1
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#14151A'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
                         onClick={() => handleNFTClick(nft)}
                       >
-                        <div className="w-full aspect-square overflow-hidden flex items-center justify-center relative" style={{ backgroundColor: '#272830' }}>
+                        <div className="w-full aspect-square overflow-hidden flex items-center justify-center relative" style={{ backgroundColor: '#333' }}>
                           {imageUrl ? (
                             <img src={imageUrl} alt={nft.name} className="w-full h-full object-cover" />
                           ) : (
@@ -529,7 +529,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                           )}
                           {isLoadingMetadata && (
                             <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                              <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'transparent', borderTopColor: '#2C64F8' }}></div>
+                              <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'transparent', borderTopColor: '#6bc36b' }}></div>
                             </div>
                           )}
                         </div>
@@ -537,10 +537,10 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                           <div className="text-white text-xs font-medium truncate" title={nft.name}>
                             {nft.name}
                             {isLoadingMetadata && (
-                              <span className="ml-1 text-xs" style={{ color: '#7C7A85' }}>...</span>
+                              <span className="ml-1 text-xs" style={{ color: '#888' }}>...</span>
                             )}
                           </div>
-                          <div style={{ color: '#7C7A85' }} className="text-xs truncate" title={nft.collection}>
+                          <div style={{ color: '#888' }} className="text-xs truncate" title={nft.collection}>
                             {nft.collection}
                           </div>
                         </div>
@@ -572,11 +572,11 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
         >
           <div 
             className="rounded-lg shadow-xl max-w-md w-full mx-4"
-            style={{ backgroundColor: '#14151A', border: '1px solid #272830' }}
+            style={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#272830' }}>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#333' }}>
               <h3 className="text-lg font-semibold text-white">
                 {transferType === 'nft' ? 'Transfer NFT' : 'Transfer CAT'}
               </h3>
@@ -597,8 +597,8 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
             {/* Content */}
             <div className="p-4 space-y-4">
               {/* Asset Info */}
-              <div className="flex items-center gap-3 p-3 border rounded" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
-                <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#272830' }}>
+              <div className="flex items-center gap-3 p-3 border rounded" style={{ backgroundColor: '#262626', borderColor: '#333' }}>
+                <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#333' }}>
                   {transferType === 'nft' && selectedNFT ? (() => {
                     const info = extractNFTInfo(selectedNFT);
                     const metadata = info?.onChainMetadata as any;
@@ -620,14 +620,14 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                       return metadata?.name || 'Unnamed NFT';
                     })() : selectedCAT?.name || 'CAT Token'}
                   </div>
-                  <div style={{ color: '#7C7A85' }} className="text-xs truncate">
+                  <div style={{ color: '#888' }} className="text-xs truncate">
                     {transferType === 'nft' && selectedNFT 
                       ? `ID: ${selectedNFT.coinId.substring(0, 16)}...`
                       : `Asset: ${selectedCAT?.assetId.substring(0, 16)}...`
                     }
                   </div>
                   {transferType === 'cat' && selectedCAT && (
-                    <div style={{ color: '#7C7A85' }} className="text-xs">
+                    <div style={{ color: '#888' }} className="text-xs">
                       Available: {(Number(selectedCAT.coins.reduce((sum, c) => sum + BigInt(c.coin.amount), BigInt(0))) / 1000).toLocaleString()} CAT
                     </div>
                   )}
@@ -647,9 +647,9 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     placeholder="0.000"
                     step="0.001"
                     className="w-full px-4 py-2 border rounded text-sm focus:outline-none"
-                    style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                    style={{ backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
                   />
                 </div>
               )}
@@ -665,9 +665,9 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   onChange={(e) => setRecipientAddress(e.target.value)}
                   placeholder="xch1..."
                   className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
-                  style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                  style={{ backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
                 />
               </div>
 
@@ -684,11 +684,11 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   onChange={(e) => setTransferFee(e.target.value)}
                   placeholder="0.0001"
                   className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
-                  style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                  style={{ backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
                 />
-                <p className="text-xs mt-1" style={{ color: '#7C7A85' }}>
+                <p className="text-xs mt-1" style={{ color: '#888' }}>
                   {Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos
                 </p>
               </div>
@@ -704,7 +704,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
               {lastResponse && (
                 <div className="p-3 rounded border" style={{ backgroundColor: '#1a2a1a', borderColor: '#286b28' }}>
                   <p className="text-sm text-green-400">Transfer successful!</p>
-                  <p className="text-xs mt-1" style={{ color: '#7C7A85' }}>TX: {lastResponse.transaction_id?.substring(0, 16)}...</p>
+                  <p className="text-xs mt-1" style={{ color: '#888' }}>TX: {lastResponse.transaction_id?.substring(0, 16)}...</p>
                 </div>
               )}
 
@@ -716,8 +716,8 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     setSelectedNFT(null);
                   }}
                   className="flex-1 px-4 py-2 rounded border text-sm font-medium transition-colors"
-                  style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'}
+                  style={{ backgroundColor: 'transparent', borderColor: '#333', color: 'white' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#262626'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   disabled={isTransferring}
                 >
@@ -726,9 +726,9 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                 <button
                   onClick={handleTransfer}
                   className="flex-1 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#2C64F8', color: 'white' }}
+                  style={{ backgroundColor: '#6bc36b', color: 'white' }}
                   onMouseEnter={(e) => !isTransferring && (e.currentTarget.style.backgroundColor = '#1E4FD9')}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6bc36b'}
                   disabled={isTransferring || !recipientAddress.trim() || (transferType === 'cat' && !transferAmount.trim())}
                 >
                   {isTransferring ? 'Transferring...' : `Transfer ${transferType === 'nft' ? 'NFT' : 'CAT'}`}

@@ -601,8 +601,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             position: relative;
             background: #1a1a1a;
             border-radius: 16px;
-            width: 90%;
-            max-width: 700px;
+            width: 95%;
+            max-width: 900px;
             max-height: 90vh;
             overflow: hidden;
             display: flex;
@@ -655,27 +655,34 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           /* Modal Close Button - Top Right */
           .modal-close-btn {
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: transparent;
-            border: none;
-            color: #888;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            color: white;
             cursor: pointer;
-            font-size: 1.5rem;
-            width: 32px;
-            height: 32px;
+            font-size: 1.75rem;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 6px;
+            border-radius: 8px;
             transition: all 0.2s;
             z-index: 100;
             line-height: 1;
+            font-weight: 300;
           }
 
           .modal-close-btn:hover {
-            background: #333;
+            background: #ef4444;
+            border-color: #ef4444;
             color: white;
+            transform: scale(1.05);
+          }
+
+          .modal-close-btn:active {
+            transform: scale(0.95);
           }
 
           .modal-tabs {
@@ -715,7 +722,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           .modal-body {
             flex: 1;
             min-height: 0;
-            padding: 1.5rem;
+            padding: 2rem;
             overflow-y: auto;
             overflow-x: hidden;
             background: #1a1a1a;
@@ -774,7 +781,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .nft-hero-image {
             max-width: 100%;
-            max-height: 400px;
+            max-height: 500px;
             border-radius: 12px;
             border: 2px solid #333;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -787,7 +794,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .nft-name {
-            font-size: 1.75rem;
+            font-size: 2rem;
             font-weight: 700;
             color: white;
             margin: 0 0 0.75rem 0;
@@ -835,16 +842,16 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           /* Stats Section */
           .nft-stats-section {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
           }
 
           .stat-card {
             background: #262626;
             border: 1px solid #333;
-            border-radius: 8px;
-            padding: 1rem;
+            border-radius: 12px;
+            padding: 1.5rem;
             text-align: center;
             transition: all 0.2s;
           }
@@ -885,8 +892,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
           .attributes-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 1rem;
           }
 
           .attribute-card {
@@ -1155,12 +1162,43 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           /* Responsive */
           @media (max-width: 640px) {
             .nft-details-modal {
-              width: 95%;
-              margin: 1rem;
+              width: 98%;
+              max-width: 100%;
+              margin: 0.5rem;
             }
 
-            .info-grid, .metadata-grid {
+            .modal-body {
+              padding: 1rem;
+            }
+
+            .nft-hero-image {
+              max-height: 300px;
+            }
+
+            .nft-name {
+              font-size: 1.5rem;
+            }
+
+            .nft-stats-section {
               grid-template-columns: 1fr;
+              gap: 1rem;
+            }
+
+            .attributes-grid {
+              grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+              gap: 0.75rem;
+            }
+
+            .modal-close-btn {
+              width: 36px;
+              height: 36px;
+              font-size: 1.5rem;
+            }
+          }
+
+          @media (min-width: 641px) and (max-width: 1024px) {
+            .nft-details-modal {
+              max-width: 750px;
             }
           }
         `}</style>
