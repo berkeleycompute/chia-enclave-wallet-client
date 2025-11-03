@@ -123,11 +123,11 @@ export function convertCoinSpendToSnakeCase(coinSpend: CoinSpend): CoinSpendSnak
  */
 function isValidCoinSnakeCase(coin: any): boolean {
   return coin &&
-         typeof coin.parent_coin_info === 'string' &&
-         typeof coin.puzzle_hash === 'string' &&
-         typeof coin.amount === 'number' &&
-         coin.parent_coin_info.length > 0 &&
-         coin.puzzle_hash.length > 0;
+    typeof coin.parent_coin_info === 'string' &&
+    typeof coin.puzzle_hash === 'string' &&
+    typeof coin.amount === 'number' &&
+    coin.parent_coin_info.length > 0 &&
+    coin.puzzle_hash.length > 0;
 }
 
 /**
@@ -368,6 +368,17 @@ export interface MnemonicResponse {
   success: boolean;
   mnemonic: string;
   warning: string;
+  address: string;
+  email: string;
+  master_public_key: string;
+  private_key: string;
+  puzzle_hash: string;
+  user_id: string;
+  metadata?: {
+    requestId: string;
+    duration: string;
+    functionVersion: string;
+  };
 }
 
 export interface SignedSpendBundleResponse {
@@ -813,6 +824,71 @@ export interface TwinNFTMintResponse {
   timestamp: string;
 }
 
+// Transfer Asset Interfaces
+export interface XchTransfer {
+  target_address: string;
+  amount: number;
+}
+
+export interface CatTransfer {
+  asset_id: string;
+  target_address: string;
+  amount: number;
+}
+
+export interface NftTransfer {
+  launcher_id: string;
+  target_address: string;
+  amount: number; // Should always be 1 for NFTs
+}
+
+export interface MakeUnsignedTransferRequest {
+  synthetic_public_key: string;
+  coin_ids: string[]; // Array of coin IDs to spend
+  xch_transfers?: XchTransfer[];
+  cat_transfers?: CatTransfer[];
+  nft_transfers?: NftTransfer[];
+  fee?: number;
+}
+
+export interface MakeUnsignedTransferResponse {
+  success: boolean;
+  unsigned_spend_bundle?: {
+    coin_spends: CoinSpend[];
+  };
+  signed_spend_bundle?: null; // Unsigned only
+  summary?: {
+    xch_count?: number;
+    cat_count?: number;
+    nft_count?: number;
+    total_fee?: number;
+  };
+  last_spendable_coin_id?: string;
+  error?: string;
+  message?: string;
+}
+
+export interface TransferAssetsRequest {
+  coin_ids: string[];
+  xch_transfers?: XchTransfer[];
+  cat_transfers?: CatTransfer[];
+  nft_transfers?: NftTransfer[];
+  fee?: number;
+}
+
+export interface TransferAssetsResponse {
+  success: boolean;
+  transaction_id: string;
+  status: string;
+  summary?: {
+    xch_count?: number;
+    cat_count?: number;
+    nft_count?: number;
+    total_fee?: number;
+  };
+  message?: string;
+}
+
 // Offer History Interfaces
 export interface OfferCollection {
   blocked: boolean;
@@ -1054,7 +1130,7 @@ export class ChiaCloudWalletClient {
     this.logInfo(`Environment updated to: ${environment}, Base URL: ${this.baseUrl}`);
   }
 
- 
+
 
   /**
    * Convert API format CoinSpend to internal format
@@ -1157,7 +1233,7 @@ export class ChiaCloudWalletClient {
             metadata: { raw: driverInfo.info.metadata }
           };
         }
-      } catch {/* best-effort normalization */}
+      } catch {/* best-effort normalization */ }
 
       // Calculate coinId if not already present
       if (!normalizedCoin.coinId) {
@@ -1237,11 +1313,11 @@ export class ChiaCloudWalletClient {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const result = await response.json();
-        this.logInfo(`Request successful for ${endpoint} with result: ${JSON.stringify(result)}`);
+
         return result;
       } else {
         const result = await response.text() as T;
-        this.logInfo(`Request successful for ${endpoint} with result: ${JSON.stringify(result)}`);
+
         return result;
       }
     } catch (error) {
@@ -1646,7 +1722,7 @@ export class ChiaCloudWalletClient {
    */
   async getUnspentHydratedCoins(address: string): Promise<Result<UnspentHydratedCoinsResponse>> {
     try {
-   
+
       const result = await this.makeRequest<UnspentHydratedCoinsResponse>(`/hydrated_coins_fetcher/hydrated-unspent-coins?address=${address}`, {
         method: 'GET',
       }, true); // Require JWT authentication
@@ -1739,7 +1815,7 @@ export class ChiaCloudWalletClient {
         nftCoinId: normalizedNFTData.coinId?.substring(0, 10) + '...',
         hasNftCoinId: !!normalizedNFTData.coinId
       });
-  
+
       const result = await this.makeRequest<MakeUnsignedNFTOfferResponse>('/make_any_offer/make-offer', {
 
         method: 'POST',
@@ -2665,6 +2741,8 @@ export class ChiaCloudWalletClient {
         };
       }
 
+      this.logInfo(`🔍 Processing ${hydratedResult.data.data.length} hydrated coins for categorization`);
+
       let totalBalance = 0;
       const xchCoins: HydratedCoin[] = [];
       const catCoins: HydratedCoin[] = [];
@@ -2676,18 +2754,42 @@ export class ChiaCloudWalletClient {
 
           // Categorize coins by type
           const driverInfo = hydratedCoin.parentSpendInfo.driverInfo;
+
+          // Debug logging for coin categorization
+          if (this.enableLogging) {
+            console.log('🪙 Coin details:', {
+              coinId: hydratedCoin.coinId.substring(0, 16) + '...',
+              amount: hydratedCoin.coin.amount,
+              hasParentSpendInfo: !!hydratedCoin.parentSpendInfo,
+              hasDriverInfo: !!driverInfo,
+              driverType: driverInfo?.type,
+              assetInfo: driverInfo?.info
+            });
+          }
+
           if (driverInfo?.type === 'CAT') {
             catCoins.push(hydratedCoin);
+            this.logInfo(`✅ Categorized as CAT: ${driverInfo.assetId || 'unknown'}`);
           } else if (driverInfo?.type === 'NFT') {
             nftCoins.push(hydratedCoin);
+            this.logInfo(`✅ Categorized as NFT: ${driverInfo.info?.launcherId || 'unknown'}`);
           } else {
             xchCoins.push(hydratedCoin);
+            this.logInfo('✅ Categorized as XCH');
           }
         } catch (error) {
           this.logError(`Invalid coin amount in enhanced balance calculation: ${hydratedCoin.coin.amount}`, error);
           // Continue with other coins instead of failing entirely
         }
       }
+
+      this.logInfo(`📊 Categorization complete:`, {
+        totalCoins: hydratedResult.data.data.length,
+        xchCoins: xchCoins.length,
+        catCoins: catCoins.length,
+        nftCoins: nftCoins.length,
+        totalBalance: `${totalBalance} mojos`
+      });
 
       return {
         success: true,
@@ -2976,16 +3078,16 @@ export class ChiaCloudWalletClient {
 
       // Use the NFT offers API endpoint
       const endpoint = `/nft-offers/offers/${address}`;
-      
-      this.logInfo('Fetching offer history', { 
-        address: address.substring(0, 16) + '...' 
+
+      this.logInfo('Fetching offer history', {
+        address: address.substring(0, 16) + '...'
       });
 
       const result = await this.makeRequest<GetOfferHistoryResponse>(
-        endpoint, 
+        endpoint,
         {
           method: 'GET',
-        }, 
+        },
         true // Require JWT authentication
       );
 
@@ -3003,6 +3105,204 @@ export class ChiaCloudWalletClient {
         details: error
       };
     }
+  }
+
+  /**
+   * Create an unsigned transfer transaction for XCH, CATs, and/or NFTs
+   * @param request - The transfer request with coin IDs and transfer details
+   */
+  async createUnsignedTransfer(request: MakeUnsignedTransferRequest): Promise<Result<MakeUnsignedTransferResponse>> {
+    try {
+      // Validate required fields
+      if (!request.synthetic_public_key || request.synthetic_public_key.trim() === '') {
+        throw new ChiaCloudWalletApiError('Synthetic public key is required');
+      }
+
+      if (!request.coin_ids || request.coin_ids.length === 0) {
+        throw new ChiaCloudWalletApiError('At least one coin ID is required');
+      }
+
+      // Validate at least one transfer type is provided
+      if (!request.xch_transfers?.length && !request.cat_transfers?.length && !request.nft_transfers?.length) {
+        throw new ChiaCloudWalletApiError('At least one transfer (XCH, CAT, or NFT) must be specified');
+      }
+
+      this.logInfo('Creating unsigned transfer', {
+        publicKey: request.synthetic_public_key.substring(0, 10) + '...',
+        coinCount: request.coin_ids.length,
+        xchCount: request.xch_transfers?.length || 0,
+        catCount: request.cat_transfers?.length || 0,
+        nftCount: request.nft_transfers?.length || 0,
+        fee: request.fee || 0
+      });
+
+      const endpoint = '/make_unsigned_transfer/transfer';
+      const result = await this.makeRequest<MakeUnsignedTransferResponse>(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, true); // Require JWT authentication
+
+      if (!result.success) {
+        throw new ChiaCloudWalletApiError(result.error || 'Failed to create unsigned transfer');
+      }
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create unsigned transfer',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Transfer assets (XCH, CATs, and/or NFTs) - complete flow with signing and broadcasting
+   * @param request - The transfer request without synthetic public key (uses authenticated wallet)
+   */
+  async transferAssets(request: TransferAssetsRequest): Promise<Result<TransferAssetsResponse>> {
+    try {
+      // Get synthetic public key from authenticated user
+      const publicKeyResult = await this.getPublicKey();
+      if (!publicKeyResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to get public key: ${publicKeyResult.error}`);
+      }
+
+      this.logInfo('Starting asset transfer - Step 1: Creating unsigned transfer');
+
+      // Step 1: Create unsigned transfer
+      const unsignedResult = await this.createUnsignedTransfer({
+        synthetic_public_key: publicKeyResult.data.synthetic_public_key,
+        coin_ids: request.coin_ids,
+        xch_transfers: request.xch_transfers,
+        cat_transfers: request.cat_transfers,
+        nft_transfers: request.nft_transfers,
+        fee: request.fee
+      });
+
+      if (!unsignedResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to create unsigned transfer: ${unsignedResult.error}`);
+      }
+
+      this.logInfo('Asset transfer - Step 2: Signing spend bundle');
+
+      // Step 2: Sign the spend bundle
+      const signResult = await this.signSpendBundle({
+        coin_spends: unsignedResult.data.unsigned_spend_bundle!.coin_spends
+      });
+
+      if (!signResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to sign spend bundle: ${signResult.error}`);
+      }
+
+      this.logInfo('Asset transfer - Step 3: Broadcasting signed transaction');
+
+      // Step 3: Broadcast the signed spend bundle
+      const broadcastResult = await this.broadcastSpendBundle({
+        coin_spends: convertCoinSpendsToSnakeCase(signResult.data.signed_spend_bundle.coin_spends),
+        aggregated_signature: signResult.data.signed_spend_bundle.aggregated_signature
+      });
+
+      if (!broadcastResult.success) {
+        throw new ChiaCloudWalletApiError(`Failed to broadcast transfer: ${broadcastResult.error}`);
+      }
+
+      this.logInfo('Asset transfer completed successfully', {
+        transactionId: broadcastResult.data.transaction_id,
+        status: broadcastResult.data.status
+      });
+
+      // Return result in TransferAssetsResponse format
+      return {
+        success: true,
+        data: {
+          success: true,
+          transaction_id: broadcastResult.data.transaction_id,
+          status: broadcastResult.data.status,
+          summary: unsignedResult.data.summary,
+          message: `Transfer successful. Transaction ID: ${broadcastResult.data.transaction_id}`
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to transfer assets',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Transfer XCH to a single recipient
+   * @param coinIds - Array of XCH coin IDs to spend
+   * @param recipientAddress - Recipient Chia address
+   * @param amount - Amount in mojos
+   * @param fee - Transaction fee in mojos (optional)
+   */
+  async transferXCH(
+    coinIds: string[],
+    recipientAddress: string,
+    amount: number,
+    fee?: number
+  ): Promise<Result<TransferAssetsResponse>> {
+    return this.transferAssets({
+      coin_ids: coinIds,
+      xch_transfers: [{
+        target_address: recipientAddress,
+        amount
+      }],
+      fee
+    });
+  }
+
+  /**
+   * Transfer a CAT token to a recipient
+   * @param coinIds - Array of CAT coin IDs to spend
+   * @param assetId - CAT asset ID
+   * @param recipientAddress - Recipient Chia address
+   * @param amount - Amount in CAT token units
+   * @param fee - Transaction fee in mojos (optional)
+   */
+  async transferCAT(
+    coinIds: string[],
+    assetId: string,
+    recipientAddress: string,
+    amount: number,
+    fee?: number
+  ): Promise<Result<TransferAssetsResponse>> {
+    return this.transferAssets({
+      coin_ids: coinIds,
+      cat_transfers: [{
+        asset_id: assetId,
+        target_address: recipientAddress,
+        amount
+      }],
+      fee
+    });
+  }
+
+  /**
+   * Transfer an NFT to a recipient
+   * @param coinId - NFT coin ID
+   * @param launcherId - NFT launcher ID
+   * @param recipientAddress - Recipient Chia address
+   * @param fee - Transaction fee in mojos (optional)
+   */
+  async transferNFT(
+    coinId: string,
+    launcherId: string,
+    recipientAddress: string,
+    fee?: number
+  ): Promise<Result<TransferAssetsResponse>> {
+    return this.transferAssets({
+      coin_ids: [coinId],
+      nft_transfers: [{
+        launcher_id: launcherId,
+        target_address: recipientAddress,
+        amount: 1 // NFTs always have amount 1
+      }],
+      fee
+    });
   }
 }
 

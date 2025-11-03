@@ -2,17 +2,22 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { PiKey, PiWarning, PiCopy, PiCheck } from 'react-icons/pi';
 import { useWalletConnection, useWalletState } from '../hooks/useChiaWalletSDK';
 import { useMnemonic } from '../hooks/useWalletInfo';
+import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
 
 interface ExportPrivateKeyModalProps {
   isOpen: boolean;
+  onClose?: () => void;
 }
 
 export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ isOpen }) => {
   const { address } = useWalletConnection();
   const walletState = useWalletState();
   const { syntheticPublicKey } = walletState;
+  const sdk = useChiaWalletSDK();
 
-  const { exportMnemonic, loading: exportingMnemonic } = useMnemonic();
+  const { exportMnemonic, loading: exportingMnemonic } = useMnemonic({ 
+    client: sdk.client 
+  });
 
   const [ackRisks, setAckRisks] = useState(false);
   const [step, setStep] = useState<'confirm' | 'loading' | 'info'>('confirm');
@@ -35,16 +40,16 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
   const doExport = useCallback(async () => {
     setStep('loading');
     try {
-      // Public key shown as the address (matches existing UI pattern)
-      setPublicKeyValue(address || '');
-      // Placeholder for private key (no direct API) - show syntheticPublicKey or address for UX parity
-      setPrivateKeyValue(syntheticPublicKey || address || '');
-      const phrase = await exportMnemonic();
-      if (phrase) setMnemonicValue(phrase);
+      const result = await exportMnemonic();
+      if (result) {
+        setPublicKeyValue(result.publicKey || result.address);
+        setPrivateKeyValue(result.privateKey);
+        setMnemonicValue(result.mnemonic);
+      }
     } finally {
       setStep('info');
     }
-  }, [address, syntheticPublicKey, exportMnemonic]);
+  }, [exportMnemonic]);
 
   const copy = useCallback(async (text: string, which: 'public' | 'private' | 'mnemonic') => {
     try {

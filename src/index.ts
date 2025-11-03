@@ -32,10 +32,28 @@ export {
 // Export providers
 export { ChiaWalletSDKProvider } from './providers/ChiaWalletSDKProvider';
 
+// Export utility functions
+export { 
+  convertIpfsUrl, 
+  extractIpfsCid, 
+  isIpfsUrl, 
+  convertIpfsUrls,
+  getBestImageUrl
+} from './utils/ipfs';
+
 // Export hooks
 export { useChiaWallet } from './hooks/useChiaWallet';
 export { useBalance } from './hooks/useBalance';
-export { useWalletInfo } from './hooks/useWalletInfo';
+export { 
+  useWalletInfo, 
+  useMnemonic, 
+  useAddressValidation,
+  type WalletInfo,
+  type AddressValidation,
+  type ExportMnemonicData,
+  type UseWalletInfoConfig,
+  type UseAddressValidationConfig
+} from './hooks/useWalletInfo';
 export { useNFTs } from './hooks/useNFTs';
 export { useChiaUtils } from './hooks/useChiaUtils';
 export { useChiaTransactions } from './hooks/useChiaTransactions';
@@ -43,9 +61,11 @@ export { useHydratedCoins } from './hooks/useHydratedCoins';
 export { useMintNFT, useNFTMintMetadata } from './hooks/useMintNFT';
 export { useChiaNFTMint, useChiaNFTMetadata, encodeLauncherIdAsNftAddress } from './hooks/useChiaNFTMint';
 export { useTwinNFTMint } from './hooks/useTwinNFTMint';
+export { useTransferAssets } from './hooks/useTransferAssets';
 export { useUploadFile } from './hooks/useUploadFile';
 export { useOfferHistory, useActiveOffers, useCompletedOffers, OFFER_STATUS } from './hooks/useOfferHistory';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
+export { useCATMetadata, getAssetColorFromId, getCATInitials } from './hooks/useCATMetadata';
 export {
   // Core wallet hooks
   useWalletState,
@@ -79,8 +99,8 @@ export { HydratedCoinsProvider } from './components/HydratedCoinsProvider';
 export { SendFundsModal } from './components/SendFundsModal';
 export { ReceiveFundsModal } from './components/ReceiveFundsModal';
 export { MakeOfferModal } from './components/MakeOfferModal';
-export { ActiveOffersModal } from './components/ActiveOffersModal';
-export { NFTDetailsModal } from './components/NFTDetailsModal';
+export { ActiveOffersModal, type ActiveOffersModalRef } from './components/ActiveOffersModal';
+export { NFTDetailsModal, type NFTDetailsModalRef } from './components/NFTDetailsModal';
 export { ViewAssetsModal } from './components/ViewAssetsModal';
 export { TransactionsModal } from './components/TransactionsModal';
 export { TakeOfferWidget } from './components/TakeOfferWidget';
@@ -92,6 +112,7 @@ export {
   StreamlinedChiaNFTMintForm
 } from './examples/ChiaNFTMintExample';
 export { TwinNFTMintExample } from './examples/TwinNFTMintExample';
+export { TransferAssetsExample } from './examples/TransferAssetsExample';
 export { OfferHistoryExample, SimpleOfferHistoryExample } from './examples/OfferHistoryExample';
 
 // Export dialog hooks from GlobalDialogProvider
@@ -152,6 +173,15 @@ export type {
   TwinNFTSignedSpendBundle,
   TwinNFTEVMNFT,
 
+  // Transfer Asset types
+  XchTransfer,
+  CatTransfer,
+  NftTransfer,
+  MakeUnsignedTransferRequest,
+  MakeUnsignedTransferResponse,
+  TransferAssetsRequest,
+  TransferAssetsResponse,
+
   // Offer History types
   GetOfferHistoryResponse,
   OfferHistoryItem,
@@ -203,6 +233,13 @@ export type {
   UseTwinNFTMintResult
 } from './hooks/useTwinNFTMint';
 
+// Export Transfer Assets hook types
+export type {
+  TransferRecord,
+  UseTransferAssetsConfig,
+  UseTransferAssetsResult
+} from './hooks/useTransferAssets';
+
 // Export Chia NFT mint service types
 export type {
   ChiaNFTMintRequest,
@@ -224,7 +261,7 @@ export type {
   UseDIDsConfig,
   UseDIDsResult
 } from './hooks/useDIDs';
-export type { DIDInfo } from './client/ChiaCloudWalletClient';
+export type { DIDInfo, MnemonicResponse } from './client/ChiaCloudWalletClient';
 
 // Export Offer History hook types
 export type {
@@ -232,6 +269,12 @@ export type {
   UseOfferHistoryResult,
   OfferStatus
 } from './hooks/useOfferHistory';
+
+// Export CAT Metadata hook types
+export type {
+  CATMetadata,
+  CATMetadataMap
+} from './hooks/useCATMetadata';
 
 
 export { NFTMintDebugger } from './examples/NFTMintDebugger';

@@ -7,11 +7,11 @@ import {
   useWalletState,
   useNFTOffers
 } from '../hooks/useChiaWalletSDK';
-import { useSpacescanNFTs, type SpacescanNFT } from '../client/SpacescanClient';
 import { injectModalStyles } from './modal-styles';
 import { PiInfo } from 'react-icons/pi';
 import { SavedOffer } from './types';
 import { Selector, type SelectorItem } from './Selector';
+import { convertIpfsUrl } from '../utils/ipfs';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -40,36 +40,26 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const { syntheticPublicKey } = walletState;
   const { createNFTOffer, isCreatingOffer } = useNFTOffers();
 
-  // Use Spacescan to get additional metadata for NFTs
-  const {
-    nfts: spacescanNfts,
-    loading: nftsLoading,
-    error: nftsError
-  } = useSpacescanNFTs(address);
-
-  /* console.log('spacescanNfts', spacescanNfts);
-  console.log('nftCoins', nftCoins);
-  console.log('hydratedCoins', hydratedCoins); */
-
   // Inject shared modal styles
   React.useEffect(() => {
     injectModalStyles();
   }, []);
 
-  // Local NFT metadata state (similar to ChiaWalletModal pattern)
+  // Local NFT metadata state - we'll fetch metadata directly from metadataUris
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
   const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
 
   // wUSDC.b asset ID
   const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
 
-  const [selectedNft, setSelectedNft] = useState<EnrichedNftCoin | null>(null);
+  const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
   const [offerAmount, setOfferAmount] = useState(initialOfferAmount || '');
   const [depositAddress, setDepositAddress] = useState(initialDepositAddress || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const hasRefreshedOnOpen = useRef(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Handle modal opening/closing and initial setup
   useEffect(() => {
@@ -79,8 +69,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setError(null);
 
       if (initialSelectedNft) {
-        const enrichedInitialNft = enrichNftWithSpacescanData(initialSelectedNft);
-        setSelectedNft(enrichedInitialNft);
+        setSelectedNft(initialSelectedNft);
+        // Load metadata for the initial NFT
+        loadNftMetadata(initialSelectedNft);
       }
 
       if (!hasRefreshedOnOpen.current) {
@@ -92,15 +83,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     }
   }, [isOpen, initialSelectedNft, initialOfferAmount, initialDepositAddress, address]);
 
-  // Separate effect for spacescan data updates
-  useEffect(() => {
-    if (isOpen && initialSelectedNft && spacescanNfts) {
-      console.log('🔄 Spacescan data updated, re-enriching initial NFT');
-      const enrichedInitialNft = enrichNftWithSpacescanData(initialSelectedNft);
-      setSelectedNft(enrichedInitialNft);
-    }
-  }, [spacescanNfts, isOpen, initialSelectedNft]);
-
   // Helper function to get launcher ID from HydratedCoin
   const getLauncherId = (nft: HydratedCoin): string | null => {
     const driverInfo = nft.parentSpendInfo.driverInfo;
@@ -110,46 +92,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return null;
   };
 
-  // Type for enriched NFT coin
-  type EnrichedNftCoin = HydratedCoin & { spacescanData?: SpacescanNFT };
-
-  // Helper function to convert launcher ID to bech32 NFT ID
-  const launcherIdToNftId = (launcherId: string): string => {
-    try {
-      // Remove '0x' prefix if present and ensure lowercase
-      const cleanLauncherId = launcherId.replace(/^0x/, '').toLowerCase();
-
-      // Convert hex string to Uint8Array
-      const bytes = new Uint8Array(cleanLauncherId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
-
-      // Use bech32.toWords to convert to 5-bit words, then encode
-      const words = bech32m.toWords(bytes);
-      return bech32m.encode("nft", words);
-    } catch (error) {
-      console.error('Error converting launcher ID to NFT ID:', error, 'launcher ID:', launcherId);
-      return '';
-    }
-  };
-
-  // Helper function to enrich HydratedCoin with Spacescan metadata
-  const enrichNftWithSpacescanData = (nft: HydratedCoin): EnrichedNftCoin => {
-    const launcherId = getLauncherId(nft);
-    if (launcherId && spacescanNfts) {
-      const nftId = launcherIdToNftId(launcherId);
-      if (nftId) {
-        const spacescanNft = spacescanNfts.find(sNft => sNft.nft_id === nftId);
-        if (spacescanNft) {
-          return { ...nft, spacescanData: spacescanNft };
-        }
-      }
-    }
-    return nft;
-  };
-
-  // Use NFT coins from wallet as the primary NFT source, enriched with Spacescan data
+  // Use NFT coins from wallet directly - metadata will be fetched from metadataUris
   const nftCoinsToDisplay = useMemo(() => {
-    return nftCoins.map(enrichNftWithSpacescanData);
-  }, [nftCoins, spacescanNfts]);
+    return nftCoins;
+  }, [nftCoins]);
 
   // Auto-populate deposit address with main wallet address
   useEffect(() => {
@@ -172,8 +118,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         cache: 'default', // Use browser caching
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json, */*',
-          'User-Agent': 'Chia-Wallet-Client/1.0'
+          'Accept': 'application/json, */*'
         }
       });
 
@@ -290,11 +235,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   // Load metadata for all NFT coins when they change
   useEffect(() => {
     if (nftCoinsToDisplay.length > 0) {
-      nftCoinsToDisplay.forEach((nft: EnrichedNftCoin) => {
-        // Load metadata if we don't have Spacescan data
-        if (!nft.spacescanData) {
-          loadNftMetadata(nft);
-        }
+      nftCoinsToDisplay.forEach((nft: HydratedCoin) => {
+        // Always load metadata from metadataUris
+        loadNftMetadata(nft);
       });
     }
   }, [nftCoinsToDisplay, loadNftMetadata]);
@@ -305,28 +248,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   };
 
-  const convertIpfsUrl = (url: string): string => {
-    if (!url) return url;
-
-    if (url.startsWith('ipfs://')) {
-      const hash = url.replace('ipfs://', '');
-      return `https://ipfs.io/ipfs/${hash}`;
-    }
-
-    if (!url.startsWith('http') && url.length > 40) {
-      return `https://ipfs.io/ipfs/${url}`;
-    }
-
-    return url;
-  };
-
-  const getNftMetadata = (nft: EnrichedNftCoin): any => {
-    // Prioritize Spacescan metadata if available
-    if (nft.spacescanData?.metadata) {
-      return nft.spacescanData.metadata;
-    }
-
-    // Fall back to cached metadata from HydratedCoin
+  const getNftMetadata = (nft: HydratedCoin): any => {
+    // Get metadata from the downloaded JSON (from metadataUris)
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return null;
@@ -337,13 +260,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return nftMetadata.get(cacheKey);
   };
 
-  const isNftMetadataLoading = (nft: EnrichedNftCoin): boolean => {
-    // If we have Spacescan data, no loading needed
-    if (nft.spacescanData) {
-      return false;
-    }
-
-    // Check if HydratedCoin metadata is loading
+  const isNftMetadataLoading = (nft: HydratedCoin): boolean => {
+    // Check if metadata is loading
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type !== 'NFT' || !driverInfo.info?.metadata?.metadataUris || driverInfo.info.metadata.metadataUris.length === 0) {
       return false;
@@ -354,25 +272,14 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return loadingMetadata.has(cacheKey);
   };
 
-  const getNftDisplayName = (nft: EnrichedNftCoin): string => {
-    // Prioritize Spacescan data if available
-    if (nft.spacescanData) {
-      if (nft.spacescanData.name) {
-        return nft.spacescanData.name;
-      }
-      // Check for edition info from Spacescan
-      if (nft.spacescanData.edition_number && nft.spacescanData.edition_total) {
-        return `NFT Edition ${nft.spacescanData.edition_number}/${nft.spacescanData.edition_total}`;
-      }
-      return nft.spacescanData.nft_id.slice(0, 16) + '...';
-    }
-
-    // Fall back to metadata from HydratedCoin
+  const getNftDisplayName = (nft: HydratedCoin): string => {
+    // Get name from downloaded metadata
     const metadata = getNftMetadata(nft);
     if (metadata?.name) {
       return metadata.name;
     }
 
+    // Fall back to on-chain metadata
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const onChainMetadata = driverInfo.info?.metadata;
@@ -385,24 +292,14 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return 'Unknown NFT';
   };
 
-  const getNftCollectionName = (nft: EnrichedNftCoin): string => {
-    // Prioritize Spacescan data if available
-    if (nft.spacescanData) {
-      if (nft.spacescanData.collection_name) {
-        return nft.spacescanData.collection_name;
-      }
-      if (nft.spacescanData.collection_id) {
-        return nft.spacescanData.collection_id;
-      }
-      return nft.spacescanData.nft_id.slice(0, 16) + '...';
-    }
-
-    // Fall back to metadata from HydratedCoin
+  const getNftCollectionName = (nft: HydratedCoin): string => {
+    // Get collection name from downloaded metadata
     const metadata = getNftMetadata(nft);
     if (metadata?.collection?.name) {
       return metadata.collection.name;
     }
 
+    // Fall back to launcher ID
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'NFT') {
       const launcherId = driverInfo.info?.launcherId || 'Unknown';
@@ -411,19 +308,18 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return 'Unknown Collection';
   };
 
-  const getNftEditionInfo = (nft: EnrichedNftCoin): string | undefined => {
-    // Prioritize Spacescan data if available
-    if (nft.spacescanData) {
-      if (nft.spacescanData.edition_number && nft.spacescanData.edition_total) {
-        return `#${nft.spacescanData.edition_number} of ${nft.spacescanData.edition_total}`;
-      }
-    }
-
-    // Fall back to metadata from HydratedCoin
+  const getNftEditionInfo = (nft: HydratedCoin): string | undefined => {
+    // Get edition info from downloaded metadata
     const metadata = getNftMetadata(nft);
     if (metadata?.series_number && metadata?.series_total) {
       return `#${metadata.series_number} of ${metadata.series_total}`;
     }
+    
+    // Also check for edition_number/edition_total (alternate field names)
+    if (metadata?.edition_number && metadata?.edition_total) {
+      return `#${metadata.edition_number} of ${metadata.edition_total}`;
+    }
+    
     return undefined;
   };
 
@@ -433,20 +329,29 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     return `chia_active_offers_${pubKey.substring(0, 16)}`;
   }, []);
 
-  const getNftImageUrl = useCallback((nft: EnrichedNftCoin): string | undefined => {
-    // Prioritize Spacescan thumbnail if available
-    if (nft.spacescanData) {
-      return `https://edgedev.silicon.net/v1/spacescan/mintgarden/nfts/${nft.spacescanData.nft_id}/thumbnail`;
-    }
-
-    // Fall back to metadata from HydratedCoin
+  const getNftImageUrl = useCallback((nft: HydratedCoin): string | undefined => {
+    // Get image from downloaded metadata
     const metadata = getNftMetadata(nft);
+    
+    // Try common image field names from the metadata JSON
+    if (metadata?.image) {
+      return convertIpfsUrl(metadata.image);
+    }
+    
     if (metadata?.data_uris && metadata.data_uris.length > 0) {
-      return metadata.data_uris[0];
+      return convertIpfsUrl(metadata.data_uris[0]);
     }
+    
+    // Also check on-chain data URIs as fallback
+    const driverInfo = nft.parentSpendInfo.driverInfo;
+    if (driverInfo?.type === 'NFT' && driverInfo.info?.metadata?.dataUris && driverInfo.info.metadata.dataUris.length > 0) {
+      return convertIpfsUrl(driverInfo.info.metadata.dataUris[0]);
+    }
+    
     if (metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value) {
-      return metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value;
+      return convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value);
     }
+    
     return undefined;
   }, [getNftMetadata]);
 
@@ -512,7 +417,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   }, [address, getOffersStorageKey, getNftMetadata, getNftDisplayName, getNftCollectionName, getNftEditionInfo, getNftImageUrl]);
 
   // Event handlers
-  const selectNft = (nft: EnrichedNftCoin) => {
+  const selectNft = (nft: HydratedCoin) => {
     setSelectedNft(nft);
   };
 
@@ -619,9 +524,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     setError(null);
 
     try {
-      // Extract the base HydratedCoin from the enriched NFT for the API call
-      const { spacescanData, ...baseNft } = selectedNft;
-
       // Use the SDK hook to create the offer
       const simpleOfferRequest: SimpleMakeUnsignedNFTOfferRequest = {
         requested_payments: {
@@ -631,7 +533,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
             amount: parseFloat(offerAmount)
           }]
         },
-        nft_json: baseNft
+        nft_json: selectedNft
       };
 
       // Create the offer using the hook
@@ -644,9 +546,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       // Submit to Dexie API and capture the response
       const dexieResult = await submitOfferToDexie(result.data.signed_offer);
 
-      // Prepare the offer data using the base NFT, including Dexie data
+      // Prepare the offer data including Dexie data
       const offerData = {
-        nft: baseNft,
+        nft: selectedNft,
         amount: parseFloat(offerAmount),
         depositAddress: depositAddress,
         wusdcAssetId: WUSDC_ASSET_ID,
@@ -678,7 +580,14 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         dexieError: dexieResult.error
       });
 
-      closeModal();
+      // Show success message
+      setSuccessMessage('Offer created successfully! Your offer has been submitted to the marketplace.');
+      
+      // Close modal after showing success message for 2 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+        closeModal();
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create offer');
       console.error('Error creating offer:', err);
@@ -753,12 +662,21 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         </div>
       )}
 
+      {successMessage && (
+        <div className="p-3 rounded border text-green-400 bg-green-500/10 text-sm my-2 flex items-center gap-2" style={{ borderColor: '#22c55e' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <span>{successMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
         {/* Select GPU */}
         <div className="flex flex-col gap-1">
           <label className="text-white text-sm font-medium text-left">Select GPU</label>
           {(() => {
-            const idForNft = (n: EnrichedNftCoin) => getLauncherId(n) || (n.spacescanData?.nft_id) || `${n.coin.parentCoinInfo}_${n.coin.puzzleHash}`;
+            const idForNft = (n: HydratedCoin) => getLauncherId(n) || `${n.coin.parentCoinInfo}_${n.coin.puzzleHash}`;
             const items: SelectorItem[] = nftCoinsToDisplay.map((n) => ({ id: idForNft(n), label: getNftDisplayName(n) }));
             const selectedId = selectedNft ? idForNft(selectedNft) : null;
             return (
