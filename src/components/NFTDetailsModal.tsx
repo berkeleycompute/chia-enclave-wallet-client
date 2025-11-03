@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { injectModalStyles } from './modal-styles';
 import { useNFTOffers, useWalletConnection } from '../hooks/useChiaWalletSDK';
 import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
@@ -12,14 +12,21 @@ interface NFTDetailsModalProps {
   // New: closes the entire wallet modal (parent)
   onCloseWallet?: () => void;
   nft: HydratedCoin | null;
+  // Show back to assets button when coming from ViewAssetsModal
+  showBackToAssets?: boolean;
 }
 
-export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
+export interface NFTDetailsModalRef {
+  handleBack: () => boolean; // Returns true if handled, false if parent should close
+}
+
+export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalProps>(({
   isOpen,
   onClose,
   onCloseWallet,
   nft,
-}) => {
+  showBackToAssets = false,
+}, ref) => {
   // Ensure shared modal styles are available
   useEffect(() => {
     injectModalStyles();
@@ -147,6 +154,29 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
 
     loadMetadata();
   }, [isOpen, nft, fetchNftMetadata]);
+
+  // Reset to details tab when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveTab('details');
+    }
+  }, [isOpen]);
+
+  // Expose handleBack method to parent components via ref
+  useImperativeHandle(ref, () => ({
+    handleBack: () => {
+      if (activeTab !== 'details') {
+        setActiveTab('details');
+        return true; // Handled internally - went back to details tab
+      }
+      // If we're showing the "Back to Assets" button, close this modal (return to assets)
+      if (showBackToAssets) {
+        onClose();
+        return true; // Handled - closing to show assets
+      }
+      return false; // Not handled - parent should close modal completely
+    }
+  }), [activeTab, showBackToAssets, onClose]);
 
   const handleCreateOffer = async () => {
     if (!nft || !offerPrice.trim()) {
@@ -288,22 +318,72 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           overflowX: 'hidden'
         }}
       >
-          <div className="modal-tabs">
+          <div className="flex gap-2 px-4 pt-4 border-b" style={{ borderColor: '#272830' }}>
             <button
-              className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === 'details' 
+                  ? 'text-white' 
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
               onClick={() => setActiveTab('details')}
+              style={{
+                background: 'none',
+                border: 'none',
+              }}
             >
-              📋 Details
+              <span className="flex items-center gap-2">
+                <span>📋</span>
+                <span>Details</span>
+              </span>
+              {activeTab === 'details' && (
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-0.5"
+                  style={{ backgroundColor: '#2C64F8' }}
+                />
+              )}
             </button>
            
             <button
-              className={`tab-button ${activeTab === 'transfer' ? 'active' : ''}`}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === 'transfer' 
+                  ? 'text-white' 
+                  : 'text-gray-400 hover:text-gray-300'
+              } ${!isConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={() => setActiveTab('transfer')}
               disabled={!isConnected}
+              style={{
+                background: 'none',
+                border: 'none',
+              }}
             >
-              📤 Transfer
+              <span className="flex items-center gap-2">
+                <span>📤</span>
+                <span>Transfer</span>
+              </span>
+              {activeTab === 'transfer' && (
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-0.5"
+                  style={{ backgroundColor: '#2C64F8' }}
+                />
+              )}
             </button>
           </div>
+
+          {/* Back to Assets button */}
+          {showBackToAssets && (
+            <div className="px-4 pt-3">
+              <button
+                onClick={onClose}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
+                style={{ background: 'none', border: 'none', padding: '0' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12.5 5L7.5 10L12.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="font-medium">Back to Assets</span>
+              </button>
+            </div>
+          )}
 
           <div className="modal-body">
             {activeTab === 'details' && (
@@ -1381,4 +1461,6 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
         `}</style>
     </>
   );
-}; 
+});
+
+NFTDetailsModal.displayName = 'NFTDetailsModal';

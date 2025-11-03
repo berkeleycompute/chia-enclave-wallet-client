@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
@@ -13,13 +13,17 @@ interface ActiveOffersModalProps {
   onEditOffer?: (offer: SavedOffer) => void;
 }
 
-export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
+export interface ActiveOffersModalRef {
+  handleBack: () => boolean; // Returns true if handled, false if parent should close
+}
+
+export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersModalProps>(({
   isOpen,
   onClose,
   onOfferUpdate,
   onCreateOffer,
   onEditOffer
-}) => {
+}, ref) => {
   // Get wallet state from hook (using same pattern as other modals)
   const { address, isConnected } = useWalletConnection();
 
@@ -188,6 +192,25 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
     }
   }, [isOpen, address, activeOffers.length, loading, loadActiveOffers]);
 
+  // Reset details view when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setShowOfferDetails(false);
+      setSelectedOffer(null);
+    }
+  }, [isOpen]);
+
+  // Expose handleBack method to parent components via ref
+  useImperativeHandle(ref, () => ({
+    handleBack: () => {
+      if (showOfferDetails) {
+        closeOfferDetails();
+        return true; // Handled internally - went back to list
+      }
+      return false; // Not handled - parent should close modal
+    }
+  }), [showOfferDetails]);
+
   const handleCreateOffer = () => {
     onClose();
     onCreateOffer?.();
@@ -204,13 +227,21 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      if (showOfferDetails) {
+        closeOfferDetails();
+      } else {
+        onClose();
+      }
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
-      onClose();
+      if (showOfferDetails) {
+        closeOfferDetails();
+      } else {
+        onClose();
+      }
     }
   };
 
@@ -228,63 +259,165 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
 
   if (showOfferDetails && selectedOffer) {
     return (
-      <>
-        <div className="px-6 pb-4">
-          <div className="flex flex-col gap-4">
-            <div className="flex gap-3">
-              <div className="w-20 h-20 rounded-lg overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#333' }}>
-                {selectedOffer.nft.imageUrl ? (
-                  <img src={convertIpfsUrl(selectedOffer.nft.imageUrl)} alt={selectedOffer.nft.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span>🖼️</span>
-                )}
-              </div>
-              <div className="flex flex-col">
-                <strong>{selectedOffer.nft.name}</strong>
-                <span className="text-gray-400">{selectedOffer.nft.collection}</span>
-                {selectedOffer.nft.edition && <span className="text-green-500">{selectedOffer.nft.edition}</span>}
-              </div>
+      <div className="px-6 py-6" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+        <div className="flex flex-col gap-5">
+          {/* Back Button */}
+          <button
+            onClick={closeOfferDetails}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors -ml-2 mb-2"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12.5 5L7.5 10L12.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="text-sm font-medium">Back to offers</span>
+          </button>
+
+          {/* NFT Header Section */}
+          <div className="flex gap-4 items-start">
+            <div className="w-24 h-24 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#272830' }}>
+              {selectedOffer.nft.imageUrl ? (
+                <img 
+                  src={convertIpfsUrl(selectedOffer.nft.imageUrl)} 
+                  alt={selectedOffer.nft.name} 
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <span className="text-4xl">🖼️</span>
+              )}
             </div>
-            <div>
-              <div className="font-semibold mb-1">Requested Payment</div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><span className="text-gray-400">Amount</span><div><strong>{selectedOffer.requestedPayment.amount} {selectedOffer.requestedPayment.assetName}</strong></div></div>
-                <div><span className="text-gray-400">Asset</span><div><strong>{selectedOffer.requestedPayment.assetName}</strong></div></div>
-                <div className="col-span-full">
-                  <span className="text-gray-400">Deposit Address</span>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs break-all">{compactAddress(selectedOffer.requestedPayment.depositAddress)}</code>
-                    <button
-                      className="px-2 py-1 rounded border hover:text-white text-xs" onClick={() => copyAddressToClipboard(selectedOffer.requestedPayment.depositAddress)}
-                      style={{ borderColor: '#333', color: '#888', backgroundColor: 'transparent' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#888'; }}
-                    >Copy</button>
-                  </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <h2 className="text-white text-xl font-semibold mb-1 break-words">
+                {selectedOffer.nft.name}
+              </h2>
+              {selectedOffer.nft.collection && (
+                <p className="text-gray-400 text-sm mb-2">{selectedOffer.nft.collection}</p>
+              )}
+              {selectedOffer.nft.edition && (
+                <span className="text-green-400 text-sm font-medium">{selectedOffer.nft.edition}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Requested Payment Section */}
+          <div className="rounded-lg p-4" style={{ backgroundColor: '#1B1C22', borderLeft: '3px solid #2C64F8' }}>
+            <h3 className="text-white font-semibold text-base mb-3">Requested Payment</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Amount</span>
+                <div className="text-green-400 font-semibold text-lg">
+                  {selectedOffer.requestedPayment.amount} {selectedOffer.requestedPayment.assetName}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Asset</span>
+                <div className="text-white font-semibold text-lg">
+                  {selectedOffer.requestedPayment.assetName}
                 </div>
               </div>
             </div>
-            <div>
-              <div className="font-semibold mb-1">Offer Information</div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><span className="text-gray-400">Created</span><div><strong>{formatTime(selectedOffer.timestamp)}</strong></div></div>
-                <div><span className="text-gray-400">Status</span><div><span className={getStatusBadgeClasses(selectedOffer.status)}>{selectedOffer.status}</span></div></div>
-                <div><span className="text-gray-400">Type</span><div><strong>{selectedOffer.offerData.isSigned ? 'Signed' : 'Unsigned'}</strong></div></div>
+            <div className="mt-4">
+              <span className="text-gray-400 text-xs uppercase tracking-wide block mb-2">Deposit Address</span>
+              <div className="flex items-center gap-2 p-3 rounded" style={{ backgroundColor: '#272830' }}>
+                <code className="text-xs text-gray-300 break-all flex-1">
+                  {compactAddress(selectedOffer.requestedPayment.depositAddress)}
+                </code>
+                <button
+                  className="px-3 py-1.5 rounded text-xs font-medium transition-all flex-shrink-0"
+                  onClick={() => copyAddressToClipboard(selectedOffer.requestedPayment.depositAddress)}
+                  style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+                >
+                  Copy
+                </button>
               </div>
             </div>
+          </div>
+
+          {/* Offer Information Section */}
+          <div className="rounded-lg p-4" style={{ backgroundColor: '#1B1C22' }}>
+            <h3 className="text-white font-semibold text-base mb-3">Offer Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Created</span>
+                <div className="text-white font-medium">{formatTime(selectedOffer.timestamp)}</div>
+              </div>
+              <div>
+                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Status</span>
+                <div>
+                  <span className={getStatusBadgeClasses(selectedOffer.status)}>
+                    {selectedOffer.status}
+                  </span>
+                </div>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Type</span>
+                <div className="text-white font-medium">
+                  {selectedOffer.offerData.isSigned ? 'Signed' : 'Unsigned'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-2">
             <div className="flex gap-2">
-              <button className="copy-offer-btn" onClick={() => copyOfferToClipboard(selectedOffer.offerData.offerString)}>Copy Offer String</button>
+              <button 
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
+                onClick={() => copyOfferToClipboard(selectedOffer.offerData.offerString)}
+                style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#272830'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                Copy Offer String
+              </button>
               {(selectedOffer.dexieOfferId || selectedOffer.dexieOfferUrl) && (
-                <button className="dexie-view-btn" onClick={() => openOfferOnDexie(selectedOffer)}>View on Dexie</button>
+                <button 
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
+                  onClick={() => openOfferOnDexie(selectedOffer)}
+                  style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+                >
+                  View on Dexie
+                </button>
               )}
             </div>
-            <div className="flex gap-2">
-              <button className="status-btn complete-btn" onClick={() => updateOfferStatus(selectedOffer.id, 'completed')}>Mark as Completed</button>
-              <button className="status-btn cancel-btn" onClick={() => updateOfferStatus(selectedOffer.id, 'cancelled')}>Cancel Offer</button>
+            <div className="flex gap-2 pt-2 border-t" style={{ borderColor: '#272830' }}>
+              <button 
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
+                onClick={() => updateOfferStatus(selectedOffer.id, 'completed')}
+                style={{ backgroundColor: 'transparent', borderColor: '#22C55E', color: '#22C55E' }}
+                onMouseEnter={(e) => { 
+                  e.currentTarget.style.backgroundColor = '#22C55E'; 
+                  e.currentTarget.style.color = '#EEEEF0';
+                }}
+                onMouseLeave={(e) => { 
+                  e.currentTarget.style.backgroundColor = 'transparent'; 
+                  e.currentTarget.style.color = '#22C55E';
+                }}
+              >
+                Mark as Completed
+              </button>
+              <button 
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
+                onClick={() => updateOfferStatus(selectedOffer.id, 'cancelled')}
+                style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
+                onMouseEnter={(e) => { 
+                  e.currentTarget.style.backgroundColor = '#EF4444'; 
+                  e.currentTarget.style.color = '#EEEEF0';
+                }}
+                onMouseLeave={(e) => { 
+                  e.currentTarget.style.backgroundColor = 'transparent'; 
+                  e.currentTarget.style.color = '#EF4444';
+                }}
+              >
+                Cancel Offer
+              </button>
             </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -332,7 +465,7 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
           <p className="text-sm text-wrap">You haven't created any offers yet. Create an offer to see it here.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 overflow-y-scroll" style={{ maxHeight: '300px' }}>
+        <div className="flex flex-col gap-3 overflow-y-auto py-3" style={{ maxHeight: '400px' }}>
           {activeOffers.filter((offer) => {
             const term = search.trim().toLowerCase();
             if (!term) return true;
@@ -342,21 +475,80 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
               (offer.requestedPayment.assetName || '').toLowerCase().includes(term)
             );
           }).map((offer) => (
-            <div key={offer.id} className="border-none rounded" style={{ backgroundColor: '#1B1C22', padding: '14px' }}>
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex flex-row items-center justify-between min-w-0">
-                  <div className="text-gray-300 text-sm">NFT</div>
-                  <div className="text-white">{offer.nft.name}</div>
+            <div 
+              key={offer.id} 
+              className="rounded-lg border transition-all hover:border-gray-600" 
+              style={{ backgroundColor: '#1B1C22', borderColor: '#272830', padding: '16px' }}
+            >
+              <div className="flex items-start gap-4">
+                {/* NFT Image */}
+                <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden" style={{ backgroundColor: '#272830' }}>
+                  {offer.nft.imageUrl ? (
+                    <img 
+                      src={convertIpfsUrl(offer.nft.imageUrl)} 
+                      alt={offer.nft.name} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl">
+                      🖼️
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-row items-center justify-between min-w-0">
-                  <div className="text-gray-300 text-sm">Amount</div>
-                  <div className="text-white">{offer.requestedPayment.amount} {offer.requestedPayment.assetName}</div>
-                </div>
-                <div className="h-0 border-b" style={{ borderColor: '#272830' }} />
-                <div className="flex flex-row items-center gap-3">
-                  <button style={{ backgroundColor: '#272830', color: '#EEEEF0' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#272830'} className="px-3 py-2 rounded border text-xs" onClick={() => updateOfferStatus(offer.id, 'cancelled')}>Delete</button>
-                  <button style={{ backgroundColor: '#272830', color: '#EEEEF0' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#272830'} className="px-3 py-2 rounded border text-xs" onClick={() => handleEditOffer(offer)}>Edit</button>
-                  <button style={{ backgroundColor: '#272830', color: '#EEEEF0' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1B1C22'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#272830'} className="px-3 py-2 rounded border text-xs" onClick={() => viewOfferDetails(offer)}>View</button>
+
+                {/* NFT Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="min-w-0">
+                      <h3 className="text-white font-medium text-base truncate mb-1">
+                        {offer.nft.name}
+                      </h3>
+                      {offer.nft.collection && (
+                        <p className="text-gray-400 text-sm truncate">
+                          {offer.nft.collection}
+                        </p>
+                      )}
+                    </div>
+                    <span className={getStatusBadgeClasses(offer.status)}>
+                      {offer.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-gray-400 text-sm">Asking:</span>
+                    <span className="text-green-400 font-semibold text-sm">
+                      {offer.requestedPayment.amount} {offer.requestedPayment.assetName}
+                    </span>
+                    <span className="text-gray-500 text-xs">•</span>
+                    <span className="text-gray-500 text-xs">
+                      {formatTime(offer.timestamp)}
+                    </span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    <button 
+                      className="px-3 py-1.5 rounded text-xs font-medium transition-all hover:bg-blue-600" 
+                      style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
+                      onClick={() => viewOfferDetails(offer)}
+                    >
+                      View Details
+                    </button>
+                    <button 
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-gray-700" 
+                      style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
+                      onClick={() => handleEditOffer(offer)}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-red-900 hover:border-red-700" 
+                      style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EF4444' }}
+                      onClick={() => updateOfferStatus(offer.id, 'cancelled')}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -365,4 +557,6 @@ export const ActiveOffersModal: React.FC<ActiveOffersModalProps> = ({
       )}
     </div>
   );
-}; 
+});
+
+ActiveOffersModal.displayName = 'ActiveOffersModal';

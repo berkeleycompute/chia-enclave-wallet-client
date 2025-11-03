@@ -13,8 +13,8 @@ import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
 import { SendFundsModal } from './SendFundsModal';
 import { ReceiveFundsModal } from './ReceiveFundsModal';
 import { MakeOfferModal } from './MakeOfferModal';
-import { ActiveOffersModal } from './ActiveOffersModal';
-import { NFTDetailsModal } from './NFTDetailsModal';
+import { ActiveOffersModal, type ActiveOffersModalRef } from './ActiveOffersModal';
+import { NFTDetailsModal, type NFTDetailsModalRef } from './NFTDetailsModal';
 import { TransactionsModal } from './TransactionsModal';
 import { ViewAssetsModal } from './ViewAssetsModal';
 import { ExportPrivateKeyModal } from './ExportPrivateKeyModal';
@@ -102,6 +102,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const exportKeyDialog = useExportKeyDialog();
   const { closeAllDialogs } = useAllDialogs();
   const dialogs = sendFundsDialog.isOpen || receiveFundsDialog.isOpen || makeOfferDialog.isOpen || activeOffersDialog.isOpen || nftDetailsDialog.isOpen || transactionsDialog.isOpen || viewAssetsDialog.isOpen || exportKeyDialog.isOpen;
+
+  // Refs for modals to handle back navigation
+  const activeOffersModalRef = useRef<ActiveOffersModalRef>(null);
+  const nftDetailsModalRef = useRef<NFTDetailsModalRef>(null);
 
   // Calculate balance directly from coins (more accurate)
   const xchAvailableMojos = useMemo(() => {
@@ -589,7 +593,22 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   style={{ color: '#888' }} 
                   onMouseEnter={(e) => e.currentTarget.style.color = 'white'} 
                   onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
-                  onClick={closeAllDialogs} 
+                  onClick={() => {
+                    // Check if ActiveOffersModal can handle back internally (e.g., going from details to list)
+                    if (activeOffersDialog.isOpen && activeOffersModalRef.current) {
+                      const handled = activeOffersModalRef.current.handleBack();
+                      if (handled) return; // Modal handled it internally, don't close
+                    }
+                    
+                    // Check if NFTDetailsModal can handle back internally (e.g., going from transfer to details, or back to assets)
+                    if (nftDetailsDialog.isOpen && nftDetailsModalRef.current) {
+                      const handled = nftDetailsModalRef.current.handleBack();
+                      if (handled) return; // Modal handled it internally, don't close
+                    }
+                    
+                    // Otherwise, close all dialogs as normal
+                    closeAllDialogs();
+                  }} 
                   aria-label="Back"
                 >
                   <PiCaretLeft size={24} />
@@ -651,6 +670,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               onRefreshWallet={refreshBalance}
             />
             <ActiveOffersModal
+              ref={activeOffersModalRef}
               isOpen={activeOffersDialog.isOpen}
               onClose={activeOffersDialog.close}
               onOfferUpdate={() => {
@@ -661,9 +681,11 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               }}
             />
             <NFTDetailsModal
+              ref={nftDetailsModalRef}
               isOpen={nftDetailsDialog.isOpen}
               onClose={nftDetailsDialog.close}
               nft={nftDetailsDialog.selectedNft}
+              showBackToAssets={viewAssetsDialog.isOpen}
             />
             <ExportPrivateKeyModal
               isOpen={exportKeyDialog.isOpen}
