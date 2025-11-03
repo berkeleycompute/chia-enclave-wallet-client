@@ -128,9 +128,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const [offersCount, setOffersCount] = useState<number>(0);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // Height animation for modal container
+  // Ref for modal container
   const animateHeightRef = useRef<HTMLDivElement>(null);
-  const [modalHeight, setModalHeight] = useState<number | null>(null);
   
   // Animation states for opening/closing
   const [isVisible, setIsVisible] = useState(false);
@@ -257,66 +256,22 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
   }, [isOpen, isVisible]);
 
-  // Animate height changes when switching between dialogs
+  // Force a re-render when dialogs open to ensure proper layout
   useEffect(() => {
-    if (!animateHeightRef.current) return;
-
-    const element = animateHeightRef.current;
-    let debounceTimer: ReturnType<typeof setTimeout>;
+    if (!animateHeightRef.current || !dialogs) return;
     
-    const updateHeight = () => {
-      // Get current height before change
-      const currentHeight = element.offsetHeight;
-      
-      // Temporarily remove transition and set height to auto to measure new content
-      element.style.transition = 'none';
-      element.style.height = 'auto';
-      
-      // Force reflow to get the new natural height
-      const newHeight = element.scrollHeight;
-      
-      // Only animate if height actually changed
-      if (Math.abs(newHeight - currentHeight) > 5) {
-        // Set back to current height (no visual change yet)
-        element.style.height = `${currentHeight}px`;
-        
-        // Force reflow
-        element.offsetHeight;
-        
-        // Re-enable transition
-        element.style.transition = 'height 210ms cubic-bezier(0.4, 0, 0.2, 1)';
-        
-        // Now animate to new height
-        requestAnimationFrame(() => {
-          element.style.height = `${newHeight}px`;
-          setModalHeight(newHeight);
-        });
-      } else {
-        // No significant change, just set height without transition
-        element.style.height = `${newHeight}px`;
-        setModalHeight(newHeight);
+    // Small delay to ensure content is mounted before any layout calculations
+    const timer = setTimeout(() => {
+      if (animateHeightRef.current) {
+        // Force a layout recalculation by triggering reflow
+        animateHeightRef.current.offsetHeight;
       }
-    };
+    }, 0);
     
-    // Use ResizeObserver to detect content changes (for async-loading modals like MakeOfferModal)
-    const resizeObserver = new ResizeObserver(() => {
-      // Debounce to avoid too many updates
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(updateHeight, 50);
-    });
-    
-    // Observe the container itself
-    resizeObserver.observe(element);
-    
-    // Initial height update with small delay for MakeOfferModal
-    const initialTimer = setTimeout(updateHeight, makeOfferDialog.isOpen ? 150 : 10);
-    
-    return () => {
-      clearTimeout(debounceTimer);
-      clearTimeout(initialTimer);
-      resizeObserver.disconnect();
-    };
-  }, [dialogs, makeOfferDialog.isOpen]);
+    return () => clearTimeout(timer);
+  }, [dialogs, sendFundsDialog.isOpen, receiveFundsDialog.isOpen, makeOfferDialog.isOpen, 
+      activeOffersDialog.isOpen, nftDetailsDialog.isOpen, transactionsDialog.isOpen, 
+      viewAssetsDialog.isOpen, exportKeyDialog.isOpen]);
 
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -622,7 +577,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               color: 'white',
               boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
               maxWidth: isMobile ? '100%' : '400px',
-              height: modalHeight ? `${modalHeight}px` : 'auto',
+              height: 'auto',
+              transition: 'height 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             {/* Unified Header for Dialogs */}
@@ -639,7 +595,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   <PiCaretLeft size={24} />
                 </button>
                 <h3 className="text-xl font-medium" style={{ color: 'white' }}>
-                  {sendFundsDialog.isOpen ? 'Send XCH' :
+                  {sendFundsDialog.isOpen ? 'Send Funds' :
                    receiveFundsDialog.isOpen ? 'Receive XCH' :
                    transactionsDialog.isOpen ? 'Transactions' :
                    viewAssetsDialog.isOpen ? 'View Assets' :

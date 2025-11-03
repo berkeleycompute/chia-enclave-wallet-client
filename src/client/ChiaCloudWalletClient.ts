@@ -368,6 +368,17 @@ export interface MnemonicResponse {
   success: boolean;
   mnemonic: string;
   warning: string;
+  address: string;
+  email: string;
+  master_public_key: string;
+  private_key: string;
+  puzzle_hash: string;
+  user_id: string;
+  metadata?: {
+    requestId: string;
+    duration: string;
+    functionVersion: string;
+  };
 }
 
 export interface SignedSpendBundleResponse {

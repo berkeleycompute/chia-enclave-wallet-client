@@ -44,7 +44,16 @@ export {
 // Export hooks
 export { useChiaWallet } from './hooks/useChiaWallet';
 export { useBalance } from './hooks/useBalance';
-export { useWalletInfo } from './hooks/useWalletInfo';
+export { 
+  useWalletInfo, 
+  useMnemonic, 
+  useAddressValidation,
+  type WalletInfo,
+  type AddressValidation,
+  type ExportMnemonicData,
+  type UseWalletInfoConfig,
+  type UseAddressValidationConfig
+} from './hooks/useWalletInfo';
 export { useNFTs } from './hooks/useNFTs';
 export { useChiaUtils } from './hooks/useChiaUtils';
 export { useChiaTransactions } from './hooks/useChiaTransactions';
@@ -56,6 +65,7 @@ export { useTransferAssets } from './hooks/useTransferAssets';
 export { useUploadFile } from './hooks/useUploadFile';
 export { useOfferHistory, useActiveOffers, useCompletedOffers, OFFER_STATUS } from './hooks/useOfferHistory';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
+export { useCATMetadata, getAssetColorFromId, getCATInitials } from './hooks/useCATMetadata';
 export {
   // Core wallet hooks
   useWalletState,
@@ -251,7 +261,7 @@ export type {
   UseDIDsConfig,
   UseDIDsResult
 } from './hooks/useDIDs';
-export type { DIDInfo } from './client/ChiaCloudWalletClient';
+export type { DIDInfo, MnemonicResponse } from './client/ChiaCloudWalletClient';
 
 // Export Offer History hook types
 export type {
@@ -259,6 +269,12 @@ export type {
   UseOfferHistoryResult,
   OfferStatus
 } from './hooks/useOfferHistory';
+
+// Export CAT Metadata hook types
+export type {
+  CATMetadata,
+  CATMetadataMap
+} from './hooks/useCATMetadata';
 
 
 export { NFTMintDebugger } from './examples/NFTMintDebugger';

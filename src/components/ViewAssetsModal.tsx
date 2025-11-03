@@ -10,6 +10,7 @@ import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWal
 import { PiMagnifyingGlass } from 'react-icons/pi';
 import { useTransferAssets } from '../hooks/useTransferAssets';
 import { convertIpfsUrl } from '../utils/ipfs';
+import { useCATMetadata, getAssetColorFromId, getCATInitials } from '../hooks/useCATMetadata';
 
 interface ViewAssetsModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     sdk, 
     enableLogging: true 
   });
+  const { getCATInfo, loading: catMetadataLoading, metadata, error: catMetadataError } = useCATMetadata();
 
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'list' | 'nft-details' | 'cat-transfer'>('list');
@@ -239,10 +241,11 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   };
 
   const handleCATClick = (cat: typeof groupedCATs[0]) => {
+    const catInfo = getCATInfo(cat.assetId);
     setSelectedCAT({
       coins: cat.coins,
       assetId: cat.assetId,
-      name: `CAT ${cat.assetId.substring(0, 8)}...`
+      name: catInfo ? `${catInfo.name} (${catInfo.code})` : `CAT ${cat.assetId.substring(0, 8)}...`
     });
     setSelectedNFT(null);
     setView('cat-transfer');
@@ -444,90 +447,115 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     boxSizing: 'border-box'
                   }}
                 >
-                  {groupedCATs.map((cat, idx) => (
-                    <div
-                      key={idx}
-                      style={{ 
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '12px',
-                        backgroundColor: '#1a1a1a',
-                        border: '1px solid #333',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s',
-                        minWidth: 0
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
-                      onClick={() => handleCATClick(cat)}
-                    >
-                      <div style={{ 
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        backgroundColor: '#333'
-                      }}>
-                        <span style={{ fontSize: '24px' }}>💰</span>
-                      </div>
-                      <div style={{ 
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px'
-                      }}>
+                  {groupedCATs.map((cat, idx) => {
+                    const catInfo = getCATInfo(cat.assetId);
+                    const iconBgColor = getAssetColorFromId(cat.assetId);
+                    const initials = catInfo ? getCATInitials(catInfo.code) : '💰';
+                    
+                    return (
+                      <div
+                        key={idx}
+                        style={{ 
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '12px',
+                          backgroundColor: '#1a1a1a',
+                          border: '1px solid #333',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s',
+                          minWidth: 0
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
+                        onClick={() => handleCATClick(cat)}
+                      >
                         <div style={{ 
-                          color: 'white',
-                          fontSize: '14px',
-                          fontWeight: 500,
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '8px',
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          CAT Token
-                        </div>
-                        <div style={{ 
-                          color: '#888',
-                          fontSize: '12px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {cat.assetId.substring(0, 16)}...
-                        </div>
-                      </div>
-                      <div style={{ 
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-end',
-                        gap: '4px'
-                      }}>
-                        <div style={{ 
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          backgroundColor: catInfo?.icon ? 'transparent' : iconBgColor,
                           color: 'white',
-                          fontSize: '14px',
-                          fontWeight: 500
+                          fontSize: catInfo?.icon ? 'inherit' : (catInfo ? '16px' : '24px'),
+                          fontWeight: 600
                         }}>
-                          {(Number(cat.totalAmount) / 1000).toLocaleString()}
+                          {catInfo?.icon ? (
+                            <img 
+                              src={catInfo.icon} 
+                              alt={catInfo.code}
+                              style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover' 
+                              }}
+                              onError={(e) => {
+                                // Fallback to initials if image fails to load
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement!.style.backgroundColor = iconBgColor;
+                                e.currentTarget.parentElement!.innerText = initials;
+                              }}
+                            />
+                          ) : initials}
                         </div>
                         <div style={{ 
-                          color: '#888',
-                          fontSize: '12px'
+                          flex: 1,
+                          minWidth: 0,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
                         }}>
-                          {cat.coins.length} coins
+                          <div style={{ 
+                            color: 'white',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {catInfo ? catInfo.name : 'CAT Token'}
+                          </div>
+                          <div style={{ 
+                            color: '#888',
+                            fontSize: '12px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {catInfo ? catInfo.code : cat.assetId.substring(0, 16) + '...'}
+                          </div>
                         </div>
+                        <div style={{ 
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                          gap: '4px'
+                        }}>
+                          <div style={{ 
+                            color: 'white',
+                            fontSize: '14px',
+                            fontWeight: 500
+                          }}>
+                            {(Number(cat.totalAmount) / 1000).toLocaleString()}
+                          </div>
+                          <div style={{ 
+                            color: '#888',
+                            fontSize: '12px'
+                          }}>
+                            {cat.coins.length} coins
+                          </div>
+                        </div>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                          <path d="M7 4L13 10L7 16" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                       </div>
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-                        <path d="M7 4L13 10L7 16" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -980,39 +1008,69 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
           </button>
 
           {/* CAT Info */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '16px',
-            backgroundColor: '#262626',
-            border: '1px solid #333',
-            borderRadius: '12px'
-          }}>
-            <div style={{ 
-              width: '64px',
-              height: '64px',
-              borderRadius: '12px',
-              backgroundColor: '#333',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
-              <span style={{ fontSize: '32px' }}>💰</span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: 'white', fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
-                CAT Token
+          {(() => {
+            const catInfo = getCATInfo(selectedCAT.assetId);
+            const iconBgColor = getAssetColorFromId(selectedCAT.assetId);
+            const initials = catInfo ? getCATInitials(catInfo.code) : '💰';
+            
+            return (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '16px',
+                backgroundColor: '#262626',
+                border: '1px solid #333',
+                borderRadius: '12px'
+              }}>
+                <div style={{ 
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '12px',
+                  backgroundColor: catInfo?.icon ? 'transparent' : iconBgColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  color: 'white',
+                  fontSize: catInfo?.icon ? 'inherit' : (catInfo ? '24px' : '32px'),
+                  fontWeight: 600,
+                  overflow: 'hidden'
+                }}>
+                  {catInfo?.icon ? (
+                    <img 
+                      src={catInfo.icon} 
+                      alt={catInfo.code}
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover' 
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.style.backgroundColor = iconBgColor;
+                        e.currentTarget.parentElement!.innerText = initials;
+                      }}
+                    />
+                  ) : initials}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: 'white', fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
+                    {catInfo ? catInfo.name : 'CAT Token'}
+                  </div>
+                  <div style={{ color: '#888', fontSize: '14px', marginBottom: '8px' }}>
+                    {catInfo ? catInfo.code : 'Unknown'}
+                  </div>
+                  <div style={{ color: '#888', fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all', marginBottom: '8px' }}>
+                    {selectedCAT.assetId}
+                  </div>
+                  <div style={{ color: '#888', fontSize: '14px' }}>
+                    Available: {(Number(selectedCAT.coins.reduce((sum, c) => sum + BigInt(c.coin.amount), BigInt(0))) / 1000).toLocaleString()} {catInfo ? catInfo.code : 'CAT'}
+                  </div>
+                </div>
               </div>
-              <div style={{ color: '#888', fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                {selectedCAT.assetId}
-              </div>
-              <div style={{ color: '#888', fontSize: '14px', marginTop: '8px' }}>
-                Available: {(Number(selectedCAT.coins.reduce((sum, c) => sum + BigInt(c.coin.amount), BigInt(0))) / 1000).toLocaleString()} CAT
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Amount */}
           <div>

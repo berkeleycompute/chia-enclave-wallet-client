@@ -373,6 +373,19 @@ export function useAddressValidation(config: UseAddressValidationConfig = {}): U
   };
 }
 
+// Export mnemonic data interface
+export interface ExportMnemonicData {
+  mnemonic: string;
+  privateKey: string;
+  address: string;
+  publicKey: string;
+  masterPublicKey: string;
+  puzzleHash: string;
+  email?: string;
+  userId?: string;
+  warning?: string;
+}
+
 // Hook for mnemonic management
 export function useMnemonic(config: UseWalletInfoConfig = {}) {
   const {
@@ -384,7 +397,7 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
 
   const internalClient = useRef<ChiaCloudWalletClient | null>(null);
 
-  const [mnemonic, setMnemonic] = useState<string | null>(null);
+  const [mnemonicData, setMnemonicData] = useState<ExportMnemonicData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -405,8 +418,8 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
     return internalClient.current;
   }, [externalClient, jwtToken, baseUrl, enableLogging]);
 
-  // Export mnemonic
-  const exportMnemonic = useCallback(async (): Promise<string | null> => {
+  // Export mnemonic and related data
+  const exportMnemonic = useCallback(async (): Promise<ExportMnemonicData | null> => {
     const client = getClient();
     if (!client) {
       setError('No client available');
@@ -425,10 +438,21 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
         throw new Error('Failed to export mnemonic');
       }
 
-      const mnemonicPhrase = result.data.mnemonic;
-      setMnemonic(mnemonicPhrase);
+      const data: ExportMnemonicData = {
+        mnemonic: result.data.mnemonic,
+        privateKey: result.data.private_key,
+        address: result.data.address,
+        publicKey: result.data.address, // Using address as public key display
+        masterPublicKey: result.data.master_public_key,
+        puzzleHash: result.data.puzzle_hash,
+        email: result.data.email,
+        userId: result.data.user_id,
+        warning: result.data.warning
+      };
+
+      setMnemonicData(data);
       setLoading(false);
-      return mnemonicPhrase;
+      return data;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to export mnemonic';
       setError(message);
@@ -439,12 +463,12 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
 
   // Clear mnemonic from memory
   const clearMnemonic = useCallback(() => {
-    setMnemonic(null);
+    setMnemonicData(null);
   }, []);
 
   // Reset hook state
   const reset = useCallback(() => {
-    setMnemonic(null);
+    setMnemonicData(null);
     setError(null);
     setLoading(false);
   }, []);
@@ -477,7 +501,8 @@ export function useMnemonic(config: UseWalletInfoConfig = {}) {
   }, []);
 
   return {
-    mnemonic,
+    mnemonicData,
+    mnemonic: mnemonicData?.mnemonic || null, // Keep backward compatibility
     loading,
     error,
     exportMnemonic,
