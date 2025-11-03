@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { injectModalStyles } from './modal-styles';
 import {
   useWalletConnection,
@@ -48,7 +48,8 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Ensure shared modal styles are available
-  useEffect(() => {
+  // Using useLayoutEffect to inject styles synchronously before paint to prevent layout shifts
+  useLayoutEffect(() => {
     injectModalStyles();
     
     // Inject custom scrollbar styles for the grid
