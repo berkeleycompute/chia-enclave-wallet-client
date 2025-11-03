@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState, Fragment } from 'react';
 import { injectModalStyles } from './modal-styles';
 import {
   useWalletConnection,
@@ -36,10 +36,11 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   });
 
   const [search, setSearch] = useState('');
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferType, setTransferType] = useState<'nft' | 'cat'>('nft');
+  const [view, setView] = useState<'list' | 'nft-details' | 'cat-transfer'>('list');
   const [selectedNFT, setSelectedNFT] = useState<HydratedCoin | null>(null);
+  const [selectedNFTDisplay, setSelectedNFTDisplay] = useState<typeof allDisplayNFTs[0] | null>(null);
   const [selectedCAT, setSelectedCAT] = useState<{ coins: HydratedCoin[], assetId: string, name: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'transfer'>('details');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferFee, setTransferFee] = useState('0.0001'); // Store as XCH
@@ -52,32 +53,32 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   useLayoutEffect(() => {
     injectModalStyles();
     
-    // Inject custom scrollbar styles for the grid
-    const styleId = 'nft-grid-scrollbar-styles';
+    // Inject custom scrollbar styles
+    const styleId = 'view-assets-scrollbar-styles';
     if (!document.getElementById(styleId)) {
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent = `
-        .nft-grid-container::-webkit-scrollbar {
+        .view-assets-scroll-container::-webkit-scrollbar {
           width: 8px;
           height: 8px;
         }
-        .nft-grid-container::-webkit-scrollbar-track {
+        .view-assets-scroll-container::-webkit-scrollbar-track {
           background: #1a1a1a;
           border-radius: 4px;
         }
-        .nft-grid-container::-webkit-scrollbar-thumb {
+        .view-assets-scroll-container::-webkit-scrollbar-thumb {
           background: #333;
           border-radius: 4px;
         }
-        .nft-grid-container::-webkit-scrollbar-thumb:hover {
+        .view-assets-scroll-container::-webkit-scrollbar-thumb:hover {
           background: #6bc36b;
         }
-        .nft-grid-container::-webkit-scrollbar-corner {
+        .view-assets-scroll-container::-webkit-scrollbar-corner {
           background: #1a1a1a;
         }
         /* Firefox scrollbar styling */
-        .nft-grid-container {
+        .view-assets-scroll-container {
           scrollbar-width: thin;
           scrollbar-color: #333 #1a1a1a;
         }
@@ -94,18 +95,6 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     }
   }, [isConnected, nftCoins.length, loadAllMetadata]);
 
-  // Close when clicking outside content
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose();
-    }
-  };
 
   const xchAvailableMojos = useMemo(() => {
     return xchCoins.reduce((total, coin) => total + parseInt(coin.coin.amount), 0);
@@ -240,23 +229,33 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
       // Close this modal to avoid stacking
       onClose();
     } else {
-      // Otherwise, open our built-in transfer modal
-      setTransferType('nft');
+      // Otherwise, show NFT details inline
       setSelectedNFT(nft.coin);
+      setSelectedNFTDisplay(nft);
       setSelectedCAT(null);
-      setShowTransferModal(true);
+      setActiveTab('details');
+      setView('nft-details');
     }
   };
 
   const handleCATClick = (cat: typeof groupedCATs[0]) => {
-    setTransferType('cat');
     setSelectedCAT({
       coins: cat.coins,
       assetId: cat.assetId,
       name: `CAT ${cat.assetId.substring(0, 8)}...`
     });
     setSelectedNFT(null);
-    setShowTransferModal(true);
+    setView('cat-transfer');
+  };
+
+  const handleBackToList = () => {
+    setView('list');
+    setSelectedNFT(null);
+    setSelectedNFTDisplay(null);
+    setSelectedCAT(null);
+    setRecipientAddress('');
+    setTransferAmount('');
+    setActiveTab('details');
   };
 
   const handleTransferNFT = async () => {
@@ -281,16 +280,13 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     if (result.success) {
       setSuccessMessage(`NFT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
       setShowSuccessModal(true);
-      setShowTransferModal(false);
-      setSelectedNFT(null);
-      setRecipientAddress('');
-      setTransferAmount('');
       
-      // Auto-close success message after 5 seconds
+      // Auto-close success message after 3 seconds and return to list
       setTimeout(() => {
         setShowSuccessModal(false);
         setSuccessMessage(null);
-      }, 5000);
+        handleBackToList();
+      }, 3000);
       
       // Refresh the NFT list
       refreshNFTs();
@@ -324,25 +320,22 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     if (result.success) {
       setSuccessMessage(`CAT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
       setShowSuccessModal(true);
-      setShowTransferModal(false);
-      setSelectedCAT(null);
-      setRecipientAddress('');
-      setTransferAmount('');
       
-      // Auto-close success message after 5 seconds
+      // Auto-close success message after 3 seconds and return to list
       setTimeout(() => {
         setShowSuccessModal(false);
         setSuccessMessage(null);
+        handleBackToList();
         // Refresh the coin list
         window.location.reload();
-      }, 5000);
+      }, 3000);
     }
   };
 
   const handleTransfer = () => {
-    if (transferType === 'nft') {
+    if (view === 'nft-details' && selectedNFT) {
       handleTransferNFT();
-    } else {
+    } else if (view === 'cat-transfer' && selectedCAT) {
       handleTransferCAT();
     }
   };
@@ -353,7 +346,16 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   const isInitialLoading = coinsLoading && nftCoins.length === 0;
 
   return (
-    <div className="px-6 pb-4">
+    <Fragment>
+      {/* Content with scroll */}
+      <div 
+        className="view-assets-scroll-container px-6 pb-4"
+        style={{ 
+          maxHeight: '70vh',
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}
+      >
       {!isConnected ? (
         <div className="text-center text-sm" style={{ padding: '40px' }}>
           <p className="text-red-500">Wallet not connected. Please connect your wallet first.</p>
@@ -363,7 +365,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
           <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#333', borderTopColor: '#6bc36b' }}></div>
           <p>Loading assets...</p>
         </div>
-      ) : (
+      ) : view === 'list' ? (
         <div className="flex flex-col gap-4">
           {/* Balance Info */}
           <div className="flex items-center">
@@ -429,36 +431,99 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
             {groupedCATs.length > 0 && (
               <div className="flex flex-col gap-2">
                 <label className="text-white text-sm font-medium text-left">CAT Tokens</label>
-                <div className="flex flex-col gap-2">
+                <div 
+                  style={{ 
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    padding: '12px',
+                    backgroundColor: '#262626',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                >
                   {groupedCATs.map((cat, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors"
-                      style={{ backgroundColor: '#262626', borderColor: '#333' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#262626'}
+                      style={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px',
+                        backgroundColor: '#1a1a1a',
+                        border: '1px solid #333',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s',
+                        minWidth: 0
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
                       onClick={() => handleCATClick(cat)}
                     >
-                      <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#333' }}>
-                        <span className="text-2xl">💰</span>
+                      <div style={{ 
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        backgroundColor: '#333'
+                      }}>
+                        <span style={{ fontSize: '24px' }}>💰</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-white text-sm font-medium truncate">
+                      <div style={{ 
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                      }}>
+                        <div style={{ 
+                          color: 'white',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
                           CAT Token
                         </div>
-                        <div style={{ color: '#888' }} className="text-xs truncate">
+                        <div style={{ 
+                          color: '#888',
+                          fontSize: '12px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
                           {cat.assetId.substring(0, 16)}...
                         </div>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <div className="text-white text-sm font-medium">
+                      <div style={{ 
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        gap: '4px'
+                      }}>
+                        <div style={{ 
+                          color: 'white',
+                          fontSize: '14px',
+                          fontWeight: 500
+                        }}>
                           {(Number(cat.totalAmount) / 1000).toLocaleString()}
                         </div>
-                        <div style={{ color: '#888' }} className="text-xs">
+                        <div style={{ 
+                          color: '#888',
+                          fontSize: '12px'
+                        }}>
                           {cat.coins.length} coins
                         </div>
                       </div>
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
                         <path d="M7 4L13 10L7 16" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
@@ -511,14 +576,17 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                 </div>
               ) : (
                 <div 
-                  className="nft-grid-container grid gap-3 p-2 rounded border"
                   style={{ 
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '16px',
+                    padding: '16px',
                     backgroundColor: '#262626', 
                     borderColor: '#333',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                    maxHeight: '400px',
-                    overflowY: 'auto',
-                    overflowX: 'auto'
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 >
                   {filteredNFTs.map((nft, idx) => {
@@ -530,36 +598,99 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     return (
                       <div
                         key={idx}
-                        className="flex flex-col border rounded transition-colors cursor-pointer overflow-hidden"
+                        className="cursor-pointer overflow-hidden"
                         style={{ 
+                          display: 'flex',
+                          flexDirection: 'column',
                           backgroundColor: '#1a1a1a', 
                           borderColor: '#333',
-                          opacity: isLoadingMetadata ? 0.7 : 1
+                          border: '1px solid #333',
+                          borderRadius: '8px',
+                          opacity: isLoadingMetadata ? 0.7 : 1,
+                          transition: 'background-color 0.2s',
+                          minWidth: 0,
+                          width: '100%'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
                         onClick={() => handleNFTClick(nft)}
                       >
-                        <div className="w-full aspect-square overflow-hidden flex items-center justify-center relative" style={{ backgroundColor: '#333' }}>
-                          {imageUrl ? (
-                            <img src={imageUrl} alt={nft.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div style={{ color: '#666', fontSize: '48px' }}>🖼️</div>
-                          )}
-                          {isLoadingMetadata && (
-                            <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                              <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'transparent', borderTopColor: '#6bc36b' }}></div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-2 flex flex-col gap-1">
-                          <div className="text-white text-xs font-medium truncate" title={nft.name}>
-                            {nft.name}
+                        <div style={{ 
+                          width: '100%',
+                          paddingBottom: '100%', // Creates square aspect ratio
+                          position: 'relative',
+                          backgroundColor: '#333',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            {imageUrl ? (
+                              <img src={imageUrl} alt={nft.name} style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover' 
+                              }} />
+                            ) : (
+                              <div style={{ color: '#666', fontSize: '48px' }}>🖼️</div>
+                            )}
                             {isLoadingMetadata && (
-                              <span className="ml-1 text-xs" style={{ color: '#888' }}>...</span>
+                              <div style={{ 
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: 'rgba(0,0,0,0.5)'
+                              }}>
+                                <div style={{ 
+                                  width: '24px',
+                                  height: '24px',
+                                  border: '2px solid transparent',
+                                  borderTopColor: '#6bc36b',
+                                  borderRadius: '50%',
+                                  animation: 'spin 1s linear infinite'
+                                }}></div>
+                              </div>
                             )}
                           </div>
-                          <div style={{ color: '#888' }} className="text-xs truncate" title={nft.collection}>
+                        </div>
+                        <div style={{ 
+                          padding: '8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}>
+                          <div style={{ 
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }} title={nft.name}>
+                            {nft.name}
+                            {isLoadingMetadata && (
+                              <span style={{ marginLeft: '4px', fontSize: '12px', color: '#888' }}>...</span>
+                            )}
+                          </div>
+                          <div style={{ 
+                            color: '#888',
+                            fontSize: '12px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }} title={nft.collection}>
                             {nft.collection}
                           </div>
                         </div>
@@ -571,111 +702,172 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
             </div>
           </div>
         </div>
-      )}
-
-      {/* Transfer Modal - Unified for NFTs and CATs */}
-      {showTransferModal && (selectedNFT || selectedCAT) && (
-        <div 
-          className="fixed inset-0 flex items-center justify-center"
-          style={{ 
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            zIndex: 9999
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowTransferModal(false);
-              setSelectedNFT(null);
-              setSelectedCAT(null);
-            }
-          }}
-        >
-          <div 
-            className="rounded-lg shadow-xl max-w-md w-full mx-4"
-            style={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-            onClick={(e) => e.stopPropagation()}
+      ) : view === 'nft-details' && selectedNFT && selectedNFTDisplay ? (
+        <div className="flex flex-col gap-4">
+          {/* Back Button */}
+          <button
+            onClick={handleBackToList}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors self-start"
+            style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0' }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#333' }}>
-              <h3 className="text-lg font-semibold text-white">
-                {transferType === 'nft' ? 'Transfer NFT' : 'Transfer CAT'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowTransferModal(false);
-                  setSelectedNFT(null);
-                  setSelectedCAT(null);
-                }}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6"></path>
+            </svg>
+            Back to Assets
+          </button>
 
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              {/* Asset Info */}
-              <div className="flex items-center gap-3 p-3 border rounded" style={{ backgroundColor: '#262626', borderColor: '#333' }}>
-                <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: '#333' }}>
-                  {transferType === 'nft' && selectedNFT ? (() => {
-                    const info = extractNFTInfo(selectedNFT);
-                    const metadata = info?.onChainMetadata as any;
-                    const imageUrl = convertIpfsUrl(metadata?.image);
-                    return imageUrl ? (
-                      <img src={imageUrl} alt="NFT" className="w-full h-full object-cover" />
-                    ) : (
-                      <div style={{ color: '#666' }}>🖼️</div>
-                    );
-                  })() : (
-                    <span className="text-2xl">💰</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-white text-sm font-medium truncate">
-                    {transferType === 'nft' && selectedNFT ? (() => {
-                      const info = extractNFTInfo(selectedNFT);
-                      const metadata = info?.onChainMetadata as any;
-                      return metadata?.name || 'Unnamed NFT';
-                    })() : selectedCAT?.name || 'CAT Token'}
-                  </div>
-                  <div style={{ color: '#888' }} className="text-xs truncate">
-                    {transferType === 'nft' && selectedNFT 
-                      ? `ID: ${selectedNFT.coinId.substring(0, 16)}...`
-                      : `Asset: ${selectedCAT?.assetId.substring(0, 16)}...`
-                    }
-                  </div>
-                  {transferType === 'cat' && selectedCAT && (
-                    <div style={{ color: '#888' }} className="text-xs">
-                      Available: {(Number(selectedCAT.coins.reduce((sum, c) => sum + BigInt(c.coin.amount), BigInt(0))) / 1000).toLocaleString()} CAT
-                    </div>
-                  )}
+          {/* NFT Image */}
+          <div style={{ 
+            width: '100%',
+            maxHeight: '400px',
+            backgroundColor: '#262626',
+            border: '1px solid #333',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            {selectedNFTDisplay.imageUrl ? (
+              <img 
+                src={convertIpfsUrl(selectedNFTDisplay.imageUrl)} 
+                alt={selectedNFTDisplay.name}
+                style={{ 
+                  maxWidth: '100%',
+                  maxHeight: '400px',
+                  objectFit: 'contain'
+                }}
+              />
+            ) : (
+              <div style={{ color: '#666', fontSize: '64px', padding: '80px' }}>🖼️</div>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div style={{ 
+            display: 'flex',
+            gap: '8px',
+            borderBottom: '1px solid #333',
+            paddingBottom: '0'
+          }}>
+            <button
+              onClick={() => setActiveTab('details')}
+              style={{
+                padding: '12px 24px',
+                background: 'none',
+                border: 'none',
+                color: activeTab === 'details' ? 'white' : '#888',
+                borderBottom: activeTab === 'details' ? '2px solid #6bc36b' : '2px solid transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+                transition: 'all 0.2s'
+              }}
+            >
+              Details
+            </button>
+            <button
+              onClick={() => setActiveTab('transfer')}
+              style={{
+                padding: '12px 24px',
+                background: 'none',
+                border: 'none',
+                color: activeTab === 'transfer' ? 'white' : '#888',
+                borderBottom: activeTab === 'transfer' ? '2px solid #6bc36b' : '2px solid transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+                transition: 'all 0.2s'
+              }}
+            >
+              Transfer
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'details' ? (
+            <div className="flex flex-col gap-4">
+              {/* Collection */}
+              <div>
+                <label style={{ color: '#888', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+                  Collection
+                </label>
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#262626',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}>
+                  {selectedNFTDisplay.collection}
                 </div>
               </div>
 
-              {/* Amount Field (only for CATs) */}
-              {transferType === 'cat' && (
+              {/* Description */}
+              {selectedNFTDisplay.description && (
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Amount (CAT)
+                  <label style={{ color: '#888', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+                    Description
                   </label>
-                  <input
-                    type="number"
-                    value={transferAmount}
-                    onChange={(e) => setTransferAmount(e.target.value)}
-                    placeholder="0.000"
-                    step="0.001"
-                    className="w-full px-4 py-2 border rounded text-sm focus:outline-none"
-                    style={{ backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
-                  />
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#262626',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '14px',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}>
+                    {selectedNFTDisplay.description}
+                  </div>
                 </div>
               )}
 
+              {/* NFT ID */}
+              <div>
+                <label style={{ color: '#888', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+                  NFT ID
+                </label>
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#262626',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  wordBreak: 'break-all'
+                }}>
+                  {selectedNFTDisplay.coinId}
+                </div>
+              </div>
+
+              {/* Launcher ID */}
+              <div>
+                <label style={{ color: '#888', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+                  Launcher ID
+                </label>
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#262626',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  wordBreak: 'break-all'
+                }}>
+                  {selectedNFTDisplay.launcherId}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
               {/* Recipient Address */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label style={{ color: 'white', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
                   Recipient Address
                 </label>
                 <input
@@ -683,8 +875,16 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   value={recipientAddress}
                   onChange={(e) => setRecipientAddress(e.target.value)}
                   placeholder="xch1..."
-                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
-                  style={{ backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#262626',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
                   onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
                   onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
                 />
@@ -692,7 +892,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
 
               {/* Fee */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label style={{ color: 'white', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
                   Transaction Fee (XCH)
                 </label>
                 <input
@@ -702,69 +902,252 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   value={transferFee}
                   onChange={(e) => setTransferFee(e.target.value)}
                   placeholder="0.0001"
-                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
-                  style={{ backgroundColor: '#262626', borderColor: '#333', color: 'white' }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#262626',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
                   onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
                   onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
                 />
-                <p className="text-xs mt-1" style={{ color: '#888' }}>
+                <p style={{ color: '#888', fontSize: '12px', marginTop: '8px' }}>
                   {Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos
                 </p>
               </div>
 
               {/* Error Display */}
               {transferError && (
-                <div className="p-3 rounded border" style={{ backgroundColor: '#2a1a1a', borderColor: '#6b2828' }}>
-                  <p className="text-sm text-red-400">{transferError}</p>
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#2a1a1a',
+                  border: '1px solid #6b2828',
+                  borderRadius: '8px'
+                }}>
+                  <p style={{ color: '#ef4444', fontSize: '14px' }}>{transferError}</p>
                 </div>
               )}
 
-              {/* Success Display */}
-              {lastResponse && (
-                <div className="p-3 rounded border" style={{ backgroundColor: '#1a2a1a', borderColor: '#286b28' }}>
-                  <p className="text-sm text-green-400">Transfer successful!</p>
-                  <p className="text-xs mt-1" style={{ color: '#888' }}>TX: {lastResponse.transaction_id?.substring(0, 16)}...</p>
-                </div>
-              )}
+              {/* Transfer Button */}
+              <button
+                onClick={handleTransfer}
+                disabled={isTransferring || !recipientAddress.trim()}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: isTransferring || !recipientAddress.trim() ? '#333' : '#6bc36b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: isTransferring || !recipientAddress.trim() ? 'not-allowed' : 'pointer',
+                  opacity: isTransferring || !recipientAddress.trim() ? 0.5 : 1,
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isTransferring && recipientAddress.trim()) {
+                    e.currentTarget.style.backgroundColor = '#5ba35b';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isTransferring && recipientAddress.trim()) {
+                    e.currentTarget.style.backgroundColor = '#6bc36b';
+                  }
+                }}
+              >
+                {isTransferring ? 'Transferring...' : 'Transfer NFT'}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : view === 'cat-transfer' && selectedCAT ? (
+        <div className="flex flex-col gap-4">
+          {/* Back Button */}
+          <button
+            onClick={handleBackToList}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors self-start"
+            style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6"></path>
+            </svg>
+            Back to Assets
+          </button>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowTransferModal(false);
-                    setSelectedNFT(null);
-                  }}
-                  className="flex-1 px-4 py-2 rounded border text-sm font-medium transition-colors"
-                  style={{ backgroundColor: 'transparent', borderColor: '#333', color: 'white' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#262626'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  disabled={isTransferring}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleTransfer}
-                  className="flex-1 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#6bc36b', color: 'white' }}
-                  onMouseEnter={(e) => !isTransferring && (e.currentTarget.style.backgroundColor = '#1E4FD9')}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6bc36b'}
-                  disabled={isTransferring || !recipientAddress.trim() || (transferType === 'cat' && !transferAmount.trim())}
-                >
-                  {isTransferring ? 'Transferring...' : `Transfer ${transferType === 'nft' ? 'NFT' : 'CAT'}`}
-                </button>
+          {/* CAT Info */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '16px',
+            backgroundColor: '#262626',
+            border: '1px solid #333',
+            borderRadius: '12px'
+          }}>
+            <div style={{ 
+              width: '64px',
+              height: '64px',
+              borderRadius: '12px',
+              backgroundColor: '#333',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <span style={{ fontSize: '32px' }}>💰</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: 'white', fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+                CAT Token
+              </div>
+              <div style={{ color: '#888', fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                {selectedCAT.assetId}
+              </div>
+              <div style={{ color: '#888', fontSize: '14px', marginTop: '8px' }}>
+                Available: {(Number(selectedCAT.coins.reduce((sum, c) => sum + BigInt(c.coin.amount), BigInt(0))) / 1000).toLocaleString()} CAT
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Success Modal */}
+          {/* Amount */}
+          <div>
+            <label style={{ color: 'white', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+              Amount (CAT)
+            </label>
+            <input
+              type="number"
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+              placeholder="0.000"
+              step="0.001"
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#262626',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
+            />
+          </div>
+
+          {/* Recipient Address */}
+          <div>
+            <label style={{ color: 'white', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+              Recipient Address
+            </label>
+            <input
+              type="text"
+              value={recipientAddress}
+              onChange={(e) => setRecipientAddress(e.target.value)}
+              placeholder="xch1..."
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#262626',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
+            />
+          </div>
+
+          {/* Fee */}
+          <div>
+            <label style={{ color: 'white', fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+              Transaction Fee (XCH)
+            </label>
+            <input
+              type="number"
+              step="0.00001"
+              min="0"
+              value={transferFee}
+              onChange={(e) => setTransferFee(e.target.value)}
+              placeholder="0.0001"
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#262626',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#6bc36b'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
+            />
+            <p style={{ color: '#888', fontSize: '12px', marginTop: '8px' }}>
+              {Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos
+            </p>
+          </div>
+
+          {/* Error Display */}
+          {transferError && (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#2a1a1a',
+              border: '1px solid #6b2828',
+              borderRadius: '8px'
+            }}>
+              <p style={{ color: '#ef4444', fontSize: '14px' }}>{transferError}</p>
+            </div>
+          )}
+
+          {/* Transfer Button */}
+          <button
+            onClick={handleTransfer}
+            disabled={isTransferring || !recipientAddress.trim() || !transferAmount.trim()}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: (isTransferring || !recipientAddress.trim() || !transferAmount.trim()) ? '#333' : '#6bc36b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: (isTransferring || !recipientAddress.trim() || !transferAmount.trim()) ? 'not-allowed' : 'pointer',
+              opacity: (isTransferring || !recipientAddress.trim() || !transferAmount.trim()) ? 0.5 : 1,
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              if (!isTransferring && recipientAddress.trim() && transferAmount.trim()) {
+                e.currentTarget.style.backgroundColor = '#5ba35b';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isTransferring && recipientAddress.trim() && transferAmount.trim()) {
+                e.currentTarget.style.backgroundColor = '#6bc36b';
+              }
+            }}
+          >
+            {isTransferring ? 'Transferring...' : 'Transfer CAT'}
+          </button>
+        </div>
+      ) : null}
+      </div>
+
+      {/* Success Message Overlay */}
       {showSuccessModal && successMessage && (
         <div 
           className="fixed inset-0 flex items-center justify-center"
           style={{ 
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            zIndex: 10000
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1
           }}
           onClick={() => {
             setShowSuccessModal(false);
@@ -817,7 +1200,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </Fragment>
   );
 };
 

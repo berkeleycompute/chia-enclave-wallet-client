@@ -40,6 +40,48 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [nftMetadata, setNftMetadata] = useState<any>(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
+  const [copiedValue, setCopiedValue] = useState<string | null>(null);
+
+  // Helper function to copy to clipboard
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedValue(label);
+      setTimeout(() => setCopiedValue(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  // Helper to detect if value is a URL
+  const isUrl = (value: string): boolean => {
+    if (typeof value !== 'string') return false;
+    
+    // Already has protocol
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return true;
+    }
+    
+    // Check for common URL patterns
+    const urlPattern = /^(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?$/;
+    return urlPattern.test(value) || 
+           value.startsWith('www.') ||
+           value.includes('.com/') ||
+           value.includes('.net/') ||
+           value.includes('.org/') ||
+           value.includes('.io/');
+  };
+
+  // Helper to make URL clickable - adds https:// if missing
+  const makeUrlClickable = (value: string): string => {
+    // Already has protocol
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    
+    // Add https:// to any URL without protocol
+    return `https://${value}`;
+  };
 
   // Fetch NFT metadata from metadataUris
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -239,23 +281,13 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
   return (
     <>
       <div 
-        className="nft-details-modal-overlay" 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            onClose();
-          }
+        className="nft-details-content-wrapper"
+        style={{
+          maxHeight: '70vh',
+          overflowY: 'auto',
+          overflowX: 'hidden'
         }}
       >
-        <div className="nft-details-modal" onClick={(e) => e.stopPropagation()}>
-          {/* Close button in top right */}
-          <button
-            onClick={onClose}
-            className="modal-close-btn"
-            aria-label="Close modal"
-          >
-            ✕
-          </button>
-
           <div className="modal-tabs">
             <button
               className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
@@ -263,13 +295,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             >
               📋 Details
             </button>
-            <button
-              className={`tab-button ${activeTab === 'offer' ? 'active' : ''}`}
-              onClick={() => setActiveTab('offer')}
-              disabled={!isConnected}
-            >
-              💰 Create Offer
-            </button>
+           
             <button
               className={`tab-button ${activeTab === 'transfer' ? 'active' : ''}`}
               onClick={() => setActiveTab('transfer')}
@@ -356,39 +382,151 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                   <div className="attributes-section">
                     <h3>Attributes</h3>
                     <div className="attributes-grid">
-                      {nftMetadata.attributes.map((attr: any, index: number) => (
-                        <div key={index} className="attribute-card">
-                          <label className="attribute-type">{attr.trait_type || attr.type}</label>
-                          <span className="attribute-value">{String(attr.value)}</span>
-                        </div>
-                      ))}
+                      {nftMetadata.attributes.map((attr: any, index: number) => {
+                        const valueStr = String(attr.value);
+                        const isLongValue = valueStr.length > 20;
+                        const isUrlValue = isUrl(valueStr);
+                        const attributeKey = `${attr.trait_type || attr.type}-${index}`;
+
+                        return (
+                          <div key={index} className="attribute-card">
+                            <label className="attribute-type">{attr.trait_type || attr.type}</label>
+                            <div className="attribute-value-container">
+                              {isUrlValue ? (
+                                <a 
+                                  href={makeUrlClickable(valueStr)} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="attribute-value attribute-link"
+                                  title={valueStr}
+                                >
+                                  {valueStr.length > 30 ? valueStr.substring(0, 30) + '...' : valueStr}
+                                </a>
+                              ) : (
+                                <span 
+                                  className={`attribute-value copyable-value ${copiedValue === attributeKey ? 'copied' : ''}`}
+                                  title={copiedValue === attributeKey ? 'Copied!' : 'Double-click to copy'}
+                                  onDoubleClick={() => copyToClipboard(valueStr, attributeKey)}
+                                >
+                                  {valueStr}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
+                {/* External Links */}
+                <div className="external-links-section">
+                  <h3>View on Explorers</h3>
+                  <div className="external-links-grid">
+                    {nftInfo?.launcherId && (
+                      <>
+                        <a
+                          href={`https://mintgarden.io/nfts/${nftInfo.launcherId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="external-link"
+                        >
+                          <img 
+                            src="https://mintgarden.io/favicon.ico" 
+                            alt="MintGarden"
+                            width="20"
+                            height="20"
+                            className="external-link-icon"
+                          />
+                          <span>MintGarden</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                          </svg>
+                        </a>
+                        <a
+                          href={`https://spacescan.io/nft/${nftInfo.launcherId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="external-link"
+                        >
+                          <img 
+                            src="https://images.spacescan.io/assets/spacescan-logo-192.webp" 
+                            alt="Spacescan"
+                            width="20"
+                            height="20"
+                            className="external-link-icon"
+                          />
+                          <span>Spacescan</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                          </svg>
+                        </a>
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 {/* Technical Details - Collapsible */}
-                <details className="technical-details" open>
+                <details className="technical-details">
                   <summary>Technical Information</summary>
                   <div className="technical-content">
-                    <div className="info-item">
-                      <label>Launcher ID</label>
-                      <code className="info-value">{nftInfo?.launcherId || 'N/A'}</code>
-                    </div>
-                    <div className="info-item">
-                      <label>Current Owner</label>
-                      <code className="info-value">{nftInfo?.currentOwner || 'N/A'}</code>
-                    </div>
+                    {nftInfo?.launcherId && (
+                      <div className="info-item">
+                        <label>Launcher ID</label>
+                        <code 
+                          className={`info-value copyable-value ${copiedValue === 'launcherId' ? 'copied' : ''}`}
+                          title={copiedValue === 'launcherId' ? 'Copied!' : 'Double-click to copy'}
+                          onDoubleClick={() => nftInfo.launcherId && copyToClipboard(nftInfo.launcherId, 'launcherId')}
+                        >
+                          {nftInfo.launcherId}
+                        </code>
+                      </div>
+                    )}
+                    {nftInfo?.currentOwner && (
+                      <div className="info-item">
+                        <label>Current Owner</label>
+                        <code 
+                          className={`info-value copyable-value ${copiedValue === 'currentOwner' ? 'copied' : ''}`}
+                          title={copiedValue === 'currentOwner' ? 'Copied!' : 'Double-click to copy'}
+                          onDoubleClick={() => nftInfo.currentOwner && copyToClipboard(nftInfo.currentOwner, 'currentOwner')}
+                        >
+                          {nftInfo.currentOwner}
+                        </code>
+                      </div>
+                    )}
                     <div className="info-item">
                       <label>Coin ID</label>
-                      <code className="info-value">{nft.coinId}</code>
+                      <code 
+                        className={`info-value copyable-value ${copiedValue === 'coinId' ? 'copied' : ''}`}
+                        title={copiedValue === 'coinId' ? 'Copied!' : 'Double-click to copy'}
+                        onDoubleClick={() => copyToClipboard(nft.coinId, 'coinId')}
+                      >
+                        {nft.coinId}
+                      </code>
                     </div>
                     <div className="info-item">
                       <label>Parent Coin Info</label>
-                      <code className="info-value">{nft.coin.parentCoinInfo}</code>
+                      <code 
+                        className={`info-value copyable-value ${copiedValue === 'parentCoinInfo' ? 'copied' : ''}`}
+                        title={copiedValue === 'parentCoinInfo' ? 'Copied!' : 'Double-click to copy'}
+                        onDoubleClick={() => copyToClipboard(nft.coin.parentCoinInfo, 'parentCoinInfo')}
+                      >
+                        {nft.coin.parentCoinInfo}
+                      </code>
                     </div>
                     <div className="info-item">
                       <label>Puzzle Hash</label>
-                      <code className="info-value">{nft.coin.puzzleHash}</code>
+                      <code 
+                        className={`info-value copyable-value ${copiedValue === 'puzzleHash' ? 'copied' : ''}`}
+                        title={copiedValue === 'puzzleHash' ? 'Copied!' : 'Double-click to copy'}
+                        onDoubleClick={() => copyToClipboard(nft.coin.puzzleHash, 'puzzleHash')}
+                      >
+                        {nft.coin.puzzleHash}
+                      </code>
                     </div>
                     <div className="info-item">
                       <label>Amount</label>
@@ -397,19 +535,37 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
                     {onChainMetadata?.dataHash && (
                       <div className="info-item">
                         <label>Data Hash</label>
-                        <code className="info-value">{onChainMetadata.dataHash}</code>
+                        <code 
+                          className={`info-value copyable-value ${copiedValue === 'dataHash' ? 'copied' : ''}`}
+                          title={copiedValue === 'dataHash' ? 'Copied!' : 'Double-click to copy'}
+                          onDoubleClick={() => copyToClipboard(onChainMetadata.dataHash, 'dataHash')}
+                        >
+                          {onChainMetadata.dataHash}
+                        </code>
                       </div>
                     )}
                     {onChainMetadata?.metadataHash && (
                       <div className="info-item">
                         <label>Metadata Hash</label>
-                        <code className="info-value">{onChainMetadata.metadataHash}</code>
+                        <code 
+                          className={`info-value copyable-value ${copiedValue === 'metadataHash' ? 'copied' : ''}`}
+                          title={copiedValue === 'metadataHash' ? 'Copied!' : 'Double-click to copy'}
+                          onDoubleClick={() => copyToClipboard(onChainMetadata.metadataHash, 'metadataHash')}
+                        >
+                          {onChainMetadata.metadataHash}
+                        </code>
                       </div>
                     )}
                     {onChainMetadata?.licenseHash && (
                       <div className="info-item">
                         <label>License Hash</label>
-                        <code className="info-value">{onChainMetadata.licenseHash}</code>
+                        <code 
+                          className={`info-value copyable-value ${copiedValue === 'licenseHash' ? 'copied' : ''}`}
+                          title={copiedValue === 'licenseHash' ? 'Copied!' : 'Double-click to copy'}
+                          onDoubleClick={() => copyToClipboard(onChainMetadata.licenseHash, 'licenseHash')}
+                        >
+                          {onChainMetadata.licenseHash}
+                        </code>
                       </div>
                     )}
                   </div>
@@ -573,116 +729,35 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
               </div>
             )}
           </div>
-        </div>
       </div>
 
       <style>{`
-          .nft-details-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            animation: fadeIn 0.2s ease;
-            backdrop-filter: blur(4px);
+          .nft-details-content-wrapper {
+            padding: 0;
           }
 
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+          /* Scrollbar styling */
+          .nft-details-content-wrapper::-webkit-scrollbar {
+            width: 8px;
           }
 
-          .nft-details-modal {
-            position: relative;
+          .nft-details-content-wrapper::-webkit-scrollbar-track {
             background: #1a1a1a;
-            border-radius: 16px;
-            width: 95%;
-            max-width: 900px;
-            max-height: 90vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            animation: slideUp 0.3s ease;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            border: none;
+            border-radius: 4px;
           }
 
-          @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+          .nft-details-content-wrapper::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
           }
 
-          .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid #272830;
-            background: #14151A;
-            color: white;
+          .nft-details-content-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #6bc36b;
           }
 
-          .modal-header h2 {
-            margin: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
-          }
-
-          .close-button {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-          }
-
-          .close-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-          }
-
-          /* Modal Close Button - Top Right */
-          .modal-close-btn {
-            position: absolute;
-            top: 0.75rem;
-            right: 0.75rem;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid #333;
-            color: white;
-            cursor: pointer;
-            font-size: 1.75rem;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            transition: all 0.2s;
-            z-index: 100;
-            line-height: 1;
-            font-weight: 300;
-          }
-
-          .modal-close-btn:hover {
-            background: #ef4444;
-            border-color: #ef4444;
-            color: white;
-            transform: scale(1.05);
-          }
-
-          .modal-close-btn:active {
-            transform: scale(0.95);
+          .nft-details-content-wrapper {
+            scrollbar-width: thin;
+            scrollbar-color: #333 #1a1a1a;
           }
 
           .modal-tabs {
@@ -720,36 +795,9 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
           }
 
           .modal-body {
-            flex: 1;
-            min-height: 0;
-            padding: 2rem;
-            overflow-y: auto;
-            overflow-x: hidden;
+            padding: 1.5rem;
             background: #1a1a1a;
             color: white;
-            -webkit-overflow-scrolling: touch;
-            scroll-behavior: smooth;
-            scrollbar-width: thin;
-            scrollbar-color: #333 #1a1a1a;
-          }
-
-          /* Scrollbar styling for modal body */
-          .modal-body::-webkit-scrollbar {
-            width: 8px;
-          }
-
-          .modal-body::-webkit-scrollbar-track {
-            background: #1a1a1a;
-            border-radius: 4px;
-          }
-
-          .modal-body::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
-          }
-
-          .modal-body::-webkit-scrollbar-thumb:hover {
-            background: #6bc36b;
           }
 
           /* Loading Indicator */
@@ -878,6 +926,65 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             font-weight: 700;
           }
 
+          /* External Links Section */
+          .external-links-section {
+            margin-bottom: 2rem;
+          }
+
+          .external-links-section h3 {
+            margin: 0 0 1rem 0;
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 600;
+          }
+
+          .external-links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+          }
+
+          .external-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: #262626;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+            position: relative;
+          }
+
+          .external-link:hover {
+            background: #333;
+            border-color: #6bc36b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(107, 195, 107, 0.2);
+          }
+
+          .external-link-icon {
+            flex-shrink: 0;
+            border-radius: 4px;
+            object-fit: contain;
+          }
+
+          .external-link span {
+            flex: 1;
+          }
+
+          .external-link svg {
+            color: #888;
+            flex-shrink: 0;
+          }
+
+          .external-link:hover svg {
+            color: #6bc36b;
+          }
+
           /* Attributes Section */
           .attributes-section {
             margin-bottom: 1.5rem;
@@ -903,6 +1010,7 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             padding: 0.875rem;
             text-align: center;
             transition: all 0.2s;
+            position: relative;
           }
 
           .attribute-card:hover {
@@ -920,11 +1028,78 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             margin-bottom: 0.5rem;
           }
 
+          .attribute-value-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 24px;
+          }
+
           .attribute-value {
-            display: block;
             color: white;
             font-size: 0.9375rem;
             font-weight: 600;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+          }
+
+          .attribute-link {
+            color: #6bc36b;
+            text-decoration: none;
+            transition: color 0.2s;
+          }
+
+          .attribute-link:hover {
+            color: #4a9f4a;
+            text-decoration: underline;
+          }
+
+          .copyable-value {
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+          }
+
+          .copyable-value:hover {
+            background: #404040;
+            border-color: #6bc36b;
+            box-shadow: 0 0 0 2px rgba(107, 195, 107, 0.3);
+          }
+
+          .copyable-value.copied {
+            background: rgba(107, 195, 107, 0.2);
+            border-color: #6bc36b;
+            animation: copiedPulse 0.5s ease;
+          }
+
+          .copyable-value.copied::after {
+            content: '✓ Copied!';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #6bc36b;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 10;
+            animation: fadeInOut 2s ease;
+          }
+
+          @keyframes copiedPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+          }
+
+          @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
           }
 
           /* Collapsible Details Sections */
@@ -1001,6 +1176,8 @@ export const NFTDetailsModal: React.FC<NFTDetailsModalProps> = ({
             color: #ccc;
             border: 1px solid #404040;
             line-height: 1.4;
+            user-select: all;
+            display: block;
           }
 
           .uri-group {
