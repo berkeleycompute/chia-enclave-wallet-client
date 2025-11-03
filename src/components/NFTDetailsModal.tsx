@@ -5,6 +5,7 @@ import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
 import { useTransferAssets } from '../hooks/useTransferAssets';
 import type { HydratedCoin } from '../client/ChiaCloudWalletClient';
 import { convertIpfsUrl } from '../utils/ipfs';
+import { PiListBullets, PiPaperPlaneTilt } from 'react-icons/pi';
 
 interface NFTDetailsModalProps {
   isOpen: boolean;
@@ -332,7 +333,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               }}
             >
               <span className="flex items-center gap-2">
-                <span>📋</span>
+                <PiListBullets size={16} color="#888" />
                 <span>Details</span>
               </span>
               {activeTab === 'details' && (
@@ -357,7 +358,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               }}
             >
               <span className="flex items-center gap-2">
-                <span>📤</span>
+                <PiPaperPlaneTilt size={16} color="#888" />
                 <span>Transfer</span>
               </span>
               {activeTab === 'transfer' && (
@@ -692,7 +693,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               <div className="offer-content">
                 {!isConnected ? (
                   <div className="error-state">
-                    <p>❌ Wallet not connected. Please connect your wallet to create offers.</p>
+                    <p>Wallet not connected. Please connect your wallet to create offers.</p>
                   </div>
                 ) : (
                   <>
@@ -718,13 +719,13 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
 
                       {offerError && (
                         <div className="error-message">
-                          ❌ {offerError}
+                          {offerError}
                         </div>
                       )}
 
                       {offerSuccess && (
                         <div className="success-message">
-                          ✅ Offer created successfully! You can now share it with potential buyers.
+                          Offer created successfully! You can now share it with potential buyers.
                         </div>
                       )}
 
@@ -733,7 +734,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
                         disabled={offerLoading || !offerPrice.trim()}
                         className="create-offer-button"
                       >
-                        {offerLoading ? '⏳ Creating Offer...' : '💰 Create Offer'}
+                        {offerLoading ? 'Creating Offer...' : 'Create Offer'}
                       </button>
                     </div>
                   </>
@@ -745,7 +746,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               <div className="transfer-content">
                 {!isConnected ? (
                   <div className="error-state">
-                    <p>❌ Wallet not connected. Please connect your wallet to transfer NFTs.</p>
+                    <p>Wallet not connected. Please connect your wallet to transfer NFTs.</p>
                   </div>
                 ) : (
                   <>
@@ -786,13 +787,13 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
 
                       {transferError && (
                         <div className="error-message">
-                          ❌ {transferError}
+                          {transferError}
                         </div>
                       )}
 
                       {transferSuccess && (
                         <div className="success-message">
-                          ✅ NFT transferred successfully!
+                          NFT transferred successfully!
                         </div>
                       )}
 
@@ -801,7 +802,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
                         disabled={isTransferring || !recipientAddress.trim()}
                         className="transfer-button"
                       >
-                        {isTransferring ? '⏳ Transferring...' : '📤 Transfer NFT'}
+                        {isTransferring ? 'Transferring...' : 'Transfer NFT'}
                       </button>
                     </div>
                   </>

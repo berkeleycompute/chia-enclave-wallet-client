@@ -438,11 +438,6 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   style={{ 
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
-                    padding: '12px',
-                    backgroundColor: '#262626',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
                     width: '100%',
                     boxSizing: 'border-box'
                   }}
@@ -460,9 +455,6 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                           alignItems: 'center',
                           gap: '12px',
                           padding: '12px',
-                          backgroundColor: '#1a1a1a',
-                          border: '1px solid #333',
-                          borderRadius: '8px',
                           cursor: 'pointer',
                           transition: 'background-color 0.2s',
                           minWidth: 0
@@ -607,12 +599,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                   style={{ 
                     display: 'grid',
                     gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '16px',
-                    padding: '16px',
-                    backgroundColor: '#262626', 
-                    borderColor: '#333',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
+                    gap: '12px',
                     width: '100%',
                     boxSizing: 'border-box'
                   }}
