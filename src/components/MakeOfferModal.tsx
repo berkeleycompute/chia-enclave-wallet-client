@@ -59,6 +59,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const hasRefreshedOnOpen = useRef(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Handle modal opening/closing and initial setup
   useEffect(() => {
@@ -579,7 +580,14 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         dexieError: dexieResult.error
       });
 
-      closeModal();
+      // Show success message
+      setSuccessMessage('Offer created successfully! Your offer has been submitted to the marketplace.');
+      
+      // Close modal after showing success message for 2 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+        closeModal();
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create offer');
       console.error('Error creating offer:', err);
@@ -651,6 +659,15 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               </>
             )}
           </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="p-3 rounded border text-green-400 bg-green-500/10 text-sm my-2 flex items-center gap-2" style={{ borderColor: '#22c55e' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <span>{successMessage}</span>
         </div>
       )}
 

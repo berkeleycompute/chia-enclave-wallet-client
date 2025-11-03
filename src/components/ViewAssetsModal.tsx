@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { injectModalStyles } from './modal-styles';
 import {
   useWalletConnection,
-  useWalletCoins
+  useWalletCoins,
+  useRawSDK
 } from '../hooks/useChiaWalletSDK';
 import { useNFTs, type NFTWithMetadata } from '../hooks/useNFTs';
 import { ChiaCloudWalletClient, type HydratedCoin } from '../client/ChiaCloudWalletClient';
@@ -23,12 +24,16 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
 }) => {
   const { isConnected } = useWalletConnection();
   const { xchCoins, catCoins, nftCoins, isLoading: coinsLoading } = useWalletCoins();
+  const sdk = useRawSDK();
   const { nfts, loading: nftsLoading, metadataLoading, refresh: refreshNFTs, loadAllMetadata } = useNFTs({ 
     autoLoadMetadata: true, 
     autoRefresh: false,
     enableLogging: true  // Enable logging to debug metadata loading
   });
-  const { transferNFT, transferCAT, isTransferring, transferError, lastResponse } = useTransferAssets({ enableLogging: true });
+  const { transferNFT, transferCAT, isTransferring, transferError, lastResponse } = useTransferAssets({ 
+    sdk, 
+    enableLogging: true 
+  });
 
   const [search, setSearch] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -39,6 +44,8 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   const [transferAmount, setTransferAmount] = useState('');
   const [transferFee, setTransferFee] = useState('0.0001'); // Store as XCH
   const [showCoinsDetails, setShowCoinsDetails] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Ensure shared modal styles are available
   useEffect(() => {
@@ -271,15 +278,21 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     );
 
     if (result.success) {
-      alert(`NFT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
+      setSuccessMessage(`NFT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
+      setShowSuccessModal(true);
       setShowTransferModal(false);
       setSelectedNFT(null);
       setRecipientAddress('');
       setTransferAmount('');
+      
+      // Auto-close success message after 5 seconds
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        setSuccessMessage(null);
+      }, 5000);
+      
       // Refresh the NFT list
       refreshNFTs();
-    } else {
-      alert(`Transfer failed: ${result.error}`);
     }
   };
 
@@ -308,15 +321,20 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
     );
 
     if (result.success) {
-      alert(`CAT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
+      setSuccessMessage(`CAT transferred successfully!\nTransaction ID: ${result.response?.transaction_id || 'N/A'}`);
+      setShowSuccessModal(true);
       setShowTransferModal(false);
       setSelectedCAT(null);
       setRecipientAddress('');
       setTransferAmount('');
-      // Refresh the coin list
-      window.location.reload(); // Simple refresh for now
-    } else {
-      alert(`Transfer failed: ${result.error}`);
+      
+      // Auto-close success message after 5 seconds
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        setSuccessMessage(null);
+        // Refresh the coin list
+        window.location.reload();
+      }, 5000);
     }
   };
 
@@ -735,6 +753,66 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && successMessage && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center"
+          style={{ 
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 10000
+          }}
+          onClick={() => {
+            setShowSuccessModal(false);
+            setSuccessMessage(null);
+          }}
+        >
+          <div 
+            className="rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+            style={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Success Icon */}
+            <div className="flex items-center justify-center mb-4">
+              <div 
+                className="rounded-full flex items-center justify-center"
+                style={{ 
+                  width: '64px', 
+                  height: '64px', 
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                  border: '2px solid #22c55e'
+                }}
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* Success Message */}
+            <h3 className="text-center text-white text-lg font-semibold mb-2">
+              Transaction Sent Successfully!
+            </h3>
+            <p className="text-center text-sm mb-4" style={{ color: '#888', whiteSpace: 'pre-line' }}>
+              {successMessage}
+            </p>
+
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowSuccessModal(false);
+                setSuccessMessage(null);
+              }}
+              className="w-full px-4 py-2 rounded text-sm font-medium transition-colors"
+              style={{ backgroundColor: '#6bc36b', color: 'white' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#5ba35b'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6bc36b'}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
