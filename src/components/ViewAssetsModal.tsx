@@ -617,7 +617,6 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                         style={{ 
                           display: 'flex',
                           flexDirection: 'column',
-                          backgroundColor: '#1a1a1a', 
                           borderColor: '#333',
                           border: '1px solid #333',
                           borderRadius: '8px',

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRe
 import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
-import { PiMagnifyingGlass } from 'react-icons/pi';
+import { PiMagnifyingGlass, PiCopy, PiCheck, PiArrowSquareOut } from 'react-icons/pi';
 import { convertIpfsUrl } from '../utils/ipfs';
 
 interface ActiveOffersModalProps {
@@ -59,7 +59,8 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   const [selectedOffer, setSelectedOffer] = useState<SavedOffer | null>(null);
   const [showOfferDetails, setShowOfferDetails] = useState(false);
   const [search, setSearch] = useState('');
-
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [copiedOffer, setCopiedOffer] = useState(false);
   // Storage key for offers
   const getOffersStorageKey = useCallback((pubKey: string | null): string => {
     if (!pubKey) return 'chia_active_offers';
@@ -140,7 +141,8 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   const copyAddressToClipboard = useCallback(async (address: string) => {
     try {
       await navigator.clipboard.writeText(address);
-      console.log('Address copied to clipboard');
+      setCopiedAddress(true);
+      setTimeout(() => setCopiedAddress(false), 1500);
     } catch (err) {
       console.error('Failed to copy address:', err);
     }
@@ -197,6 +199,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
     if (!isOpen) {
       setShowOfferDetails(false);
       setSelectedOffer(null);
+      setCopiedAddress(false);
     }
   }, [isOpen]);
 
@@ -259,27 +262,17 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
 
   if (showOfferDetails && selectedOffer) {
     return (
-      <div className="px-6 py-6" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+      <div className="px-6 py-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
         <div className="flex flex-col gap-5">
-          {/* Back Button */}
-          <button
-            onClick={closeOfferDetails}
-            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors -ml-2 mb-2"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12.5 5L7.5 10L12.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span className="text-sm font-medium">Back to offers</span>
-          </button>
 
           {/* NFT Header Section */}
           <div className="flex gap-4 items-start">
             <div className="w-24 h-24 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#272830' }}>
               {selectedOffer.nft.imageUrl ? (
-                <img 
-                  src={convertIpfsUrl(selectedOffer.nft.imageUrl)} 
-                  alt={selectedOffer.nft.name} 
-                  className="w-full h-full object-cover" 
+                <img
+                  src={convertIpfsUrl(selectedOffer.nft.imageUrl)}
+                  alt={selectedOffer.nft.name}
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <span className="text-4xl">🖼️</span>
@@ -289,132 +282,134 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
               <h2 className="text-white text-xl font-semibold mb-1 break-words">
                 {selectedOffer.nft.name}
               </h2>
-              {selectedOffer.nft.collection && (
-                <p className="text-gray-400 text-sm mb-2">{selectedOffer.nft.collection}</p>
-              )}
-              {selectedOffer.nft.edition && (
-                <span className="text-green-400 text-sm font-medium">{selectedOffer.nft.edition}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Requested Payment Section */}
-          <div className="rounded-lg p-4" style={{ backgroundColor: '#1B1C22', borderLeft: '3px solid #2C64F8' }}>
-            <h3 className="text-white font-semibold text-base mb-3">Requested Payment</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Amount</span>
-                <div className="text-green-400 font-semibold text-lg">
-                  {selectedOffer.requestedPayment.amount} {selectedOffer.requestedPayment.assetName}
-                </div>
-              </div>
-              <div>
-                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Asset</span>
-                <div className="text-white font-semibold text-lg">
-                  {selectedOffer.requestedPayment.assetName}
-                </div>
-              </div>
-            </div>
-            <div className="mt-4">
-              <span className="text-gray-400 text-xs uppercase tracking-wide block mb-2">Deposit Address</span>
-              <div className="flex items-center gap-2 p-3 rounded" style={{ backgroundColor: '#272830' }}>
-                <code className="text-xs text-gray-300 break-all flex-1">
-                  {compactAddress(selectedOffer.requestedPayment.depositAddress)}
-                </code>
-                <button
-                  className="px-3 py-1.5 rounded text-xs font-medium transition-all flex-shrink-0"
-                  onClick={() => copyAddressToClipboard(selectedOffer.requestedPayment.depositAddress)}
-                  style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
-                >
-                  Copy
-                </button>
+              <div className="flex items-center justify-center gap-2">
+                {selectedOffer.nft.collection && (
+                  <p className="text-gray-400 text-sm truncate">{selectedOffer.nft.collection}</p>
+                )}
+                {selectedOffer.nft.edition && (
+                  <span className="text-green-400 text-sm font-medium">{selectedOffer.nft.edition}</span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Offer Information Section */}
-          <div className="rounded-lg p-4" style={{ backgroundColor: '#1B1C22' }}>
-            <h3 className="text-white font-semibold text-base mb-3">Offer Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Created</span>
-                <div className="text-white font-medium">{formatTime(selectedOffer.timestamp)}</div>
+          {/* offer details Section */}
+          <div className="rounded-lg flex flex-col gap-1">
+            <div className="flex flex-row items-center justify-between gap-4">
+              <span className="text-gray-400 text-sm uppercase tracking-wide">Amount</span>
+              <div className="text-green-400 font-semibold text-sm">
+                {selectedOffer.requestedPayment.amount} {selectedOffer.requestedPayment.assetName}
               </div>
-              <div>
-                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Status</span>
-                <div>
-                  <span className={getStatusBadgeClasses(selectedOffer.status)}>
-                    {selectedOffer.status}
-                  </span>
+            </div>
+            <div className="flex flex-row items-center justify-between gap-4">
+              <span className="text-gray-400 text-sm uppercase tracking-wide">Deposit Address</span>
+              <div className="text-white font-semibold text-sm flex items-center gap-2">
+                {compactAddress(selectedOffer.requestedPayment.depositAddress)}
+                <div className="ml-auto cursor-pointer flex-shrink-0">
+                  {copiedAddress ? (
+                    <PiCheck size={16} style={{ color: '#22C55E' }} />
+                  ) : (
+                    <PiCopy
+                      size={16}
+                      style={{ color: '#888' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
+                      onClick={() => copyAddressToClipboard(selectedOffer.requestedPayment.depositAddress)}
+                    />
+                  )}
                 </div>
               </div>
-              <div className="col-span-2">
-                <span className="text-gray-400 text-xs uppercase tracking-wide block mb-1">Type</span>
-                <div className="text-white font-medium">
-                  {selectedOffer.offerData.isSigned ? 'Signed' : 'Unsigned'}
+            </div>
+            <div className="flex flex-row items-center justify-between gap-4">
+              <span className="text-gray-400 text-sm uppercase tracking-wide">Created</span>
+              <div className="text-white font-semibold text-sm">{formatTime(selectedOffer.timestamp)}</div>
+            </div>
+            <div className="flex flex-row items-center justify-between gap-4">
+              <span className="text-gray-400 text-sm uppercase tracking-wide">Status</span>
+              <div className="text-white font-semibold text-sm">
+                <span className={getStatusBadgeClasses(selectedOffer.status)}>
+                  {selectedOffer.status}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-row items-center justify-between gap-4">
+              <span className="text-gray-400 text-sm uppercase tracking-wide">Type</span>
+              <div className="text-white font-semibold text-sm">
+                {selectedOffer.offerData.isSigned ? 'Signed' : 'Unsigned'}
+              </div>
+            </div>
+            <div className="flex flex-row items-center justify-between gap-4">
+              <span className="text-gray-400 text-sm uppercase tracking-wide">Offer String</span>
+              <div className="text-white font-semibold text-sm flex items-center gap-2">
+                {compactAddress(selectedOffer.offerData.offerString)}
+                <div className="ml-auto cursor-pointer flex-shrink-0">
+                  {copiedOffer ? (
+                    <PiCheck size={16} style={{ color: '#22C55E' }} />
+                  ) : (
+                    <PiCopy
+                      size={16}
+                      style={{ color: '#888' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
+                      onClick={() => {
+                        copyOfferToClipboard(selectedOffer.offerData.offerString);
+                        setCopiedOffer(true);
+                        setTimeout(() => setCopiedOffer(false), 1500);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-row items-center justify-between gap-4">
+              <span className="text-gray-400 text-sm uppercase tracking-wide">Dexie Offer ID</span>
+              <div className="text-white font-semibold text-sm flex items-center gap-2">
+                {compactAddress(selectedOffer.dexieOfferId || '')}
+                <div className="ml-auto cursor-pointer flex-shrink-0 ">
+                  {selectedOffer.dexieOfferId && (
+                    <PiArrowSquareOut size={16} style={{ color: '#888' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
+                      onClick={() => openOfferOnDexie(selectedOffer)}
+                    />
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <button 
-                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
-                onClick={() => copyOfferToClipboard(selectedOffer.offerData.offerString)}
-                style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#272830'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                Copy Offer String
-              </button>
-              {(selectedOffer.dexieOfferId || selectedOffer.dexieOfferUrl) && (
-                <button 
-                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
-                  onClick={() => openOfferOnDexie(selectedOffer)}
-                  style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1E56E8'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
-                >
-                  View on Dexie
-                </button>
-              )}
-            </div>
-            <div className="flex gap-2 pt-2 border-t" style={{ borderColor: '#272830' }}>
-              <button 
-                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
-                onClick={() => updateOfferStatus(selectedOffer.id, 'completed')}
-                style={{ backgroundColor: 'transparent', borderColor: '#22C55E', color: '#22C55E' }}
-                onMouseEnter={(e) => { 
-                  e.currentTarget.style.backgroundColor = '#22C55E'; 
-                  e.currentTarget.style.color = '#EEEEF0';
-                }}
-                onMouseLeave={(e) => { 
-                  e.currentTarget.style.backgroundColor = 'transparent'; 
-                  e.currentTarget.style.color = '#22C55E';
-                }}
-              >
-                Mark as Completed
-              </button>
-              <button 
-                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
-                onClick={() => updateOfferStatus(selectedOffer.id, 'cancelled')}
-                style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
-                onMouseEnter={(e) => { 
-                  e.currentTarget.style.backgroundColor = '#EF4444'; 
-                  e.currentTarget.style.color = '#EEEEF0';
-                }}
-                onMouseLeave={(e) => { 
-                  e.currentTarget.style.backgroundColor = 'transparent'; 
-                  e.currentTarget.style.color = '#EF4444';
-                }}
-              >
-                Cancel Offer
-              </button>
-            </div>
+          <div className="flex gap-2" style={{ borderColor: '#272830' }}>
+            <button
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
+              onClick={() => updateOfferStatus(selectedOffer.id, 'completed')}
+              style={{ backgroundColor: 'transparent', borderColor: '#22C55E', color: '#22C55E' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#22C55E';
+                e.currentTarget.style.color = '#EEEEF0';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#22C55E';
+              }}
+            >
+              Mark as Completed
+            </button>
+            <button
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
+              onClick={() => updateOfferStatus(selectedOffer.id, 'cancelled')}
+              style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#EF4444';
+                e.currentTarget.style.color = '#EEEEF0';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#EF4444';
+              }}
+            >
+              Cancel Offer
+            </button>
           </div>
         </div>
       </div>
@@ -450,7 +445,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
         </button>
       </div>
       {loading ? (
-        <div className="text-center py-12" style={{ color: '#888'}}>
+        <div className="text-center py-12" style={{ color: '#888' }}>
           <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }} />
           <p className=" text-sm">Loading offers...</p>
         </div>
@@ -475,18 +470,18 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
               (offer.requestedPayment.assetName || '').toLowerCase().includes(term)
             );
           }).map((offer) => (
-            <div 
-              key={offer.id} 
-              className="rounded-lg border transition-all hover:border-gray-600" 
+            <div
+              key={offer.id}
+              className="rounded-lg border transition-all hover:border-gray-600"
               style={{ backgroundColor: '#1B1C22', borderColor: '#272830', padding: '16px' }}
             >
               <div className="flex items-start gap-4">
                 {/* NFT Image */}
                 <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden" style={{ backgroundColor: '#272830' }}>
                   {offer.nft.imageUrl ? (
-                    <img 
-                      src={convertIpfsUrl(offer.nft.imageUrl)} 
-                      alt={offer.nft.name} 
+                    <img
+                      src={convertIpfsUrl(offer.nft.imageUrl)}
+                      alt={offer.nft.name}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -526,24 +521,46 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button 
-                      className="px-3 py-1.5 rounded text-xs font-medium transition-all hover:bg-blue-600" 
-                      style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-blue-600"
+                      style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#2C64F8' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#2C64F8';
+                        e.currentTarget.style.color = '#EEEEF0';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#2C64F8';
+                      }}
                       onClick={() => viewOfferDetails(offer)}
                     >
                       View Details
                     </button>
-                    <button 
-                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-gray-700" 
+                    <button
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-gray-700"
                       style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#272830';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
                       onClick={() => handleEditOffer(offer)}
                     >
                       Edit
                     </button>
-                    <button 
-                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-red-900 hover:border-red-700" 
+                    <button
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-red-900 hover:border-red-700"
                       style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EF4444' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#EF4444';
+                        e.currentTarget.style.color = '#EEEEF0';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#EF4444';
+                      }}
                       onClick={() => updateOfferStatus(offer.id, 'cancelled')}
                     >
                       Delete

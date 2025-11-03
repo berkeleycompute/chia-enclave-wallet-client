@@ -319,55 +319,28 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
           overflowX: 'hidden'
         }}
       >
-          <div className="flex gap-2 px-4 pt-4 border-b" style={{ borderColor: '#272830' }}>
-            <button
-              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-                activeTab === 'details' 
-                  ? 'text-white' 
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
-              onClick={() => setActiveTab('details')}
-              style={{
-                background: 'none',
-                border: 'none',
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <PiListBullets size={16} color="#888" />
-                <span>Details</span>
-              </span>
-              {activeTab === 'details' && (
-                <div 
-                  className="absolute bottom-0 left-0 right-0 h-0.5"
-                  style={{ backgroundColor: '#2C64F8' }}
-                />
-              )}
-            </button>
-           
-            <button
-              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-                activeTab === 'transfer' 
-                  ? 'text-white' 
-                  : 'text-gray-400 hover:text-gray-300'
-              } ${!isConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={() => setActiveTab('transfer')}
-              disabled={!isConnected}
-              style={{
-                background: 'none',
-                border: 'none',
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <PiPaperPlaneTilt size={16} color="#888" />
-                <span>Transfer</span>
-              </span>
-              {activeTab === 'transfer' && (
-                <div 
-                  className="absolute bottom-0 left-0 right-0 h-0.5"
-                  style={{ backgroundColor: '#2C64F8' }}
-                />
-              )}
-            </button>
+          <div className="flex gap-2 px-4 border-b" style={{ borderColor: '#272830' }}>
+              {[{name: "Details", icon: <PiListBullets size={16} color="#888" />, active: activeTab === 'details'}, {name: "Transfer", icon: <PiPaperPlaneTilt size={16} color="#888" />, active: activeTab === 'transfer'}].map((item) => (
+                <button
+                  key={item.name}
+                  className={`w-full px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center justify-center ${
+                    item.active 
+                      ? 'text-white' 
+                      : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                  onClick={() => setActiveTab(item.name.toLowerCase() as "details" | "transfer")}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: item.active ? '2px solid #2C64F8' : 'none',
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    {item.icon}
+                    <span>{item.name}</span>
+                  </span>
+                </button>
+              ))}
           </div>
 
           {/* Back to Assets button */}
@@ -465,13 +438,14 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
                     <div className="attributes-grid">
                       {nftMetadata.attributes.map((attr: any, index: number) => {
                         const valueStr = String(attr.value);
-                        const isLongValue = valueStr.length > 20;
                         const isUrlValue = isUrl(valueStr);
                         const attributeKey = `${attr.trait_type || attr.type}-${index}`;
 
                         return (
                           <div key={index} className="attribute-card">
-                            <label className="attribute-type">{attr.trait_type || attr.type}</label>
+                            <label className="block text-sm text-gray-400 font-medium mb-1 word-wrap break-words">
+                              {attr.trait_type || attr.type}
+                            </label>
                             <div className="attribute-value-container">
                               {isUrlValue ? (
                                 <a 
@@ -745,67 +719,115 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
             {activeTab === 'transfer' && (
               <div className="transfer-content">
                 {!isConnected ? (
-                  <div className="error-state">
-                    <p>Wallet not connected. Please connect your wallet to transfer NFTs.</p>
+                  <div className="text-center text-sm" style={{ padding: '40px' }}>
+                    <p style={{ color: '#ef4444' }}>Wallet not connected. Please connect your wallet to transfer NFTs.</p>
                   </div>
                 ) : (
-                  <>
-                    <div className="transfer-info">
-                      <h3>Transfer NFT</h3>
-                      <p>Send this NFT to another Chia address.</p>
-                    </div>
-
-                    <div className="transfer-form">
-                      <div className="form-group">
-                        <label htmlFor="recipientAddress">Recipient Address</label>
-                        <input
-                          id="recipientAddress"
-                          type="text"
-                          value={recipientAddress}
-                          onChange={(e) => setRecipientAddress(e.target.value)}
-                          placeholder="xch1..."
-                          className="form-input"
-                        />
+                  <div className="flex flex-col gap-4">
+                    {/* Transfer Form */}
+                    <form onSubmit={(e) => { e.preventDefault(); handleTransferNFT(); }} className="flex flex-col gap-4">
+                      {/* Recipient Address */}
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor="recipientAddress" className="text-white text-sm font-medium text-left">Recipient address</label>
+                        <div className="relative flex items-center">
+                          <input
+                            id="recipientAddress"
+                            type="text"
+                            value={recipientAddress}
+                            onChange={(e) => setRecipientAddress(e.target.value)}
+                            placeholder="xch1..."
+                            className="w-full px-4 py-2 rounded text-sm focus:outline-none placeholder-gray-300"
+                            style={{ backgroundColor: '#1B1C22', border: '1px solid #272830', color: '#EEEEF0' }}
+                            onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                            onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                            required
+                          />
+                        </div>
                       </div>
 
-                      <div className="form-group">
-                        <label htmlFor="transferFee">Fee (XCH)</label>
-                        <input
-                          id="transferFee"
-                          type="number"
-                          step="0.00001"
-                          min="0"
-                          value={transferFee}
-                          onChange={(e) => setTransferFee(e.target.value)}
-                          placeholder="0.0001"
-                          className="form-input"
-                        />
-                        <small className="form-hint">
+                      {/* Network Fee */}
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor="transferFee" className="text-white text-sm font-medium text-left">Network fee</label>
+                        <div className="relative flex items-center">
+                          <input
+                            id="transferFee"
+                            type="number"
+                            step="0.000000000001"
+                            min="0"
+                            value={transferFee}
+                            onChange={(e) => setTransferFee(e.target.value)}
+                            placeholder="0.0001"
+                            className="w-full px-4 py-2 rounded text-sm focus:outline-none placeholder-gray-300"
+                            style={{ backgroundColor: '#1B1C22', border: '1px solid #272830', color: '#EEEEF0' }}
+                            onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
+                            onBlur={(e) => e.currentTarget.style.borderColor = '#272830'}
+                            required
+                          />
+                        </div>
+                        <small className="text-xs" style={{ color: '#888', marginTop: '4px' }}>
                           Recommended: 0.0001 XCH ({Math.floor(parseFloat(transferFee || '0.0001') * 1000000000000).toLocaleString()} mojos)
                         </small>
                       </div>
 
+                      {/* Transaction Summary */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-white text-sm font-medium text-left">Transaction summary</label>
+                        <div className="rounded-lg border-l-0 p-3 flex flex-col gap-3" style={{ backgroundColor: '#1B1C22' }}>
+                          <div className="flex items-center text-sm">
+                            <span className="text-white font-medium">{getNftName()}</span>
+                          </div>
+                          <div className="flex items-center text-sm">
+                            <span className="text-white font-medium">{transferFee || '0'} XCH</span>
+                          </div>
+                          
+                        </div>
+                      </div>
+
+                      {/* Messages */}
                       {transferError && (
-                        <div className="error-message">
-                          {transferError}
+                        <div className="p-3 rounded border border-red-300 text-red-500 bg-red-500/10 text-sm my-2">
+                          <p>{transferError}</p>
                         </div>
                       )}
 
                       {transferSuccess && (
-                        <div className="success-message">
-                          NFT transferred successfully!
+                        <div className="p-3 rounded border border-green-300 text-green-500 bg-green-500/10 text-sm my-2">
+                          <p>NFT transferred successfully!</p>
                         </div>
                       )}
 
-                      <button
-                        onClick={handleTransferNFT}
-                        disabled={isTransferring || !recipientAddress.trim()}
-                        className="transfer-button"
-                      >
-                        {isTransferring ? 'Transferring...' : 'Transfer NFT'}
-                      </button>
-                    </div>
-                  </>
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="px-5 py-2 bg-transparent border rounded font-medium w-1/4"
+                          style={{ borderColor: '#333', color: 'white' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#262626'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isTransferring || !recipientAddress.trim()}
+                          className="flex items-center justify-center gap-2 px-5 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
+                          style={{ backgroundColor: '#2C64F8', color: 'white' }}
+                          onMouseEnter={(e) => !isTransferring && !(!recipientAddress.trim()) && (e.currentTarget.style.backgroundColor = '#1e56e8')}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2C64F8'}
+                        >
+                          {isTransferring ? (
+                            <>
+                              <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255, 255, 255, 0.3)', borderTopColor: 'white' }}></div>
+                              Transferring...
+                            </>
+                          ) : (
+                            'Transfer NFT'
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 )}
               </div>
             )}
