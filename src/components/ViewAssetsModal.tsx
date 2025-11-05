@@ -601,7 +601,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                             flexDirection: 'column',
                             borderRadius: '8px',
                             opacity: isLoadingMetadata ? 0.7 : 1,
-                            backgroundColor: '#252525',
+                            backgroundColor: '#1a1a1a',
                             transition: 'background-color 0.2s',
                             minWidth: 0,
                             width: '100%',
