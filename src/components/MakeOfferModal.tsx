@@ -12,6 +12,7 @@ import { PiInfo } from 'react-icons/pi';
 import { SavedOffer } from './types';
 import { Selector, type SelectorItem } from './Selector';
 import { convertIpfsUrl } from '../utils/ipfs';
+import { PiCheckCircle } from 'react-icons/pi';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -583,11 +584,11 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       // Show success message
       setSuccessMessage('Offer created successfully! Your offer has been submitted to the marketplace.');
       
-      // Close modal after showing success message for 2 seconds
+      // Close modal after showing success message for 5 seconds
       setTimeout(() => {
         setSuccessMessage(null);
         closeModal();
-      }, 2000);
+      }, 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create offer');
       console.error('Error creating offer:', err);
@@ -663,11 +664,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       )}
 
       {successMessage && (
-        <div className="p-3 rounded border text-green-400 bg-green-500/10 text-sm my-2 flex items-center gap-2" style={{ borderColor: '#22c55e' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 6L9 17l-5-5"/>
-          </svg>
-          <span>{successMessage}</span>
+        <div className="p-3 rounded border text-green-400 bg-green-500/10 text-sm my-2 flex items-center justify-center gap-2" style={{ borderColor: '#22c55e' }}>
+          <PiCheckCircle size={16} className="w-4" />
+          <span className="text-wrap whitespace-pre-line w-full">{successMessage || 'Offer created successfully! Your offer has been submitted to the marketplace.'}</span>
         </div>
       )}
 

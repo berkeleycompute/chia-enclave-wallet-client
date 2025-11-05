@@ -262,163 +262,126 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
 
   if (showOfferDetails && selectedOffer) {
     return (
-      <div className="px-6 py-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-        <div className="flex flex-col gap-5">
+      <div className="mx-3 mb-3 flex flex-col gap-3" style={{ maxHeight: '600px', overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px' }}>
 
-          {/* NFT Header Section */}
-          <div className="flex gap-4 items-start">
-            <div className="w-24 h-24 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#272830' }}>
-              {selectedOffer.nft.imageUrl ? (
-                <img
-                  src={convertIpfsUrl(selectedOffer.nft.imageUrl)}
-                  alt={selectedOffer.nft.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-4xl">🖼️</span>
-              )}
+        {/* NFT Header Section */}
+          <h2 className="text-white text-left text-lg mb-1 break-words">
+            {selectedOffer.nft.name}
+          </h2>
+
+        {/* offer details Section */}
+        <div className="rounded-lg flex flex-col gap-1 items-start">
+          <span className="text-white text-lg tracking-wide">Token</span>
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Amount</span>
+            <div className="text-white font-semibold text-sm">
+              {selectedOffer.requestedPayment.amount} {selectedOffer.requestedPayment.assetName}
             </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <h2 className="text-white text-xl font-semibold mb-1 break-words">
-                {selectedOffer.nft.name}
-              </h2>
-              <div className="flex items-center justify-center gap-2">
-                {selectedOffer.nft.collection && (
-                  <p className="text-gray-400 text-sm truncate">{selectedOffer.nft.collection}</p>
-                )}
-                {selectedOffer.nft.edition && (
-                  <span className="text-green-400 text-sm font-medium">{selectedOffer.nft.edition}</span>
+          </div>
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Deposit Address</span>
+            <div className="text-white font-semibold text-sm flex items-center gap-2">
+              {compactAddress(selectedOffer.requestedPayment.depositAddress)}
+              <div className="ml-auto cursor-pointer flex-shrink-0">
+                {copiedAddress ? (
+                  <PiCheck size={16} style={{ color: '#22C55E' }} />
+                ) : (
+                  <PiCopy
+                    size={16}
+                    style={{ color: '#7C7A85' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
+                    onClick={() => copyAddressToClipboard(selectedOffer.requestedPayment.depositAddress)}
+                  />
                 )}
               </div>
             </div>
           </div>
-
-          {/* offer details Section */}
-          <div className="rounded-lg flex flex-col gap-1">
-            <div className="flex flex-row items-center justify-between gap-4">
-              <span className="text-gray-400 text-sm uppercase tracking-wide">Amount</span>
-              <div className="text-green-400 font-semibold text-sm">
-                {selectedOffer.requestedPayment.amount} {selectedOffer.requestedPayment.assetName}
-              </div>
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Created</span>
+            <div className="text-white font-semibold text-sm">{formatTime(selectedOffer.timestamp)}</div>
+          </div>
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Status</span>
+            <div className="text-white font-semibold text-sm">
+              <span className="text-white font-semibold text-sm capitalize">
+                {selectedOffer.status}
+              </span>
             </div>
-            <div className="flex flex-row items-center justify-between gap-4">
-              <span className="text-gray-400 text-sm uppercase tracking-wide">Deposit Address</span>
-              <div className="text-white font-semibold text-sm flex items-center gap-2">
-                {compactAddress(selectedOffer.requestedPayment.depositAddress)}
-                <div className="ml-auto cursor-pointer flex-shrink-0">
-                  {copiedAddress ? (
-                    <PiCheck size={16} style={{ color: '#22C55E' }} />
-                  ) : (
-                    <PiCopy
-                      size={16}
-                      style={{ color: '#888' }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
-                      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
-                      onClick={() => copyAddressToClipboard(selectedOffer.requestedPayment.depositAddress)}
-                    />
-                  )}
-                </div>
-              </div>
+          </div>
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Type</span>
+            <div className="text-white font-semibold text-sm">
+              {selectedOffer.offerData.isSigned ? 'Signed' : 'Unsigned'}
             </div>
-            <div className="flex flex-row items-center justify-between gap-4">
-              <span className="text-gray-400 text-sm uppercase tracking-wide">Created</span>
-              <div className="text-white font-semibold text-sm">{formatTime(selectedOffer.timestamp)}</div>
-            </div>
-            <div className="flex flex-row items-center justify-between gap-4">
-              <span className="text-gray-400 text-sm uppercase tracking-wide">Status</span>
-              <div className="text-white font-semibold text-sm">
-                <span className={getStatusBadgeClasses(selectedOffer.status)}>
-                  {selectedOffer.status}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-row items-center justify-between gap-4">
-              <span className="text-gray-400 text-sm uppercase tracking-wide">Type</span>
-              <div className="text-white font-semibold text-sm">
-                {selectedOffer.offerData.isSigned ? 'Signed' : 'Unsigned'}
-              </div>
-            </div>
-            <div className="flex flex-row items-center justify-between gap-4">
-              <span className="text-gray-400 text-sm uppercase tracking-wide">Offer String</span>
-              <div className="text-white font-semibold text-sm flex items-center gap-2">
-                {compactAddress(selectedOffer.offerData.offerString)}
-                <div className="ml-auto cursor-pointer flex-shrink-0">
-                  {copiedOffer ? (
-                    <PiCheck size={16} style={{ color: '#22C55E' }} />
-                  ) : (
-                    <PiCopy
-                      size={16}
-                      style={{ color: '#888' }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
-                      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
-                      onClick={() => {
-                        copyOfferToClipboard(selectedOffer.offerData.offerString);
-                        setCopiedOffer(true);
-                        setTimeout(() => setCopiedOffer(false), 1500);
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-row items-center justify-between gap-4">
-              <span className="text-gray-400 text-sm uppercase tracking-wide">Dexie Offer ID</span>
-              <div className="text-white font-semibold text-sm flex items-center gap-2">
-                {compactAddress(selectedOffer.dexieOfferId || '')}
-                <div className="ml-auto cursor-pointer flex-shrink-0 ">
-                  {selectedOffer.dexieOfferId && (
-                    <PiArrowSquareOut size={16} style={{ color: '#888' }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
-                      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
-                      onClick={() => openOfferOnDexie(selectedOffer)}
-                    />
-                  )}
-                </div>
+          </div>
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Offer String</span>
+            <div className="text-white font-semibold text-sm flex items-center gap-2">
+              {compactAddress(selectedOffer.offerData.offerString)}
+              <div className="ml-auto cursor-pointer flex-shrink-0">
+                {copiedOffer ? (
+                  <PiCheck size={16} style={{ color: '#22C55E' }} />
+                ) : (
+                  <PiCopy
+                    size={16}
+                    style={{ color: '#7C7A85' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
+                    onClick={() => {
+                      copyOfferToClipboard(selectedOffer.offerData.offerString);
+                      setCopiedOffer(true);
+                      setTimeout(() => setCopiedOffer(false), 1500);
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2" style={{ borderColor: '#272830' }}>
-            <button
-              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
-              onClick={() => updateOfferStatus(selectedOffer.id, 'completed')}
-              style={{ backgroundColor: 'transparent', borderColor: '#22C55E', color: '#22C55E' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#22C55E';
-                e.currentTarget.style.color = '#EEEEF0';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#22C55E';
-              }}
-            >
-              Mark as Completed
-            </button>
-            <button
-              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border"
-              onClick={() => updateOfferStatus(selectedOffer.id, 'cancelled')}
-              style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#EF4444';
-                e.currentTarget.style.color = '#EEEEF0';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#EF4444';
-              }}
-            >
-              Cancel Offer
-            </button>
+          <div className="flex flex-row items-center justify-between gap-4 w-full">
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Dexie Offer ID</span>
+            <div className="text-white font-semibold text-sm flex items-center gap-2">
+              {compactAddress(selectedOffer.dexieOfferId || '')}
+              <div className="ml-auto cursor-pointer flex-shrink-0 ">
+                {selectedOffer.dexieOfferId && (
+                  <PiArrowSquareOut size={16} style={{ color: '#7C7A85' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#FFFFFF'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
+                    onClick={() => openOfferOnDexie(selectedOffer)}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Action Buttons */}
+        <div className="border-t" style={{ borderColor: '#272830' }}/>
+        <button
+          className="flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all border"
+          onClick={() => {
+            updateOfferStatus(selectedOffer.id, 'cancelled');
+            closeOfferDetails();
+          }}
+          style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#EF4444';
+            e.currentTarget.style.color = '#EEEEF0';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = '#EF4444';
+          }}
+        >
+          Cancel Offer
+        </button>
       </div>
     );
   }
 
   return (
     <div className="px-4 border-b border-t" style={{ borderColor: '#272830' }}>
-      <div className="flex items-center gap-3 py-3">
+      <div className="flex items-center gap-3 pt-3 pb-1">
         <div className="flex items-center gap-2 flex-1 px-3 py-2 border rounded"
           style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0', height: '36px' }}
         >
@@ -456,8 +419,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
         </div>
       ) : activeOffers.length === 0 ? (
         <div className="text-center py-12" style={{ color: '#888', maxWidth: '360px', wordWrap: 'break-word', whiteSpace: 'normal' }}>
-          <h4 className="mb-2 text-white text-lg font-semibold">No Active Offers</h4>
-          <p className="text-sm text-wrap">You haven't created any offers yet. Create an offer to see it here.</p>
+          <h4 className="text-white text-sm">No Active Offers</h4>
         </div>
       ) : (
         <div className="flex flex-col gap-3 overflow-y-auto py-3" style={{ maxHeight: '400px' }}>
@@ -472,87 +434,38 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
           }).map((offer) => (
             <div
               key={offer.id}
-              className="rounded-lg border transition-all hover:border-gray-600"
-              style={{ backgroundColor: '#1B1C22', borderColor: '#272830', padding: '16px' }}
+              className="rounded-lg transition-all"
+              style={{ backgroundColor: '#1B1C22', padding: '16px' }}
             >
               <div className="flex items-start gap-4">
-                {/* NFT Image */}
-                <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden" style={{ backgroundColor: '#272830' }}>
-                  {offer.nft.imageUrl ? (
-                    <img
-                      src={convertIpfsUrl(offer.nft.imageUrl)}
-                      alt={offer.nft.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl">
-                      🖼️
-                    </div>
-                  )}
-                </div>
-
                 {/* NFT Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="min-w-0">
-                      <h3 className="text-white font-medium text-base truncate mb-1">
+                  <div className="flex flex-col items-start gap-3 w-full">
+                    <div className="flex flex-row items-center justify-between w-full">
+                      <span className="text-gray-300 text-sm uppercase tracking-wide">NFT</span>
+                      <h3 className="text-white font-medium text-md truncate">
                         {offer.nft.name}
                       </h3>
-                      {offer.nft.collection && (
-                        <p className="text-gray-400 text-sm truncate">
-                          {offer.nft.collection}
-                        </p>
-                      )}
                     </div>
-                    <span className={getStatusBadgeClasses(offer.status)}>
-                      {offer.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-gray-400 text-sm">Asking:</span>
-                    <span className="text-green-400 font-semibold text-sm">
-                      {offer.requestedPayment.amount} {offer.requestedPayment.assetName}
-                    </span>
-                    <span className="text-gray-500 text-xs">•</span>
-                    <span className="text-gray-500 text-xs">
-                      {formatTime(offer.timestamp)}
-                    </span>
+                    <div className="flex flex-row items-center justify-between w-full">
+                      <span className="text-gray-300 text-sm">Asking:</span>
+                      <span className="text-green-400 font-semibold text-md">
+                        {offer.requestedPayment.amount} {offer.requestedPayment.assetName}
+                      </span>
+                    </div>
+                    <div className="flex flex-row items-center justify-between w-full">
+                      <span className="text-gray-300 text-sm">Listed at:</span>
+                      <span className="text-gray-400 text-md">
+                        {formatTime(offer.timestamp)}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-2 border-t pt-3 mt-3" style={{ borderColor: '#272830' }}>
                     <button
-                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-blue-600"
-                      style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#2C64F8' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#2C64F8';
-                        e.currentTarget.style.color = '#EEEEF0';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#2C64F8';
-                      }}
-                      onClick={() => viewOfferDetails(offer)}
-                    >
-                      View Details
-                    </button>
-                    <button
-                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-gray-700"
-                      style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EEEEF0' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#272830';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                      onClick={() => handleEditOffer(offer)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-red-900 hover:border-red-700"
-                      style={{ backgroundColor: 'transparent', borderColor: '#272830', color: '#EF4444' }}
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-red-900 hover:border-red-700 w-1/3 whitespace-nowrap"
+                      style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#EF4444';
                         e.currentTarget.style.color = '#EEEEF0';
@@ -563,7 +476,22 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
                       }}
                       onClick={() => updateOfferStatus(offer.id, 'cancelled')}
                     >
-                      Delete
+                      Cancel offer
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-blue-600 w-2/3 whitespace-nowrap"
+                      style={{ backgroundColor: 'white', borderColor: 'white', color: 'black' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#C9C9C9';
+                        e.currentTarget.style.color = 'black';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                        e.currentTarget.style.color = 'black';
+                      }}
+                      onClick={() => viewOfferDetails(offer)}
+                    >
+                      View Details
                     </button>
                   </div>
                 </div>
