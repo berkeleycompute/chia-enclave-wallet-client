@@ -321,7 +321,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
 
         <div className="py-4">
           {activeTab === 'details' && (
-            <div className="mx-3 mb-3 flex flex-col gap-3" style={{ overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px' }}>
+            <div className="flex flex-col gap-3" style={{ overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px', margin: '0 14px' }}>
               {metadataLoading && (
                 <div className="text-center py-12" style={{ color: '#888' }}>
                   <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#272830', borderTopColor: '#2C64F8' }} />
@@ -446,7 +446,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               {getNftDescription() && (
                 <div className="rounded-lg flex flex-col gap-1 items-start">
                   <span className="text-white text-lg tracking-wide">Description</span>
-                  <p className="text-gray-400 text-sm text-left" style={{ wordBreak: 'break-word' }}>{getNftDescription()}</p>
+                  <p className="text-gray-400 text-sm text-left text-wrap" style={{ wordBreak: 'break-word' }}>{getNftDescription()}</p>
                 </div>
               )}
 
