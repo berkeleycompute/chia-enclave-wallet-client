@@ -15,6 +15,8 @@ interface NFTDetailsModalProps {
   nft: HydratedCoin | null;
   // Show back to assets button when coming from ViewAssetsModal
   showBackToAssets?: boolean;
+  // Callback to notify parent when content changes (for resize animation)
+  onContentChange?: () => void;
 }
 
 export interface NFTDetailsModalRef {
@@ -24,9 +26,9 @@ export interface NFTDetailsModalRef {
 export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalProps>(({
   isOpen,
   onClose,
-  onCloseWallet,
   nft,
   showBackToAssets = false,
+  onContentChange,
 }, ref) => {
   // Ensure shared modal styles are available
   useEffect(() => {
@@ -39,6 +41,11 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
     enableLogging: true
   });
   const [activeTab, setActiveTab] = useState<'details' | 'transfer'>('details');
+  
+  // Notify parent when tab changes (for resize animation)
+  useEffect(() => {
+    onContentChange?.();
+  }, [activeTab, onContentChange]);
   const [recipientAddress, setRecipientAddress] = useState('');
   const [transferFee, setTransferFee] = useState('0.0001'); // Store as XCH
   const [transferSuccess, setTransferSuccess] = useState(false);

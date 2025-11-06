@@ -106,6 +106,12 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // Refs for modals to handle back navigation
   const activeOffersModalRef = useRef<ActiveOffersModalRef>(null);
   const nftDetailsModalRef = useRef<NFTDetailsModalRef>(null);
+  
+  // State to trigger resize when modal content changes
+  const [contentChangeCounter, setContentChangeCounter] = useState(0);
+  const triggerResize = useCallback(() => {
+    setContentChangeCounter(prev => prev + 1);
+  }, []);
 
   // Calculate balance directly from coins (more accurate)
   const xchAvailableMojos = useMemo(() => {
@@ -293,7 +299,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return () => clearTimeout(timer);
   }, [dialogs, sendFundsDialog.isOpen, receiveFundsDialog.isOpen, makeOfferDialog.isOpen, 
       activeOffersDialog.isOpen, nftDetailsDialog.isOpen, transactionsDialog.isOpen, 
-      viewAssetsDialog.isOpen, exportKeyDialog.isOpen]);
+      viewAssetsDialog.isOpen, exportKeyDialog.isOpen, contentChangeCounter]);
 
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -703,6 +709,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               onClose={nftDetailsDialog.close}
               nft={nftDetailsDialog.selectedNft}
               showBackToAssets={viewAssetsDialog.isOpen}
+              onContentChange={triggerResize}
             />
             <ExportPrivateKeyModal
               isOpen={exportKeyDialog.isOpen}
