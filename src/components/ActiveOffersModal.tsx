@@ -42,21 +42,6 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
     }
   }, [isOpen, address, isConnected]);
 
-  // Utility to render a status badge
-  const getStatusBadgeClasses = (status: SavedOffer['status']): string => {
-    switch (status) {
-      case 'active':
-        return 'px-2 py-1 rounded text-xs font-semibold bg-green-200 text-green-700';
-      case 'completed':
-        return 'px-2 py-1 rounded text-xs font-semibold bg-blue-200 text-blue-700';
-      case 'cancelled':
-        return 'px-2 py-1 rounded text-xs font-semibold bg-red-200 text-red-700';
-      case 'expired':
-        return 'px-2 py-1 rounded text-xs font-semibold bg-amber-200 text-amber-700';
-      default:
-        return 'px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700';
-    }
-  };
   const [activeOffers, setActiveOffers] = useState<SavedOffer[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<SavedOffer | null>(null);
@@ -245,13 +230,6 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
   }, []);
 
-  const encodeNftAddress = useCallback((puzzlehashStr: string): string => {
-    // Convert hex string to Uint8Array without using Buffer
-    const puzzleHash = new Uint8Array(puzzlehashStr.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
-    const encoded = bech32.encode('nft', bech32.toWords(puzzleHash));
-    return encoded;
-  }, []);
-
   // Format time
   const formatTime = useCallback((timestamp: number): string => {
     const now = Date.now();
@@ -359,9 +337,9 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
       <div className="flex flex-col gap-3" style={{ maxHeight: '600px', overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px', margin: '12px 12px' }}>
 
         {/* NFT Header Section */}
-          <h2 className="text-white text-left text-lg mb-1 break-words">
-            {selectedOffer.nft.name}
-          </h2>
+        <h2 className="text-white text-left text-lg mb-1 break-words">
+          {selectedOffer.nft.name}
+        </h2>
 
         {/* offer details Section */}
         <div className="rounded-lg flex flex-col gap-1 items-start">

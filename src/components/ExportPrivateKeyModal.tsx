@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PiKey, PiWarning, PiCopy, PiCheck } from 'react-icons/pi';
-import { useWalletConnection, useWalletState } from '../hooks/useChiaWalletSDK';
 import { useMnemonic } from '../hooks/useWalletInfo';
 import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
 
@@ -10,9 +9,6 @@ interface ExportPrivateKeyModalProps {
 }
 
 export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ isOpen }) => {
-  const { address } = useWalletConnection();
-  const walletState = useWalletState();
-  const { syntheticPublicKey } = walletState;
   const sdk = useChiaWalletSDK();
 
   const { exportMnemonic, loading: exportingMnemonic } = useMnemonic({ 
@@ -63,6 +59,16 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
 
   return (
     <div className="px-6 pb-6">
+      <style> {`
+        .text-wrap-css {
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            word-wrap: break-word !important;
+            white-space: normal !important;
+            text-wrap-mode: wrap !important;
+            width: 100% !important;
+          }
+      `}</style>
       {step === 'confirm' && (
         <div className="flex flex-col items-center gap-6">
           <div className="w-20 h-20 rounded-full flex items-center justify-center border" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
@@ -95,7 +101,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
 
       {step === 'loading' && (
         <div className="flex flex-col items-center justify-center py-16 gap-4 text-gray-300">
-          <div className="w-12 h-12 border-4 rounded-full animate-spin" style={{ borderColor: '#272830', borderTopColor: '#9CD24B' }} />
+          <div className="w-12 h-12 border-4 rounded-full" style={{ borderColor: '#272830', borderTopColor: '#9CD24B', animation: 'spin 1s linear infinite' }} />
           <div>Retrieving your private key</div>
         </div>
       )}
@@ -107,7 +113,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
               <PiWarning size={16} />
               <div className="font-semibold">Don’t share your private key with anyone</div>
             </div>
-            <div className="">This private key grants full access to your wallet and all held assets</div>
+            <div className="text-wrap-css">This private key grants full access to your wallet and all held assets</div>
           </div>
 
           {[
@@ -122,7 +128,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
               <div key={id} className="flex flex-col gap-2">
                 <div className="text-sm text-gray-300">{label}</div>
                 <div className="flex items-center gap-2 p-3 border rounded" style={{ backgroundColor: '#1B1C22', borderColor: '#272830' }}>
-                  <div className="text-xs break-all">{displayValue}</div>
+                  <div className="text-xs text-wrap-css">{displayValue}</div>
                   <div className="ml-auto cursor-pointer">
                     {copiedKey === id ? (
                       <PiCheck size={16} style={{ color: '#22C55E' }} />
