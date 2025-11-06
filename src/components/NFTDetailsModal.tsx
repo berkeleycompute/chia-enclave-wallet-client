@@ -330,7 +330,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               )}
 
               {/* NFT Header Section */}
-              <h2 className="text-white text-left text-lg mb-1 nft-name-text">
+              <h2 className="text-white text-left text-lg mb-1 w-full wrap-text-css">
                 {getNftName()}
               </h2>
 
