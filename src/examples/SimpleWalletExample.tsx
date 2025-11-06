@@ -361,7 +361,7 @@ export default function SimpleWalletExample() {
   return (
     <ChiaWalletSDKProvider
       config={{
-        baseUrl: 'https://chia-enclave.silicon-dev.net',
+        baseUrl: 'https://chia-enclave.silicon-dev.net/v1',
         enableLogging: true,
         autoRefresh: true,
         refreshInterval: 30000
@@ -377,7 +377,7 @@ export default function SimpleWalletExample() {
  */
 export function DirectSDKExample() {
   const [sdk] = React.useState(() => new ChiaWalletSDK({
-    baseUrl: 'https://chia-enclave.silicon-dev.net',
+    baseUrl: 'https://chia-enclave.silicon-dev.net/v1',
     enableLogging: true
   }));
 
