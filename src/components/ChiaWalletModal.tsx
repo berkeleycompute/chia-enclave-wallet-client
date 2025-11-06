@@ -260,17 +260,35 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
   }, [isOpen, isVisible]);
 
-  // Force a re-render when dialogs open to ensure proper layout
+  // Animate height changes when dialogs open/close
   useEffect(() => {
-    if (!animateHeightRef.current || !dialogs) return;
+    if (!animateHeightRef.current) return;
     
-    // Small delay to ensure content is mounted before any layout calculations
-    const timer = setTimeout(() => {
-      if (animateHeightRef.current) {
-        // Force a layout recalculation by triggering reflow
-        animateHeightRef.current.offsetHeight;
-      }
-    }, 0);
+    // Force layout recalculation
+    const updateHeight = () => {
+      if (!animateHeightRef.current) return;
+      
+      // Temporarily remove height to get natural height
+      const currentHeight = animateHeightRef.current.offsetHeight;
+      animateHeightRef.current.style.height = 'auto';
+      const naturalHeight = animateHeightRef.current.scrollHeight;
+      
+      // Set back to current height immediately (no visual change)
+      animateHeightRef.current.style.height = `${currentHeight}px`;
+      
+      // Force reflow
+      animateHeightRef.current.offsetHeight;
+      
+      // Now animate to the natural height
+      requestAnimationFrame(() => {
+        if (animateHeightRef.current) {
+          animateHeightRef.current.style.height = `${naturalHeight}px`;
+        }
+      });
+    };
+    
+    // Small delay to ensure content is mounted
+    const timer = setTimeout(updateHeight, 0);
     
     return () => clearTimeout(timer);
   }, [dialogs, sendFundsDialog.isOpen, receiveFundsDialog.isOpen, makeOfferDialog.isOpen, 
@@ -572,7 +590,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
         >
           <div
             ref={animateHeightRef}
-            className={`overflow-visible fixed md:relative bottom-0 inset-x-0 md:inset-0 rounded-2xl w-full ${isClosing ? 'modal-exit-animation' : isMobile ? 'modal-mobile-enter-animation' : 'modal-enter-animation'}`}
+            className={`overflow-hidden fixed md:relative bottom-0 inset-x-0 md:inset-0 rounded-2xl w-full ${isClosing ? 'modal-exit-animation' : isMobile ? 'modal-mobile-enter-animation' : 'modal-enter-animation'}`}
             role="document"
             tabIndex={0}
             style={{
@@ -581,7 +599,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               color: 'white',
               boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
               maxWidth: isMobile ? '100%' : '400px',
-              height: 'auto',
               transition: 'height 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
