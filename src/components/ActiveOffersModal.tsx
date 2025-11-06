@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { SavedOffer } from './types';
-import { bech32 } from 'bech32';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
 import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
 import { useTransferAssets } from '../hooks/useTransferAssets';
@@ -12,6 +11,7 @@ interface ActiveOffersModalProps {
   onOfferUpdate?: () => void;
   onCreateOffer?: () => void;
   onEditOffer?: (offer: SavedOffer) => void;
+  onContentChange?: () => void;
 }
 
 export interface ActiveOffersModalRef {
@@ -23,7 +23,8 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   onClose,
   onOfferUpdate,
   onCreateOffer,
-  onEditOffer
+  onEditOffer,
+  onContentChange
 }, ref) => {
   // Get wallet state from hook (using same pattern as other modals)
   const { address, isConnected } = useWalletConnection();
@@ -104,6 +105,34 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
     }
   }, [address, getOffersStorageKey, onOfferUpdate]);
 
+  // Update all offers with the same NFT launcher ID
+  const updateOffersByLauncherId = useCallback((launcherId: string, newStatus: SavedOffer['status']) => {
+    if (!address) return;
+
+    try {
+      const stored = localStorage.getItem(getOffersStorageKey(address));
+      if (stored) {
+        const allOffers = JSON.parse(stored);
+        
+        // Find all offers with the same launcher ID
+        const updatedOffers = allOffers.map((offer: SavedOffer) => {
+          const offerLauncherId = offer.nft.coin.parentSpendInfo?.driverInfo?.info?.launcherId;
+          if (offerLauncherId === launcherId && offer.status === 'active') {
+            console.log(`Marking offer ${offer.id} as ${newStatus} (same NFT)`);
+            return { ...offer, status: newStatus };
+          }
+          return offer;
+        });
+        
+        localStorage.setItem(getOffersStorageKey(address), JSON.stringify(updatedOffers));
+        setActiveOffers(updatedOffers.filter((offer: SavedOffer) => offer.status === 'active'));
+        onOfferUpdate?.();
+      }
+    } catch (error) {
+      console.error('Error updating offers by launcher ID:', error);
+    }
+  }, [address, getOffersStorageKey, onOfferUpdate]);
+
   // Cancel offer on blockchain (non-blocking - allows multiple simultaneous cancellations)
   const cancelOfferOnBlockchain = useCallback(async (offer: SavedOffer) => {
     if (!isConnected || !address) {
@@ -153,8 +182,9 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
 
       console.log('Offer cancelled on blockchain. NFT transferred back to owner.');
 
-      // Update local status
-      updateOfferStatus(offer.id, 'cancelled');
+      // Update local status for ALL offers with this NFT
+      // When we transfer the NFT, all offers with this NFT become invalid (new coin state)
+      updateOffersByLauncherId(launcherId, 'cancelled');
       
       // Remove from cancelling set
       setCancellingOfferIds(prev => {
@@ -274,6 +304,22 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
     }
   }, [isOpen]);
 
+  // Update selected offer when it gets cancelled
+  useEffect(() => {
+    if (selectedOffer && showOfferDetails) {
+      // Check if the selected offer is no longer in active offers
+      const stillActive = activeOffers.find(o => o.id === selectedOffer.id);
+      
+      if (!stillActive) {
+        // Offer was cancelled - close detail view and go back to list
+        console.log('Selected offer was cancelled, closing detail view');
+        setShowOfferDetails(false);
+        setSelectedOffer(null);
+        onContentChange?.();
+      }
+    }
+  }, [activeOffers, selectedOffer, showOfferDetails, onContentChange]);
+
   // Expose handleBack method to parent components via ref
   useImperativeHandle(ref, () => ({
     handleBack: () => {
@@ -320,6 +366,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   };
 
   const viewOfferDetails = (offer: SavedOffer) => {
+    onContentChange?.();
     setSelectedOffer(offer);
     setShowOfferDetails(true);
   };

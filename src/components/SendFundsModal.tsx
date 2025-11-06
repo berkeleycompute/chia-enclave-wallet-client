@@ -18,6 +18,7 @@ interface SendFundsModalProps {
   initialRecipientAddress?: string;
   initialAmount?: string;
   initialFee?: string;
+  onContentChange?: () => void;
 }
 
 interface TokenOption {
@@ -34,7 +35,8 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
   onTransactionSent,
   initialRecipientAddress,
   initialAmount,
-  initialFee
+  initialFee,
+  onContentChange
 }) => {
   const [recipientAddress, setRecipientAddress] = useState(initialRecipientAddress || '');
   const [amount, setAmount] = useState(initialAmount || '');
@@ -120,6 +122,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
       setError(null);
       setSuccess(null);
       setShowTokenSelector(false);
+      onContentChange?.();
       // Only clear if not using initial values
       if (!initialRecipientAddress && !initialAmount) {
         setRecipientAddress('');
@@ -160,17 +163,19 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
 
     if (!isConnected) {
       setError('Wallet not connected');
+      onContentChange?.();
       return;
     }
 
     if (!recipientAddress.trim() || !amount.trim()) {
       setError('Please fill in recipient address and amount');
+      onContentChange?.();
       return;
     }
 
     setError(null);
     setSuccess(null);
-
+    onContentChange?.();
     try {
       if (selectedToken.type === 'XCH') {
         // Handle XCH transfer
@@ -182,6 +187,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
         const availableBalance = getAvailableBalance();
         if (totalNeededMojos > availableBalance) {
           setError(`Insufficient balance. Need ${formatXCH(totalNeededMojos)} XCH, have ${formatXCH(availableBalance)} XCH`);
+          onContentChange?.();
           return;
         }
 
@@ -189,6 +195,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
         const selectedCoins = selectCoinsForAmount(totalNeededMojos);
         if (!selectedCoins || selectedCoins.length === 0) {
           setError('Unable to select coins for transaction. Please try again.');
+          onContentChange?.();
           return;
         }
 
@@ -224,7 +231,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
           setRecipientAddress('');
           setAmount('');
           setFee('0.00001');
-
+          onContentChange?.();
           // Auto-close after delay
           setTimeout(() => {
             onClose();
@@ -232,6 +239,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
 
         } else {
           setError((result as any).error);
+          onContentChange?.();
         }
       } else if (selectedToken.type === 'CAT') {
         // Handle CAT transfer
@@ -241,6 +249,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
         // Check if we have enough CAT balance
         if (amountInMojos > selectedToken.balance) {
           setError(`Insufficient CAT balance. Need ${(amountInMojos / 1000).toFixed(3)} CAT, have ${(selectedToken.balance / 1000).toFixed(3)} CAT`);
+          onContentChange?.();
           return;
         }
 
@@ -248,6 +257,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
         const availableXCH = getAvailableBalance();
         if (feeInMojos > availableXCH) {
           setError(`Insufficient XCH for fee. Need ${formatXCH(feeInMojos)} XCH, have ${formatXCH(availableXCH)} XCH`);
+          onContentChange?.();
           return;
         }
 
@@ -255,6 +265,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
         const xchCoinIdsForFee = selectCoinIdsForAmount(feeInMojos);
         if (!xchCoinIdsForFee || xchCoinIdsForFee.length === 0) {
           setError('Unable to select XCH coins for fee. Please try again.');
+          onContentChange?.();
           return;
         }
 
@@ -272,7 +283,7 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
 
         if (result.success) {
           setSuccess(`CAT transfer sent successfully! Transaction ID: ${result.response?.transaction_id || 'N/A'}`);
-
+          onContentChange?.();
           // Call callback if provided
           if (onTransactionSent) {
             onTransactionSent({
@@ -300,10 +311,12 @@ export const SendFundsModal: React.FC<SendFundsModalProps> = ({
           }, 2000);
         } else {
           setError(result.error || 'CAT transfer failed');
+          onContentChange?.();
         }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Transaction failed');
+      onContentChange?.();
     }
   };
 

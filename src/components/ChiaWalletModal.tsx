@@ -617,6 +617,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   onMouseEnter={(e) => e.currentTarget.style.color = 'white'} 
                   onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
                   onClick={() => {
+                    triggerResize();
                     // Check if ActiveOffersModal can handle back internally (e.g., going from details to list)
                     if (activeOffersDialog.isOpen && activeOffersModalRef.current) {
                       const handled = activeOffersModalRef.current.handleBack();
@@ -665,6 +666,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               isOpen={sendFundsDialog.isOpen}
               onClose={sendFundsDialog.close}
               onTransactionSent={handleTransactionSent}
+              onContentChange={triggerResize}
             />
             <ReceiveFundsModal
               isOpen={receiveFundsDialog.isOpen}
@@ -683,6 +685,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   console.warn('Unable to open NFT details from ViewAssetsModal selection');
                 }
               }}
+              onContentChange={triggerResize}
             />
             <MakeOfferModal
               isOpen={makeOfferDialog.isOpen}
@@ -691,6 +694,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                 refreshOffersCount();
               }}
               onRefreshWallet={refreshBalance}
+              onContentChange={triggerResize}
             />
             <ActiveOffersModal
               ref={activeOffersModalRef}
@@ -698,10 +702,13 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               onClose={activeOffersDialog.close}
               onOfferUpdate={() => {
                 console.log('Offers updated');
+                triggerResize();
               }}
               onCreateOffer={() => {
                 makeOfferDialog.open();
+                triggerResize();
               }}
+              onContentChange={triggerResize}
             />
             <NFTDetailsModal
               ref={nftDetailsModalRef}
@@ -713,6 +720,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
             />
             <ExportPrivateKeyModal
               isOpen={exportKeyDialog.isOpen}
+              onContentChange={triggerResize}
             />
             {!dialogs && (
               <>

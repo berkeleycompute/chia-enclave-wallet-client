@@ -6,9 +6,10 @@ import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
 interface ExportPrivateKeyModalProps {
   isOpen: boolean;
   onClose?: () => void;
+  onContentChange?: () => void;
 }
 
-export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ isOpen }) => {
+export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ isOpen, onContentChange }) => {
   const sdk = useChiaWalletSDK();
 
   const { exportMnemonic, loading: exportingMnemonic } = useMnemonic({ 
@@ -30,11 +31,13 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
       setPrivateKeyValue('');
       setMnemonicValue('');
       setCopiedKey(null);
+      onContentChange?.();
     }
   }, [isOpen]);
 
   const doExport = useCallback(async () => {
     setStep('loading');
+    onContentChange?.();
     try {
       const result = await exportMnemonic();
       if (result) {
@@ -44,6 +47,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
       }
     } finally {
       setStep('info');
+      onContentChange?.();
     }
   }, [exportMnemonic]);
 

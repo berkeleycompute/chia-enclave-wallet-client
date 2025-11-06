@@ -16,12 +16,14 @@ interface ViewAssetsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNFTSelected?: (nft: NFTWithMetadata) => void;
+  onContentChange?: () => void;
 }
 
 export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   isOpen,
   onClose,
-  onNFTSelected
+  onNFTSelected,
+  onContentChange
 }) => {
   const { isConnected } = useWalletConnection();
   const { xchCoins, catCoins, nftCoins, isLoading: coinsLoading } = useWalletCoins();
@@ -390,7 +392,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
               <div className="flex items-center gap-2 w-full justify-between">
                 <span className="text-white text-sm font-sm">Coin Details</span>
                 <PiCaretDown size={16} onMouseEnter={(e) => e.currentTarget.style.color = '#6bc36b'} onMouseLeave={(e) => e.currentTarget.style.color = '#7C7A85'}
-                  onClick={() => setShowCoinsDetails(!showCoinsDetails)}
+                  onClick={() => { setShowCoinsDetails(!showCoinsDetails); onContentChange?.(); }}
                   style={{ color: showCoinsDetails ? '#6bc36b' : '#7C7A85', cursor: 'pointer', transform: showCoinsDetails ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
                 />
               </div>

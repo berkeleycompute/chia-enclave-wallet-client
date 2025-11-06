@@ -23,6 +23,7 @@ interface MakeOfferModalProps {
   // New props for initial values from global dialog system
   initialOfferAmount?: string;
   initialDepositAddress?: string;
+  onContentChange?: () => void;
 }
 
 export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
@@ -32,7 +33,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   onOfferCreated,
   onRefreshWallet,
   initialOfferAmount,
-  initialDepositAddress
+  initialDepositAddress,
+  onContentChange
 }) => {
   // Get wallet state from hooks (using same pattern as other modals)
   const { address } = useWalletConnection();
@@ -583,10 +585,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
       // Show success message
       setSuccessMessage('Offer created successfully! Your offer has been submitted to the marketplace.');
+      onContentChange?.();
 
       // Close modal after showing success message for 5 seconds
       setTimeout(() => {
         setSuccessMessage(null);
+        onContentChange?.();
         closeModal();
       }, 5000);
     } catch (err) {
@@ -764,7 +768,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
           <button
             type="button"
             onClick={submitOffer}
-            disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey}
+            disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey || !selectedNft}
             className="flex items-center justify-center gap-2 px-5 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
             style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e56e8'}
