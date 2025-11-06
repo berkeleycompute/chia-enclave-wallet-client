@@ -674,9 +674,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       )}
 
       {successMessage && (
-        <div className="p-3 rounded border bg-green-500 text-sm my-2 flex items-center justify-center gap-2" style={{ borderColor: '#22c55e', color: '#4ade80', backgroundColor: '#22c55e1a' }}>
+        <div className="p-3 rounded border text-sm my-2 flex items-center justify-center gap-2" style={{ borderColor: '#22c55e', color: '#4ade80', backgroundColor: '#22c55e1a' }}>
           <PiCheckCircle size={16} className="w-4" />
-          <span className="success-message whitespace-pre-line w-full">{successMessage || 'Offer created successfully! Your offer has been submitted to the marketplace.'}</span>
+          <div className="success-message whitespace-pre-line w-full">{successMessage || 'Offer created successfully! Your offer has been submitted to the marketplace.'}</div>
         </div>
       )}
 
