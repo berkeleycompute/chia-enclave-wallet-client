@@ -101,7 +101,7 @@ export const ExportPrivateKeyModal: React.FC<ExportPrivateKeyModalProps> = ({ is
 
       {step === 'loading' && (
         <div className="flex flex-col items-center justify-center py-16 gap-4 text-gray-300">
-          <div className="w-12 h-12 border-4 rounded-full" style={{ borderColor: '#272830', borderTopColor: '#9CD24B', animation: 'spin 1s linear infinite' }} />
+          <div className="border-4 rounded-full" style={{ borderColor: '#272830', borderTopColor: '#9CD24B', animation: 'spin 1s linear infinite', width: '48px', height: '48px' }} />
           <div>Retrieving your private key</div>
         </div>
       )}
