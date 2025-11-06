@@ -315,12 +315,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     if (metadata?.series_number && metadata?.series_total) {
       return `#${metadata.series_number} of ${metadata.series_total}`;
     }
-    
+
     // Also check for edition_number/edition_total (alternate field names)
     if (metadata?.edition_number && metadata?.edition_total) {
       return `#${metadata.edition_number} of ${metadata.edition_total}`;
     }
-    
+
     return undefined;
   };
 
@@ -333,26 +333,26 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const getNftImageUrl = useCallback((nft: HydratedCoin): string | undefined => {
     // Get image from downloaded metadata
     const metadata = getNftMetadata(nft);
-    
+
     // Try common image field names from the metadata JSON
     if (metadata?.image) {
       return convertIpfsUrl(metadata.image);
     }
-    
+
     if (metadata?.data_uris && metadata.data_uris.length > 0) {
       return convertIpfsUrl(metadata.data_uris[0]);
     }
-    
+
     // Also check on-chain data URIs as fallback
     const driverInfo = nft.parentSpendInfo.driverInfo;
     if (driverInfo?.type === 'NFT' && driverInfo.info?.metadata?.dataUris && driverInfo.info.metadata.dataUris.length > 0) {
       return convertIpfsUrl(driverInfo.info.metadata.dataUris[0]);
     }
-    
+
     if (metadata?.collection?.attributes?.find((attr: any) => attr.type === 'icon')?.value) {
       return convertIpfsUrl(metadata.collection.attributes.find((attr: any) => attr.type === 'icon').value);
     }
-    
+
     return undefined;
   }, [getNftMetadata]);
 
@@ -583,7 +583,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
       // Show success message
       setSuccessMessage('Offer created successfully! Your offer has been submitted to the marketplace.');
-      
+
       // Close modal after showing success message for 5 seconds
       setTimeout(() => {
         setSuccessMessage(null);
@@ -620,6 +620,16 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   return (
     <div className="px-6 pb-4">
+      <style> {`
+        .success-message {
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            word-wrap: break-word !important;
+            white-space: normal !important;
+            text-wrap-mode: wrap !important;
+            width: 100% !important;
+          }
+      `}</style>
       {error && (
         <div className="p-3 rounded border border-red-300 text-red-500 bg-red-500/10 text-sm my-2 flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -664,9 +674,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       )}
 
       {successMessage && (
-        <div className="p-3 rounded border bg-green-500 text-sm my-2 flex items-center justify-center gap-2" style={{ borderColor: '#22c55e', color: '#4ade80', backgroundColor: '#22c55e' }}>
+        <div className="p-3 rounded border bg-green-500 text-sm my-2 flex items-center justify-center gap-2" style={{ borderColor: '#22c55e', color: '#4ade80', backgroundColor: '#22c55e1a' }}>
           <PiCheckCircle size={16} className="w-4" />
-          <span className="!text-wrap whitespace-pre-line w-full">{successMessage || 'Offer created successfully! Your offer has been submitted to the marketplace.'}</span>
+          <span className="success-message whitespace-pre-line w-full">{successMessage || 'Offer created successfully! Your offer has been submitted to the marketplace.'}</span>
         </div>
       )}
 
