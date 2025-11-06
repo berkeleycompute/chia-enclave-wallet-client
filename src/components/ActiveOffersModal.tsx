@@ -459,7 +459,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   }
 
   return (
-    <div className="px-4 border-b border-t" style={{ borderColor: '#272830' }}>
+    <div className="px-4 border-t" style={{ borderColor: '#272830' }}>
       <div className="flex items-center gap-3 pt-3 pb-1">
         <div className="flex items-center gap-2 flex-1 px-3 py-2 border rounded"
           style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0', height: '36px' }}
