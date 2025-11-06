@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRe
 import { SavedOffer } from './types';
 import { bech32 } from 'bech32';
 import { useWalletConnection } from '../hooks/useChiaWalletSDK';
+import { useChiaWalletSDK } from '../providers/ChiaWalletSDKProvider';
+import { useTransferAssets } from '../hooks/useTransferAssets';
 import { PiMagnifyingGlass, PiCopy, PiCheck, PiArrowSquareOut } from 'react-icons/pi';
-import { convertIpfsUrl } from '../utils/ipfs';
 
 interface ActiveOffersModalProps {
   isOpen: boolean;
@@ -26,11 +27,13 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
 }, ref) => {
   // Get wallet state from hook (using same pattern as other modals)
   const { address, isConnected } = useWalletConnection();
+  const sdk = useChiaWalletSDK();
+  const { transferNFT } = useTransferAssets({ sdk, enableLogging: true });
 
   // Debug logging
   React.useEffect(() => {
     if (isOpen) {
-      console.log('ActiveOffersModal: Modal opened with state:', {
+      console.log('[ActiveOffersModal] Modal opened with state:', {
         isOpen,
         hasAddress: !!address,
         address: address ? `${address.substring(0, 10)}...` : 'null',
@@ -61,6 +64,8 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   const [search, setSearch] = useState('');
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedOffer, setCopiedOffer] = useState(false);
+  const [cancellingOfferIds, setCancellingOfferIds] = useState<Set<string>>(new Set());
+  const [cancelError, setCancelError] = useState<string | null>(null);
   // Storage key for offers
   const getOffersStorageKey = useCallback((pubKey: string | null): string => {
     if (!pubKey) return 'chia_active_offers';
@@ -70,21 +75,21 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   // Load saved offers
   const loadActiveOffers = useCallback(() => {
     if (!address) {
-      console.log('ActiveOffersModal: No address available, cannot load offers');
+      console.log('[ActiveOffersModal] No address available, cannot load offers');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('ActiveOffersModal: Loading offers for address:', address);
+      console.log('[ActiveOffersModal] Loading offers for address:', address);
       const stored = localStorage.getItem(getOffersStorageKey(address));
       if (stored) {
         const offers = JSON.parse(stored);
         setActiveOffers(offers.filter((offer: SavedOffer) => offer.status === 'active'));
-        console.log('ActiveOffersModal: Loaded', offers.filter((offer: SavedOffer) => offer.status === 'active').length, 'active offers');
+        console.log('[ActiveOffersModal] Loaded', offers.filter((offer: SavedOffer) => offer.status === 'active').length, 'active offers');
       } else {
         setActiveOffers([]);
-        console.log('ActiveOffersModal: No stored offers found');
+        console.log('[ActiveOffersModal] No stored offers found');
       }
     } catch (error) {
       console.error('Error loading active offers:', error);
@@ -94,7 +99,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
     }
   }, [address, getOffersStorageKey]);
 
-  // Update offer status
+  // Update offer status (local only)
   const updateOfferStatus = useCallback((offerId: string, newStatus: SavedOffer['status']) => {
     if (!address) return;
 
@@ -113,6 +118,92 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
       console.error('Error updating offer status:', error);
     }
   }, [address, getOffersStorageKey, onOfferUpdate]);
+
+  // Cancel offer on blockchain (non-blocking - allows multiple simultaneous cancellations)
+  const cancelOfferOnBlockchain = useCallback(async (offer: SavedOffer) => {
+    if (!isConnected || !address) {
+      return;
+    }
+
+    // Add to cancelling set immediately
+    setCancellingOfferIds(prev => new Set(prev).add(offer.id));
+
+    try {
+      console.log('Cancelling offer on blockchain:', offer.id);
+
+      // Get NFT info from the offer
+      const nftHydratedCoin = offer.nft.coin;
+      const nftCoinId = nftHydratedCoin.coinId;
+      
+      // Extract launcher ID from the NFT's driver info
+      const driverInfo = nftHydratedCoin.parentSpendInfo?.driverInfo;
+      const nftInfo = driverInfo?.info;
+      const launcherId = nftInfo?.launcherId;
+      
+      if (!launcherId) {
+        throw new Error('No launcher ID found for NFT in offer');
+      }
+
+      console.log('Transferring NFT back to owner to cancel offer:', {
+        launcherId,
+        nftCoinId,
+        recipient: address,
+        nftName: offer.nft.name
+      });
+
+      // Transfer the NFT back to ourselves using the NFT transfer flow
+      // This properly handles the NFT ownership puzzle logic
+      const feeInMojos = 0; // No fee needed for self-transfer
+      
+      const result = await transferNFT(
+        nftCoinId,
+        launcherId,
+        address, // Send to ourselves
+        feeInMojos
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to transfer NFT');
+      }
+
+      console.log('Offer cancelled on blockchain. NFT transferred back to owner.');
+
+      // Update local status
+      updateOfferStatus(offer.id, 'cancelled');
+      
+      // Remove from cancelling set
+      setCancellingOfferIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(offer.id);
+        return newSet;
+      });
+      
+      // Close details view if this was the selected offer
+      if (selectedOffer?.id === offer.id) {
+        setShowOfferDetails(false);
+        setSelectedOffer(null);
+      }
+      
+      // Trigger offer update callback
+      onOfferUpdate?.();
+      
+    } catch (error) {
+      console.error('Error cancelling offer:', error);
+      
+      // Remove from cancelling set on error
+      setCancellingOfferIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(offer.id);
+        return newSet;
+      });
+      
+      // Show error for this specific offer
+      const errorMessage = error instanceof Error ? error.message : 'Failed to cancel offer on blockchain';
+      setCancelError(`${offer.nft.name}: ${errorMessage}`);
+      setTimeout(() => setCancelError(null), 5000);
+    }
+  }, [isConnected, address, updateOfferStatus, onOfferUpdate, transferNFT, selectedOffer]);
+
 
   // Copy offer to clipboard
   const copyOfferToClipboard = useCallback(async (offerString: string) => {
@@ -180,7 +271,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
       if (address) {
         loadActiveOffers();
       } else {
-        console.log('ActiveOffersModal: Modal opened but no address yet, waiting...');
+        console.log('[ActiveOffersModal] Modal opened but no address yet, waiting...');
         setLoading(true);
       }
     }
@@ -189,7 +280,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
   // Retry loading when address becomes available
   useEffect(() => {
     if (isOpen && address && activeOffers.length === 0 && !loading) {
-      console.log('ActiveOffersModal: Address became available, loading offers...');
+      console.log('[ActiveOffersModal] Address became available, loading offers...');
       loadActiveOffers();
     }
   }, [isOpen, address, activeOffers.length, loading, loadActiveOffers]);
@@ -200,6 +291,8 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
       setShowOfferDetails(false);
       setSelectedOffer(null);
       setCopiedAddress(false);
+      setCancelError(null);
+      setCancellingOfferIds(new Set());
     }
   }, [isOpen]);
 
@@ -253,16 +346,17 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
     setShowOfferDetails(true);
   };
 
-  const closeOfferDetails = () => {
+  const closeOfferDetails = useCallback(() => {
     setSelectedOffer(null);
     setShowOfferDetails(false);
-  };
+    setCancelError(null);
+  }, []);
 
   if (!isOpen) return null;
 
   if (showOfferDetails && selectedOffer) {
     return (
-      <div className="flex flex-col gap-3" style={{ maxHeight: '600px', overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px', margin: '0 12px' }}>
+      <div className="flex flex-col gap-3" style={{ maxHeight: '600px', overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px', margin: '12px 12px' }}>
 
         {/* NFT Header Section */}
           <h2 className="text-white text-left text-lg mb-1 break-words">
@@ -357,23 +451,30 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
 
         {/* Action Buttons */}
         <div className="border-t" style={{ borderColor: '#272830' }}/>
+        {cancelError && (
+          <div className="text-red-400 text-xs mb-2 px-2 py-1 rounded" style={{ backgroundColor: '#431d1d', border: '1px solid #7f1d1d' }}>
+            {cancelError}
+          </div>
+        )}
         <button
-          className="flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all border"
-          onClick={() => {
-            updateOfferStatus(selectedOffer.id, 'cancelled');
-            closeOfferDetails();
-          }}
+          className="flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all border disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => cancelOfferOnBlockchain(selectedOffer)}
+          disabled={cancellingOfferIds.has(selectedOffer.id) || !isConnected}
           style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#EF4444';
-            e.currentTarget.style.color = '#EEEEF0';
+            if (!e.currentTarget.disabled) {
+              e.currentTarget.style.backgroundColor = '#EF4444';
+              e.currentTarget.style.color = '#EEEEF0';
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = '#EF4444';
+            if (!e.currentTarget.disabled) {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = '#EF4444';
+            }
           }}
         >
-          Cancel Offer
+          {cancellingOfferIds.has(selectedOffer.id) ? 'Cancelling...' : 'Cancel Offer'}
         </button>
       </div>
     );
@@ -464,19 +565,24 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
                   {/* Action Buttons */}
                   <div className="flex items-center justify-end gap-2 border-t pt-3 mt-3" style={{ borderColor: '#272830' }}>
                     <button
-                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-red-900 hover:border-red-700 w-1/3 whitespace-nowrap"
+                      className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-red-900 hover:border-red-700 w-1/3 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}
+                      disabled={cancellingOfferIds.has(offer.id) || !isConnected}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#EF4444';
-                        e.currentTarget.style.color = '#EEEEF0';
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.backgroundColor = '#EF4444';
+                          e.currentTarget.style.color = '#EEEEF0';
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#EF4444';
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = '#EF4444';
+                        }
                       }}
-                      onClick={() => updateOfferStatus(offer.id, 'cancelled')}
+                      onClick={() => cancelOfferOnBlockchain(offer)}
                     >
-                      Cancel offer
+                      {cancellingOfferIds.has(offer.id) ? 'Cancelling...' : 'Cancel offer'}
                     </button>
                     <button
                       className="px-3 py-1.5 rounded text-xs font-medium border transition-all hover:bg-blue-600 w-2/3 whitespace-nowrap"
