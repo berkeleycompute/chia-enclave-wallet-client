@@ -299,7 +299,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     return () => clearTimeout(timer);
   }, [dialogs, sendFundsDialog.isOpen, receiveFundsDialog.isOpen, makeOfferDialog.isOpen, 
       activeOffersDialog.isOpen, nftDetailsDialog.isOpen, transactionsDialog.isOpen, 
-      viewAssetsDialog.isOpen, exportKeyDialog.isOpen, contentChangeCounter]);
+      viewAssetsDialog.isOpen, exportKeyDialog.isOpen, contentChangeCounter, 
+      isConnected, isConnecting, balanceLoading, coinsLoading, error, coinsError]);
 
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
