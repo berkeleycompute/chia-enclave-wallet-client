@@ -330,7 +330,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               )}
 
               {/* NFT Header Section */}
-              <h2 className="text-white text-left text-lg mb-1 break-words w-full">
+              <h2 className="text-white text-left text-lg mb-1 nft-name-text">
                 {getNftName()}
               </h2>
 
@@ -446,7 +446,7 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
               {getNftDescription() && (
                 <div className="rounded-lg flex flex-col gap-1 items-start w-full">
                   <span className="text-white text-lg tracking-wide">Description</span>
-                  <p className="text-gray-400 text-sm text-left w-full" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', wordWrap: 'break-word' }}>{getNftDescription()}</p>
+                  <p className="text-gray-400 text-sm text-left w-full wrap-text-css">{getNftDescription()}</p>
                 </div>
               )}
 
@@ -855,6 +855,16 @@ export const NFTDetailsModal = forwardRef<NFTDetailsModalRef, NFTDetailsModalPro
       </div>
 
       <style>{`
+          /* Description text wrapping - override parent app CSS */
+          .wrap-text-css {
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            word-wrap: break-word !important;
+            white-space: normal !important;
+            text-wrap-mode: wrap !important;
+            width: 100% !important;
+          }
+
           /* Scrollbar styling */
           .::-webkit-scrollbar {
             width: 8px;
