@@ -1791,10 +1791,6 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Synthetic public key is required');
       }
 
-      if (!request.cat_payments || request.cat_payments.length === 0) {
-        throw new ChiaCloudWalletApiError('CAT payments are required');
-      }
-
       if (!request.nft_json) {
         throw new ChiaCloudWalletApiError('NFT data is required');
       }
