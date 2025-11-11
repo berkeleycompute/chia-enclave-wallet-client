@@ -1850,9 +1850,6 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Synthetic public key is required');
       }
 
-      if (!request.cat_payments || request.cat_payments.length === 0) {
-        throw new ChiaCloudWalletApiError('CAT payments are required');
-      }
 
       if (!request.nft_json) {
         throw new ChiaCloudWalletApiError('NFT data is required');
@@ -1864,26 +1861,28 @@ export class ChiaCloudWalletClient {
         throw new ChiaCloudWalletApiError('Invalid synthetic public key format: must be a 96-character hex string');
       }
 
-      // Validate CAT payments
-      for (const catPayment of request.cat_payments) {
-        if (!catPayment.asset_id || !catPayment.puzzle_hash) {
-          throw new ChiaCloudWalletApiError('Each CAT payment must have asset_id and puzzle_hash');
-        }
+      // Validate CAT payments if provided (allow empty/undefined for gift offers)
+      if (request.cat_payments && request.cat_payments.length > 0) {
+        for (const catPayment of request.cat_payments) {
+          if (!catPayment.asset_id || !catPayment.puzzle_hash) {
+            throw new ChiaCloudWalletApiError('Each CAT payment must have asset_id and puzzle_hash');
+          }
 
-        if (typeof catPayment.amount !== 'number' || catPayment.amount <= 0) {
-          throw new ChiaCloudWalletApiError('Each CAT payment must have a positive amount');
-        }
+          if (typeof catPayment.amount !== 'number' || catPayment.amount <= 0) {
+            throw new ChiaCloudWalletApiError('Each CAT payment must have a positive amount');
+          }
 
-        // Validate hex string formats
-        const cleanAssetId = catPayment.asset_id.replace(/^0x/, '');
-        const cleanPuzzleHash = catPayment.puzzle_hash.replace(/^0x/, '');
+          // Validate hex string formats
+          const cleanAssetId = catPayment.asset_id.replace(/^0x/, '');
+          const cleanPuzzleHash = catPayment.puzzle_hash.replace(/^0x/, '');
 
-        if (!/^[0-9a-fA-F]{64}$/.test(cleanAssetId)) {
-          throw new ChiaCloudWalletApiError('Invalid asset_id format: must be a 64-character hex string');
-        }
+          if (!/^[0-9a-fA-F]{64}$/.test(cleanAssetId)) {
+            throw new ChiaCloudWalletApiError('Invalid asset_id format: must be a 64-character hex string');
+          }
 
-        if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
-          throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
+          if (!/^[0-9a-fA-F]{64}$/.test(cleanPuzzleHash)) {
+            throw new ChiaCloudWalletApiError('Invalid puzzle_hash format: must be a 64-character hex string');
+          }
         }
       }
 
