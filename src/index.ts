@@ -120,6 +120,7 @@ export {
   StreamlinedChiaNFTMintForm
 } from './examples/ChiaNFTMintExample';
 export { TwinNFTMintExample } from './examples/TwinNFTMintExample';
+export { BridgeNFTTransferExample } from './examples/BridgeNFTTransferExample';
 export { TransferAssetsExample } from './examples/TransferAssetsExample';
 export { OfferHistoryExample, SimpleOfferHistoryExample } from './examples/OfferHistoryExample';
 

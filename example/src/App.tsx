@@ -35,6 +35,7 @@ import { useSpacescanBalance } from '../../src/client/SpacescanClient';
 
 // Import NFT minting components
 import { StreamlinedChiaNFTMintForm } from '../../src/examples/ChiaNFTMintExample';
+import { BridgeNFTTransferExample } from '../../src/examples/BridgeNFTTransferExample';
 
 // Navigation component
 const Navigation: React.FC<{
@@ -47,6 +48,7 @@ const Navigation: React.FC<{
         { id: 'dialogs', label: '💬 Dialogs', description: 'Test individual dialogs' },
         { id: 'coins', label: '🪙 Coins', description: 'View hydrated coins details' },
         { id: 'nft-mint', label: '🎨 NFT Mint', description: 'Mint your own NFTs' },
+        { id: 'bridge-transfer', label: '🌉 Bridge Transfer', description: 'Transfer NFTs to bridge' },
     ];
 
     return (
@@ -941,6 +943,38 @@ const NFTMintView: React.FC<{
     );
 };
 
+// Bridge Transfer View - Transfer NFTs to bridge wallet
+const BridgeTransferView: React.FC<{
+    walletClient: UnifiedWalletClient
+}> = ({ walletClient }) => {
+    if (!walletClient.isConnected) {
+        return (
+            <div className="view bridge-transfer-view">
+                <h2>🌉 Bridge Transfer</h2>
+                <div className="not-connected-message">
+                    <p>🔒 Please connect your wallet to transfer NFTs</p>
+                    <p>Switch to the "Main" tab to connect with your JWT token.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="view bridge-transfer-view">
+            <div style={{ 
+                background: 'rgba(255, 255, 255, 0.95)', 
+                borderRadius: '15px', 
+                padding: '30px',
+                marginBottom: '20px',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}>
+                <BridgeNFTTransferExample />
+            </div>
+        </div>
+    );
+};
+
 // Main Example App - Updated to use unified client
 const ExampleApp: React.FC = () => {
     const [currentView, setCurrentView] = useState('main');
@@ -965,6 +999,8 @@ const ExampleApp: React.FC = () => {
                 return <CoinsView walletClient={walletClient} />;
             case 'nft-mint':
                 return <NFTMintView walletClient={walletClient} />;
+            case 'bridge-transfer':
+                return <BridgeTransferView walletClient={walletClient} />;
             default:
                 return <MainView walletClient={walletClient} />;
         }
