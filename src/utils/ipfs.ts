@@ -75,6 +75,146 @@ export interface IPFSImageResult {
 }
 
 /**
+ * Result from fetching IPFS metadata with gateway information
+ */
+export interface IPFSMetadataResult<T = any> {
+  /**
+   * Metadata content
+   */
+  data?: T;
+  
+  /**
+   * Gateway that was used successfully (undefined if failed)
+   */
+  gateway?: string;
+  
+  /**
+   * Whether authentication was used
+   */
+  usedAuth: boolean;
+  
+  /**
+   * Whether the fetch failed
+   */
+  success: boolean;
+  
+  /**
+   * Error message if failed
+   */
+  error?: string;
+}
+
+/**
+ * Try to fetch metadata from multiple IPFS gateways with fallback
+ * Returns the parsed JSON metadata
+ * 
+ * @param ipfsUri - The IPFS URI (ipfs://, https://gateway.../ipfs/, etc.)
+ * @param authToken - Optional JWT token for authenticated gateways
+ * @returns Object with metadata and gateway information
+ * 
+ * @example
+ * const result = await fetchIPFSMetadataWithFallback('ipfs://bafybei.../metadata.json', authToken);
+ * // Returns: { data: {...metadata...}, gateway: 'https://ipfs.io/ipfs', usedAuth: false, success: true }
+ */
+export async function fetchIPFSMetadataWithFallback<T = any>(
+  ipfsUri: string,
+  authToken?: string
+): Promise<IPFSMetadataResult<T>> {
+  console.log('📄 [fetchIPFSMetadata] Starting fetch for:', ipfsUri);
+  
+  // Extract CID
+  const cid = extractIpfsCid(ipfsUri);
+  if (!cid) {
+    console.error('❌ [fetchIPFSMetadata] Could not extract CID from:', ipfsUri);
+    return {
+      success: false,
+      error: 'Could not extract CID from URI',
+      usedAuth: false
+    };
+  }
+  
+  // Get gateways in order (preferred first)
+  const gateways = getGatewaysInOrder();
+  const preferredGateway = getPreferredGateway();
+  
+  if (preferredGateway) {
+    console.log(`🎯 [fetchIPFSMetadata] Trying preferred gateway first: ${preferredGateway}`);
+  }
+  
+  // Try each gateway in order
+  for (let i = 0; i < gateways.length; i++) {
+    const gateway = gateways[i];
+    const url = `${gateway}/${cid}`;
+    const isPreferred = gateway === preferredGateway;
+    
+    console.log(`🔄 [fetchIPFSMetadata] Trying gateway ${i + 1}/${gateways.length}:`, gateway, isPreferred ? '(preferred)' : '');
+    
+    try {
+      const isBackendGateway = gateway.includes('edgedev.silicon.net');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
+      const headers: Record<string, string> = {
+        'Accept': 'application/json, */*'
+      };
+      
+      // Add auth token for backend gateway
+      if (isBackendGateway && authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.warn(`⚠️ [fetchIPFSMetadata] Gateway failed (${response.status}):`, gateway);
+        continue; // Try next gateway
+      }
+      
+      // Check Content-Type if available
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && !contentType.includes('application/json') && !contentType.includes('text/plain')) {
+        console.warn(`⚠️ [fetchIPFSMetadata] Not JSON (${contentType}):`, gateway);
+        // Still try to parse, some gateways don't set correct content-type
+      }
+      
+      // Parse JSON
+      const data = await response.json();
+      
+      console.log(`✅ [fetchIPFSMetadata] Success with gateway:`, gateway);
+      
+      // Cache this gateway for future requests
+      setPreferredGateway(gateway);
+      
+      return {
+        data,
+        gateway,
+        usedAuth: isBackendGateway && !!authToken,
+        success: true
+      };
+      
+    } catch (error) {
+      console.warn(`⚠️ [fetchIPFSMetadata] Error with gateway:`, gateway, error);
+      // Continue to next gateway
+    }
+  }
+  
+  // All gateways failed
+  console.error('❌ [fetchIPFSMetadata] All gateways failed for:', cid);
+  return {
+    success: false,
+    error: 'All gateways failed',
+    usedAuth: false
+  };
+}
+
+/**
  * Try to fetch image from multiple IPFS gateways with fallback
  * Returns information about the URL and which gateway worked
  * - For public gateways: returns direct URL (browser caches automatically)

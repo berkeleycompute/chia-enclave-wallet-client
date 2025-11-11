@@ -3392,7 +3392,7 @@ export class ChiaCloudWalletClient {
 
   /**
    * Fetch NFT metadata from any URI format (IPFS, HTTP, etc.)
-   * Automatically detects IPFS URIs and routes them through the authenticated gateway
+   * Automatically detects IPFS URIs and uses the intelligent gateway system with fallback
    * 
    * @param metadataUri - The metadata URI (can be ipfs://, https://gateway.pinata.cloud/ipfs/, etc.)
    * @returns Promise with the fetched metadata
@@ -3412,11 +3412,21 @@ export class ChiaCloudWalletClient {
         metadataUri.includes('ipfs.io');
 
       if (isIpfsUrl) {
-        // Extract CID and use authenticated gateway
-        const cid = this.extractCIDFromUri(metadataUri);
-        if (cid) {
-          this.logInfo(`Detected IPFS URL, using authenticated gateway for CID: ${cid}`);
-          return this.fetchIPFSContent(cid);
+        // Use the intelligent gateway system with fallback
+        const { fetchIPFSMetadataWithFallback } = await import('../utils/ipfs');
+        const result = await fetchIPFSMetadataWithFallback(metadataUri, this.jwtToken);
+        
+        if (result.success && result.data) {
+          this.logInfo(`Successfully fetched metadata using gateway: ${result.gateway}`);
+          return {
+            success: true,
+            data: result.data
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Failed to fetch metadata from IPFS'
+          };
         }
       }
 
