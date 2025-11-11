@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchIPFSImageWithFallback, DEFAULT_NFT_IMAGE } from '../utils/ipfs';
+import { fetchIPFSImageWithFallback, DEFAULT_NFT_IMAGE, IPFSImageResult } from '../utils/ipfs';
 
 export interface UseIPFSImageOptions {
   /**
@@ -35,6 +35,16 @@ export interface UseIPFSImageResult {
    * Whether the default placeholder is being shown
    */
   isDefault: boolean;
+  
+  /**
+   * Gateway that was used successfully (undefined if not loaded yet or failed)
+   */
+  gateway?: string;
+  
+  /**
+   * Whether authentication was used to fetch the image
+   */
+  usedAuth: boolean;
 }
 
 /**
@@ -70,6 +80,8 @@ export function useIPFSImage(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDefault, setIsDefault] = useState(true);
+  const [gateway, setGateway] = useState<string | undefined>(undefined);
+  const [usedAuth, setUsedAuth] = useState(false);
 
   useEffect(() => {
     // Skip if disabled or no URI
@@ -77,6 +89,8 @@ export function useIPFSImage(
       setImageUrl(DEFAULT_NFT_IMAGE);
       setIsDefault(true);
       setLoading(false);
+      setGateway(undefined);
+      setUsedAuth(false);
       return;
     }
 
@@ -87,11 +101,13 @@ export function useIPFSImage(
       setError(null);
 
       try {
-        const url = await fetchIPFSImageWithFallback(ipfsUri, authToken);
+        const result = await fetchIPFSImageWithFallback(ipfsUri, authToken);
         
         if (!cancelled) {
-          setImageUrl(url);
-          setIsDefault(url === DEFAULT_NFT_IMAGE);
+          setImageUrl(result.url);
+          setIsDefault(result.isDefault);
+          setGateway(result.gateway);
+          setUsedAuth(result.usedAuth);
           setLoading(false);
         }
       } catch (err) {
@@ -100,6 +116,8 @@ export function useIPFSImage(
           setError(errorMessage);
           setImageUrl(DEFAULT_NFT_IMAGE);
           setIsDefault(true);
+          setGateway(undefined);
+          setUsedAuth(false);
           setLoading(false);
         }
       }
@@ -116,7 +134,9 @@ export function useIPFSImage(
     imageUrl,
     loading,
     error,
-    isDefault
+    isDefault,
+    gateway,
+    usedAuth
   };
 }
 

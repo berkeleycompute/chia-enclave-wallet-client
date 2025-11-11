@@ -12,42 +12,114 @@ const IPFS_GATEWAYS = [
   'https://edgedev.silicon.net/v1/ipfs',               // Backend (requires auth)
 ];
 
+// Cache for the last successful gateway (in-memory, per session)
+let lastSuccessfulGateway: string | null = null;
+
+/**
+ * Get the preferred gateway to try first
+ * Returns the last successful gateway if available, otherwise null
+ */
+export function getPreferredGateway(): string | null {
+  return lastSuccessfulGateway;
+}
+
+/**
+ * Set the preferred gateway after a successful fetch
+ */
+function setPreferredGateway(gateway: string): void {
+  if (lastSuccessfulGateway !== gateway) {
+    console.log(`🎯 [Gateway Cache] Updated preferred gateway to: ${gateway}`);
+    lastSuccessfulGateway = gateway;
+  }
+}
+
+/**
+ * Get list of gateways with the preferred one first (if available)
+ */
+function getGatewaysInOrder(): string[] {
+  if (!lastSuccessfulGateway) {
+    return [...IPFS_GATEWAYS];
+  }
+  
+  // Put the last successful gateway first, then the rest
+  const otherGateways = IPFS_GATEWAYS.filter(g => g !== lastSuccessfulGateway);
+  return [lastSuccessfulGateway, ...otherGateways];
+}
+
 // Default placeholder image (1x1 transparent PNG)
 export const DEFAULT_NFT_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 /**
+ * Result from fetching an IPFS image with gateway information
+ */
+export interface IPFSImageResult {
+  /**
+   * Image URL (direct URL for public gateways, blob URL for authenticated gateway, or default placeholder)
+   */
+  url: string;
+  
+  /**
+   * Gateway that was used successfully (undefined if failed)
+   */
+  gateway?: string;
+  
+  /**
+   * Whether authentication was used
+   */
+  usedAuth: boolean;
+  
+  /**
+   * Whether the default placeholder is being returned
+   */
+  isDefault: boolean;
+}
+
+/**
  * Try to fetch image from multiple IPFS gateways with fallback
- * Returns a URL that can be used directly in <img> tags
+ * Returns information about the URL and which gateway worked
  * - For public gateways: returns direct URL (browser caches automatically)
  * - For authenticated gateway: fetches with auth and returns blob URL
  * 
  * @param ipfsUri - The IPFS URI (ipfs://, https://gateway.../ipfs/, etc.)
  * @param authToken - Optional JWT token for authenticated gateways
- * @returns Image URL (direct or blob URL) or default placeholder if all fail
+ * @returns Object with image URL and gateway information
  * 
  * @example
- * const imageUrl = await fetchIPFSImageWithFallback('ipfs://bafybei...');
- * // Returns: 'https://ipfs.io/ipfs/bafybei...' or 'blob:http://...' for auth gateway
+ * const result = await fetchIPFSImageWithFallback('ipfs://bafybei...', authToken);
+ * // Returns: { url: 'https://ipfs.io/ipfs/bafybei...', gateway: 'https://ipfs.io/ipfs', usedAuth: false, isDefault: false }
  */
 export async function fetchIPFSImageWithFallback(
   ipfsUri: string,
   authToken?: string
-): Promise<string> {
+): Promise<IPFSImageResult> {
   console.log('🖼️ [fetchIPFSImage] Starting fetch for:', ipfsUri);
   
   // Extract CID
   const cid = extractIpfsCid(ipfsUri);
   if (!cid) {
     console.error('❌ [fetchIPFSImage] Could not extract CID from:', ipfsUri);
-    return DEFAULT_NFT_IMAGE;
+    return {
+      url: DEFAULT_NFT_IMAGE,
+      usedAuth: false,
+      isDefault: true
+    };
+  }
+  
+  // Get gateways in order (preferred first)
+  const gateways = getGatewaysInOrder();
+  const preferredGateway = getPreferredGateway();
+  
+  if (preferredGateway) {
+    console.log(`🎯 [fetchIPFSImage] Trying preferred gateway first: ${preferredGateway}`);
   }
   
   // Try each gateway in order
-  for (let i = 0; i < IPFS_GATEWAYS.length; i++) {
-    const gateway = IPFS_GATEWAYS[i];
+  for (let i = 0; i < gateways.length; i++) {
+    const gateway = gateways[i];
     const url = `${gateway}/${cid}`;
+    const isPreferred = gateway === preferredGateway;
     
-    console.log(`🔄 [fetchIPFSImage] Trying gateway ${i + 1}/${IPFS_GATEWAYS.length}:`, gateway);
+    console.log(`🔄 [fetchIPFSImage] Trying gateway ${i + 1}/${gateways.length}:`, gateway, isPreferred ? '(preferred)' : '');
     
     try {
       const isBackendGateway = gateway.includes('edgedev.silicon.net');
@@ -83,7 +155,16 @@ export async function fetchIPFSImageWithFallback(
         // Create blob URL
         const blobUrl = URL.createObjectURL(blob);
         console.log(`✅ [fetchIPFSImage] Success with backend gateway (blob URL)`);
-        return blobUrl;
+        
+        // Cache this gateway for future requests
+        setPreferredGateway(gateway);
+        
+        return {
+          url: blobUrl,
+          gateway,
+          usedAuth: true,
+          isDefault: false
+        };
       }
       
       // For public gateways: just verify it's accessible and return the URL
@@ -111,7 +192,16 @@ export async function fetchIPFSImageWithFallback(
       }
       
       console.log(`✅ [fetchIPFSImage] Success with gateway:`, gateway);
-      return url; // Return direct URL - browser will cache it
+      
+      // Cache this gateway for future requests
+      setPreferredGateway(gateway);
+      
+      return {
+        url,
+        gateway,
+        usedAuth: false,
+        isDefault: false
+      };
       
     } catch (error) {
       console.warn(`⚠️ [fetchIPFSImage] Error with gateway:`, gateway, error);
@@ -121,7 +211,11 @@ export async function fetchIPFSImageWithFallback(
   
   // All gateways failed
   console.error('❌ [fetchIPFSImage] All gateways failed for:', cid);
-  return DEFAULT_NFT_IMAGE;
+  return {
+    url: DEFAULT_NFT_IMAGE,
+    usedAuth: false,
+    isDefault: true
+  };
 }
 
 /**
