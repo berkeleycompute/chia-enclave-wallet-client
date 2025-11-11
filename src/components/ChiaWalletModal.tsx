@@ -305,7 +305,18 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
     try {
-      // Configure fetch to properly handle redirects and timeouts
+      // Try to use the client's fetchNFTMetadata method (handles IPFS with authentication)
+      if (actualWalletClient?.sdk?.client) {
+        const result = await actualWalletClient.sdk.client.fetchNFTMetadata(metadataUri);
+        if (result.success) {
+          return result.data;
+        } else {
+          console.warn('Failed to fetch metadata via client:', result.error);
+          // Fall through to direct fetch
+        }
+      }
+
+      // Fallback to direct fetch if client is not available or failed
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
@@ -349,7 +360,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
       }
       return null;
     }
-  }, []);
+  }, [actualWalletClient]);
 
   const getCachedNftMetadata = useCallback((cacheKey: string): any => {
     if (!address) return null;

@@ -3304,6 +3304,262 @@ export class ChiaCloudWalletClient {
       fee
     });
   }
+
+  /**
+   * Fetch IPFS content through the authenticated backend gateway
+   * This method handles Pinata and generic IPFS URLs by routing them through
+   * the backend gateway with authentication.
+   * 
+   * @param cid - The IPFS CID to fetch
+   * @returns Promise with the fetched data
+   * 
+   * @example
+   * const metadata = await client.fetchIPFSContent('bafybeigdyrzt...');
+   */
+  async fetchIPFSContent<T = any>(cid: string): Promise<Result<T>> {
+    try {
+      if (!this.jwtToken) {
+        return {
+          success: false,
+          error: 'JWT token is required to fetch IPFS content'
+        };
+      }
+
+      // Use the authenticated gateway endpoint
+      // baseUrl already includes /v1, so we just append /ipfs/{cid}
+      const url = `${this.baseUrl}/ipfs/${cid}`;
+      
+      this.logInfo(`Fetching IPFS content from: ${url}`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.jwtToken}`,
+          'Accept': 'application/json, */*',
+          'Accept-Encoding': 'gzip, deflate, br'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        this.logError(`Failed to fetch IPFS content (${response.status}):`, errorText);
+        
+        return {
+          success: false,
+          error: `Failed to fetch IPFS content: ${response.status} ${response.statusText}`,
+          details: errorText
+        };
+      }
+
+      const contentType = response.headers.get('content-type');
+      let data: T;
+
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // Try to parse as JSON anyway
+        const text = await response.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // If not JSON, return as text
+          data = text as any;
+        }
+      }
+
+      this.logInfo(`Successfully fetched IPFS content for CID: ${cid}`);
+
+      return {
+        success: true,
+        data
+      };
+    } catch (error) {
+      this.logError('Error fetching IPFS content:', error);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch IPFS content',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Fetch NFT metadata from any URI format (IPFS, HTTP, etc.)
+   * Automatically detects IPFS URIs and uses the intelligent gateway system with fallback
+   * 
+   * @param metadataUri - The metadata URI (can be ipfs://, https://gateway.pinata.cloud/ipfs/, etc.)
+   * @returns Promise with the fetched metadata
+   * 
+   * @example
+   * const metadata = await client.fetchNFTMetadata('ipfs://bafybeigdyrzt...');
+   */
+  async fetchNFTMetadata(metadataUri: string): Promise<Result<any>> {
+    try {
+      this.logInfo(`Fetching NFT metadata from: ${metadataUri}`);
+
+      // Check if it's an IPFS URL (ipfs://, /ipfs/, or any gateway with /ipfs/)
+      const isIpfsUrl = 
+        metadataUri.startsWith('ipfs://') ||
+        metadataUri.includes('/ipfs/') ||
+        metadataUri.includes('gateway.pinata.cloud') ||
+        metadataUri.includes('ipfs.io');
+
+      if (isIpfsUrl) {
+        // Use the intelligent gateway system with fallback
+        const { fetchIPFSMetadataWithFallback } = await import('../utils/ipfs');
+        const result = await fetchIPFSMetadataWithFallback(metadataUri, this.jwtToken);
+        
+        if (result.success && result.data) {
+          this.logInfo(`Successfully fetched metadata using gateway: ${result.gateway}`);
+          return {
+            success: true,
+            data: result.data
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Failed to fetch metadata from IPFS'
+          };
+        }
+      }
+
+      // For non-IPFS URLs, fetch directly
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(metadataUri, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json, */*'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Failed to fetch metadata: ${response.status} ${response.statusText}`
+        };
+      }
+
+      const data = await response.json();
+
+      return {
+        success: true,
+        data
+      };
+    } catch (error) {
+      this.logError('Error fetching NFT metadata:', error);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch metadata',
+        details: error
+      };
+    }
+  }
+
+  /**
+   * Extract IPFS CID and path from any URI format
+   * Preserves subdirectories and file paths
+   * @private
+   */
+  private extractCIDFromUri(uri: string): string | null {
+    console.log('🔍 [extractCIDFromUri] INPUT:', uri);
+    
+    // From ipfs:// protocol
+    if (uri.startsWith('ipfs://')) {
+      let hash = uri.replace('ipfs://', '');
+      if (hash.startsWith('ipfs/')) {
+        hash = hash.replace('ipfs/', '');
+      }
+      // Return full path including subdirectories
+      console.log('✅ [extractCIDFromUri] OUTPUT (ipfs://):', hash);
+      return hash;
+    }
+
+    // From HTTP gateway URL - extract everything after /ipfs/
+    const ipfsMatch = uri.match(/\/ipfs\/([a-zA-Z0-9]+(?:\/[^?#]*)?)/);
+    if (ipfsMatch) {
+      console.log('✅ [extractCIDFromUri] OUTPUT (HTTP gateway):', ipfsMatch[1]);
+      return ipfsMatch[1];
+    }
+
+    // Might already be a CID (without path)
+    if (uri.length > 40 && !uri.includes('/') && !uri.includes(':')) {
+      console.log('✅ [extractCIDFromUri] OUTPUT (raw CID):', uri);
+      return uri;
+    }
+
+    console.log('❌ [extractCIDFromUri] OUTPUT: null - could not extract CID');
+    return null;
+  }
+
+  /**
+   * Convert any IPFS URI to the authenticated gateway URL
+   * Handles ipfs://, Pinata, ipfs.io, and raw CIDs
+   * 
+   * @param uri - The IPFS URI or CID to convert
+   * @returns Full URL to the authenticated gateway, or original URI if not IPFS
+   * 
+   * @example
+   * const url = client.getIpfsGatewayUrl('ipfs://bafybeigdyrzt...');
+   * // Returns: 'https://edgedev.silicon.net/v1/ipfs/bafybeigdyrzt...'
+   * 
+   * @example
+   * const url = client.getIpfsGatewayUrl('https://gateway.pinata.cloud/ipfs/bafybeigdyrzt.../folder/image.png');
+   * // Returns: 'https://edgedev.silicon.net/v1/ipfs/bafybeigdyrzt.../folder/image.png'
+   */
+  getIpfsGatewayUrl(uri?: string | null): string | undefined {
+    console.log('🌐 [getIpfsGatewayUrl] INPUT:', uri);
+    console.log('🌐 [getIpfsGatewayUrl] baseUrl:', this.baseUrl);
+    
+    if (!uri) {
+      console.log('❌ [getIpfsGatewayUrl] OUTPUT: undefined - no URI provided');
+      return undefined;
+    }
+
+    // Check if it's an IPFS URL
+    const isIpfsUrl = 
+      uri.startsWith('ipfs://') ||
+      uri.includes('/ipfs/') ||
+      uri.includes('gateway.pinata.cloud') ||
+      uri.includes('ipfs.io');
+
+    console.log('🌐 [getIpfsGatewayUrl] isIpfsUrl:', isIpfsUrl);
+
+    if (isIpfsUrl) {
+      // Extract CID with full path and build gateway URL
+      const cidWithPath = this.extractCIDFromUri(uri);
+      console.log('🌐 [getIpfsGatewayUrl] cidWithPath:', cidWithPath);
+      
+      if (cidWithPath) {
+        const finalUrl = `${this.baseUrl}/ipfs/${cidWithPath}`;
+        console.log('✅ [getIpfsGatewayUrl] OUTPUT (converted):', finalUrl);
+        return finalUrl;
+      }
+    }
+
+    // If it's already an HTTP URL and not IPFS, return as is
+    if ((uri.startsWith('http://') || uri.startsWith('https://')) && !uri.includes('/ipfs/')) {
+      console.log('✅ [getIpfsGatewayUrl] OUTPUT (HTTP non-IPFS):', uri);
+      return uri;
+    }
+
+    // Return original if we can't convert
+    console.log('✅ [getIpfsGatewayUrl] OUTPUT (fallback):', uri);
+    return uri;
+  }
+
 }
 
 // Export a default instance for convenience

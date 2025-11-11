@@ -66,6 +66,14 @@ export { useUploadFile } from './hooks/useUploadFile';
 export { useOfferHistory, useActiveOffers, useCompletedOffers, OFFER_STATUS } from './hooks/useOfferHistory';
 export { ChiaWalletProvider } from './hooks/useChiaWalletProvider';
 export { useCATMetadata, getAssetColorFromId, getCATInitials } from './hooks/useCATMetadata';
+export { useIPFSImage } from './hooks/useIPFSImage';
+export { 
+  fetchIPFSImageWithFallback, 
+  fetchIPFSMetadataWithFallback,
+  DEFAULT_NFT_IMAGE, 
+  getPreferredGateway 
+} from './utils/ipfs';
+export type { IPFSImageResult, IPFSMetadataResult } from './utils/ipfs';
 export {
   // Core wallet hooks
   useWalletState,
