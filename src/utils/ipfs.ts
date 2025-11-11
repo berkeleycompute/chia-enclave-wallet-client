@@ -1,72 +1,169 @@
 /**
  * IPFS utility functions for handling IPFS URLs and gateways
- * Uses Pinata gateway for better performance and reliability
+ * Uses backend authenticated gateway for IPFS content
  */
 
-// Pinata gateway - más rápido y confiable que ipfs.io
-const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs';
+// IPFS Gateways in order of preference (will try each one until success)
+const IPFS_GATEWAYS = [
+  'https://ipfs.io/ipfs',                              // Public, reliable
+  'https://gateway.pinata.cloud/ipfs',                 // Pinata CDN
+  'https://cloudflare-ipfs.com/ipfs',                  // Cloudflare
+  'https://dweb.link/ipfs',                            // Protocol Labs
+  'https://edgedev.silicon.net/v1/ipfs',               // Backend (requires auth)
+];
 
-// Fallback gateway si Pinata falla
-const FALLBACK_GATEWAY = 'https://edgedev.silicon.net/v1/ipfs';
+// Default placeholder image (1x1 transparent PNG)
+export const DEFAULT_NFT_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 /**
- * Convert any IPFS URL format to a HTTP gateway URL using Pinata
- * Supports:
- * - ipfs://[CID]
- * - ipfs://ipfs/[CID]
- * - /ipfs/[CID]
- * - https://ipfs.io/ipfs/[CID] (converts to Pinata)
- * - https://[any-gateway]/ipfs/[CID] (converts to Pinata)
- * - Raw CID (if > 40 chars)
+ * Try to fetch image from multiple IPFS gateways with fallback
+ * Returns a URL that can be used directly in <img> tags
+ * - For public gateways: returns direct URL (browser caches automatically)
+ * - For authenticated gateway: fetches with auth and returns blob URL
  * 
- * @param url - The IPFS URL or CID to convert
- * @param useFallback - Use fallback gateway instead of Pinata (default: false)
- * @returns HTTP URL using Pinata gateway (or original URL if not IPFS)
+ * @param ipfsUri - The IPFS URI (ipfs://, https://gateway.../ipfs/, etc.)
+ * @param authToken - Optional JWT token for authenticated gateways
+ * @returns Image URL (direct or blob URL) or default placeholder if all fail
  * 
  * @example
- * convertIpfsUrl('ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
- * // Returns: 'https://gateway.pinata.cloud/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
- * 
- * @example
- * convertIpfsUrl('https://ipfs.io/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
- * // Returns: 'https://gateway.pinata.cloud/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+ * const imageUrl = await fetchIPFSImageWithFallback('ipfs://bafybei...');
+ * // Returns: 'https://ipfs.io/ipfs/bafybei...' or 'blob:http://...' for auth gateway
  */
-export function convertIpfsUrl(url?: string | null, useFallback: boolean = false): string | undefined {
+export async function fetchIPFSImageWithFallback(
+  ipfsUri: string,
+  authToken?: string
+): Promise<string> {
+  console.log('🖼️ [fetchIPFSImage] Starting fetch for:', ipfsUri);
+  
+  // Extract CID
+  const cid = extractIpfsCid(ipfsUri);
+  if (!cid) {
+    console.error('❌ [fetchIPFSImage] Could not extract CID from:', ipfsUri);
+    return DEFAULT_NFT_IMAGE;
+  }
+  
+  // Try each gateway in order
+  for (let i = 0; i < IPFS_GATEWAYS.length; i++) {
+    const gateway = IPFS_GATEWAYS[i];
+    const url = `${gateway}/${cid}`;
+    
+    console.log(`🔄 [fetchIPFSImage] Trying gateway ${i + 1}/${IPFS_GATEWAYS.length}:`, gateway);
+    
+    try {
+      const isBackendGateway = gateway.includes('edgedev.silicon.net');
+      
+      // For backend gateway with auth: fetch with headers and create blob URL
+      if (isBackendGateway && authToken) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          console.warn(`⚠️ [fetchIPFSImage] Backend gateway failed (${response.status})`);
+          continue; // Try next gateway
+        }
+        
+        const blob = await response.blob();
+        
+        // Check if it's an image
+        if (!blob.type.startsWith('image/')) {
+          console.warn(`⚠️ [fetchIPFSImage] Not an image (${blob.type})`);
+          continue;
+        }
+        
+        // Create blob URL
+        const blobUrl = URL.createObjectURL(blob);
+        console.log(`✅ [fetchIPFSImage] Success with backend gateway (blob URL)`);
+        return blobUrl;
+      }
+      
+      // For public gateways: just verify it's accessible and return the URL
+      // The browser will cache it automatically (Cache-Control: max-age=29030400)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
+      const response = await fetch(url, {
+        method: 'HEAD', // Just check if it exists
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.warn(`⚠️ [fetchIPFSImage] Gateway failed (${response.status}):`, gateway);
+        continue; // Try next gateway
+      }
+      
+      // Check Content-Type if available
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && !contentType.startsWith('image/')) {
+        console.warn(`⚠️ [fetchIPFSImage] Not an image (${contentType}):`, gateway);
+        continue;
+      }
+      
+      console.log(`✅ [fetchIPFSImage] Success with gateway:`, gateway);
+      return url; // Return direct URL - browser will cache it
+      
+    } catch (error) {
+      console.warn(`⚠️ [fetchIPFSImage] Error with gateway:`, gateway, error);
+      // Continue to next gateway
+    }
+  }
+  
+  // All gateways failed
+  console.error('❌ [fetchIPFSImage] All gateways failed for:', cid);
+  return DEFAULT_NFT_IMAGE;
+}
+
+/**
+* Convert any IPFS URL format to a HTTP gateway URL
+* Uses the backend authenticated gateway by default
+* Supports:
+* - ipfs://[CID]
+* - ipfs://ipfs/[CID]
+* - /ipfs/[CID]
+* - https://ipfs.io/ipfs/[CID]
+* - https://gateway.pinata.cloud/ipfs/[CID]
+* - https://[any-gateway]/ipfs/[CID]
+* - Raw CID (if > 40 chars)
+* 
+* @param url - The IPFS URL or CID to convert
+* @param customGateway - Custom gateway URL to use (optional). If not provided, uses FALLBACK_GATEWAY
+* @returns Full HTTP URL to the gateway
+* 
+* @example
+* convertIpfsUrl('ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
+* // Returns: 'https://edgedev.silicon.net/v1/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+* 
+* @example
+* convertIpfsUrl('https://gateway.pinata.cloud/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
+* // Returns: 'https://edgedev.silicon.net/v1/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+*/
+export function convertIpfsUrl(url?: string | null, customGateway?: string): string | undefined {
   if (!url) return undefined;
   
-  const gateway = useFallback ? FALLBACK_GATEWAY : PINATA_GATEWAY;
+  // Extract CID first
+  const cid = extractIpfsCid(url);
   
-  // Check if it's already an HTTP URL pointing to an IPFS gateway
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    // Extract CID from common IPFS gateway patterns and convert to our gateway
-    const ipfsMatch = url.match(/\/ipfs\/([a-zA-Z0-9]+(?:\/[^?#]*)?)/);
-    if (ipfsMatch) {
-      // Convert from any IPFS gateway to our preferred gateway
-      return `${gateway}/${ipfsMatch[1]}`;
-    }
-    // Not an IPFS gateway URL, return as is
+  // If we have a CID, build the gateway URL
+  if (cid) {
+    // Use first gateway from list as default
+    const gateway = customGateway || IPFS_GATEWAYS[0];
+    return `${gateway}/${cid}`;
+  }
+  
+  // If it's already an HTTP URL and not IPFS, return as is
+  if ((url.startsWith('http://') || url.startsWith('https://')) && !url.includes('/ipfs/')) {
     return url;
-  }
-  
-  // Handle ipfs:// protocol
-  if (url.startsWith('ipfs://')) {
-    // Remove ipfs:// and potential /ipfs/ prefix
-    let hash = url.replace('ipfs://', '');
-    if (hash.startsWith('ipfs/')) {
-      hash = hash.replace('ipfs/', '');
-    }
-    return `${gateway}/${hash}`;
-  }
-  
-  // Handle /ipfs/[CID] format
-  if (url.startsWith('/ipfs/')) {
-    const hash = url.replace('/ipfs/', '');
-    return `${gateway}/${hash}`;
-  }
-  
-  // Handle raw CID (must be > 40 chars to be valid)
-  if (url.length > 40 && !url.includes('/') && !url.includes(':')) {
-    return `${gateway}/${url}`;
   }
   
   // Return original if we can't convert
@@ -74,13 +171,18 @@ export function convertIpfsUrl(url?: string | null, useFallback: boolean = false
 }
 
 /**
- * Extract IPFS CID from any URL format
+ * Extract IPFS CID and full path from any URL format
+ * Preserves subdirectories and file paths
  * @param url - URL to extract CID from
- * @returns The IPFS CID or null if not found
+ * @returns The IPFS CID with path or null if not found
  * 
  * @example
- * extractIpfsCid('ipfs://bafybei...')
- * // Returns: 'bafybei...'
+ * extractIpfsCid('ipfs://bafybei.../folder/image.png')
+ * // Returns: 'bafybei.../folder/image.png'
+ * 
+ * @example
+ * extractIpfsCid('https://gateway.pinata.cloud/ipfs/bafybei.../metadata.json')
+ * // Returns: 'bafybei.../metadata.json'
  */
 export function extractIpfsCid(url?: string | null): string | null {
   if (!url) return null;
@@ -91,16 +193,17 @@ export function extractIpfsCid(url?: string | null): string | null {
     if (hash.startsWith('ipfs/')) {
       hash = hash.replace('ipfs/', '');
     }
-    return hash.split('/')[0]; // Get first part before any path
+    // Return full path including subdirectories
+    return hash;
   }
   
-  // From HTTP gateway URL
-  const ipfsMatch = url.match(/\/ipfs\/([a-zA-Z0-9]+)/);
+  // From HTTP gateway URL - extract everything after /ipfs/
+  const ipfsMatch = url.match(/\/ipfs\/([a-zA-Z0-9]+(?:\/[^?#]*)?)/);
   if (ipfsMatch) {
     return ipfsMatch[1];
   }
   
-  // Might already be a CID
+  // Might already be a CID (without path)
   if (url.length > 40 && !url.includes('/') && !url.includes(':')) {
     return url;
   }
@@ -126,14 +229,14 @@ export function isIpfsUrl(url?: string | null): boolean {
 /**
  * Convert array of IPFS URLs to HTTP URLs
  * @param urls - Array of URLs to convert
- * @param useFallback - Use fallback gateway
+ * @param customGateway - Optional custom gateway URL to use
  * @returns Array of HTTP URLs
  */
-export function convertIpfsUrls(urls?: (string | null)[], useFallback: boolean = false): string[] {
+export function convertIpfsUrls(urls?: (string | null)[], customGateway?: string): string[] {
   if (!urls || urls.length === 0) return [];
   
   return urls
-    .map(url => convertIpfsUrl(url, useFallback))
+    .map(url => convertIpfsUrl(url, customGateway))
     .filter((url): url is string => url !== undefined);
 }
 

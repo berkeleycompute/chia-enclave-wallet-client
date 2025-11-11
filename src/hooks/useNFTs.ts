@@ -192,93 +192,121 @@ export function useNFTs(config: UseNFTsConfig = {}): UseNFTsResult {
       return null;
     }
 
-    // Convert IPFS URLs to HTTP gateway using centralized utility
-    const fetchUrl = convertIpfs(metadataUri) || metadataUri;
+    // Use the original URI as cache key
+    const cacheKey = metadataUri;
 
     // Check cache first
-    const cached = metadataCache.get(fetchUrl);
+    const cached = metadataCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       if (enableLogging) {
-        console.log('✅ Using cached metadata for:', fetchUrl);
+        console.log('✅ Using cached metadata for:', cacheKey);
       }
       return cached.data;
     }
 
     // Prevent duplicate requests
-    if (metadataLoadingRef.current.has(fetchUrl)) {
+    if (metadataLoadingRef.current.has(cacheKey)) {
       if (enableLogging) {
-        console.log('⏳ Metadata already loading for:', fetchUrl);
+        console.log('⏳ Metadata already loading for:', cacheKey);
       }
       return null;
     }
 
-    metadataLoadingRef.current.add(fetchUrl);
+    metadataLoadingRef.current.add(cacheKey);
 
     try {
       if (enableLogging) {
-        console.log('📥 Fetching NFT metadata from:', fetchUrl);
+        console.log('📥 Fetching NFT metadata from:', metadataUri);
       }
 
-      // Configure fetch to properly handle redirects and timeouts
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      // Get the client instance
+      const client = externalClient || internalClient.current;
+      
+      if (client) {
+        // Use the client's fetchNFTMetadata method which handles IPFS URLs with authentication
+        const result = await client.fetchNFTMetadata(metadataUri);
+        
+        if (result.success && result.data) {
+          const metadata = result.data as NFTMetadata;
 
-      const response = await fetch(fetchUrl, {
-        method: 'GET',
-        redirect: 'follow', // Explicitly follow redirects
-        mode: 'cors', // Handle CORS properly
-        cache: 'default', // Use browser caching
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json, */*'
+          console.log('🔄 Metadata:', metadata);
+
+          // Cache the metadata
+          metadataCache.set(cacheKey, {
+            data: metadata,
+            timestamp: Date.now()
+          });
+
+          if (enableLogging) {
+            console.log('✅ Successfully loaded metadata:', { metadataUri, metadata });
+          }
+
+          return metadata;
+        } else {
+          throw new Error(result.error || 'Failed to fetch metadata');
         }
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      let metadata: NFTMetadata;
-
-      if (contentType && contentType.includes('application/json')) {
-        metadata = await response.json();
       } else {
-        // Try to parse as JSON anyway, some servers don't set proper content-type
-        const text = await response.text();
-        try {
-          metadata = JSON.parse(text);
-        } catch {
-          console.warn('Metadata response is not valid JSON:', text.substring(0, 200));
-          throw new Error('Invalid JSON response');
+        // Fallback to direct fetch if no client is available
+        // This maintains backward compatibility
+        const fetchUrl = convertIpfs(metadataUri) || metadataUri;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(fetchUrl, {
+          method: 'GET',
+          redirect: 'follow',
+          mode: 'cors',
+          cache: 'default',
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json, */*'
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`Failed to fetch metadata (${response.status} ${response.statusText}): ${errorText}`);
         }
+
+        const contentType = response.headers.get('content-type');
+        let metadata: NFTMetadata;
+
+        if (contentType && contentType.includes('application/json')) {
+          metadata = await response.json();
+        } else {
+          const text = await response.text();
+          try {
+            metadata = JSON.parse(text);
+          } catch {
+            console.warn('Metadata response is not valid JSON:', text.substring(0, 200));
+            throw new Error('Invalid JSON response');
+          }
+        }
+
+        // Cache the metadata
+        metadataCache.set(cacheKey, {
+          data: metadata,
+          timestamp: Date.now()
+        });
+
+        if (enableLogging) {
+          console.log('✅ Successfully loaded metadata (fallback):', { fetchUrl, metadata });
+        }
+
+        return metadata;
       }
-
-      console.log('🔄 Metadata:', metadata);
-
-      // Cache the metadata
-      metadataCache.set(fetchUrl, {
-        data: metadata,
-        timestamp: Date.now()
-      });
-
-      if (enableLogging) {
-        console.log('✅ Successfully loaded metadata:', { fetchUrl, metadata });
-      }
-
-      return metadata;
     } catch (error) {
       if (enableLogging) {
-        console.warn(`❌ Failed to load NFT metadata from ${fetchUrl}:`, error);
+        console.warn(`❌ Failed to load NFT metadata from ${metadataUri}:`, error);
       }
       return null;
     } finally {
-      metadataLoadingRef.current.delete(fetchUrl);
+      metadataLoadingRef.current.delete(cacheKey);
     }
-  }, [extractMetadataUri, enableLogging]);
+  }, [extractMetadataUri, enableLogging, externalClient]);
 
   // Load metadata for all NFTs
   const loadAllMetadata = useCallback(async (): Promise<void> => {

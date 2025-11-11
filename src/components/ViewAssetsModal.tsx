@@ -11,6 +11,7 @@ import { PiMagnifyingGlass, PiArrowsClockwise, PiCaretDown } from 'react-icons/p
 import { useTransferAssets } from '../hooks/useTransferAssets';
 import { convertIpfsUrl } from '../utils/ipfs';
 import { useCATMetadata, getAssetColorFromId, getCATInitials } from '../hooks/useCATMetadata';
+import { useIPFSImage } from '../hooks/useIPFSImage';
 
 interface ViewAssetsModalProps {
   isOpen: boolean;
@@ -18,6 +19,71 @@ interface ViewAssetsModalProps {
   onNFTSelected?: (nft: NFTWithMetadata) => void;
   onContentChange?: () => void;
 }
+
+// Shimmer/Skeleton loader animation
+const shimmerKeyframes = `
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+`;
+
+// Component to load NFT image with base64 caching
+const NFTImage: React.FC<{ uri?: string; alt: string; style?: React.CSSProperties }> = ({ uri, alt, style }) => {
+  const { imageUrl, loading } = useIPFSImage(uri);
+  
+  return (
+    <>
+      {/* Inject shimmer animation if not already present */}
+      {loading && !document.getElementById('shimmer-keyframes') && (
+        <style id="shimmer-keyframes">{shimmerKeyframes}</style>
+      )}
+      
+      {/* Shimmer skeleton loader */}
+      {loading && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 20%, #3a3a3a 40%, #2a2a2a 60%, #1a1a1a 100%)',
+          backgroundSize: '1000px 100%',
+          animation: 'shimmer 2s infinite linear',
+          borderRadius: '8px',
+          zIndex: 1,
+        }}>
+          {/* Icon placeholder */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: '#444',
+            fontSize: '48px',
+            opacity: 0.3,
+          }}>
+            🖼️
+          </div>
+        </div>
+      )}
+      
+      <img 
+        src={imageUrl} 
+        alt={alt} 
+        style={{
+          ...style,
+          opacity: loading ? 0 : 1,
+          transition: 'opacity 0.5s ease-in-out'
+        }} 
+      />
+    </>
+  );
+};
 
 export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
   isOpen,
@@ -589,9 +655,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                     }}
                   >
                     {filteredNFTs.map((nft, idx) => {
-                      console.log('NFT:', nft);
-                      const imageUrl = convertIpfsUrl(nft.coin.parentSpendInfo.driverInfo?.info?.metadata?.dataUris?.[0]);
-                      console.log('Image URL:', imageUrl);
+                      const imageUri = nft.coin.parentSpendInfo.driverInfo?.info?.metadata?.dataUris?.[0];
                       const isLoadingMetadata = metadataLoading && !nft.hasDownloadedMetadata;
 
                       return (
@@ -632,16 +696,16 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                               alignItems: 'center',
                               justifyContent: 'center',
                             }}>
-                              {imageUrl ? (
-                                <img src={imageUrl} alt={nft.name} style={{
+                              <NFTImage 
+                                uri={imageUri} 
+                                alt={nft.name} 
+                                style={{
                                   width: '100%',
                                   height: '100%',
                                   objectFit: 'cover',
                                   borderRadius: '8px',
-                                }} />
-                              ) : (
-                                <div style={{ color: '#666', fontSize: '48px' }}>🖼️</div>
-                              )}
+                                }} 
+                              />
                               {isLoadingMetadata && (
                                 <div style={{
                                   position: 'absolute',
