@@ -865,10 +865,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                     </>
                   ) : (
                     <div className="text-center px-10 py-5">
-                      <p className="flex items-center font-sm mb-4 justify-center">Connect your Chia wallet to get started</p>
-                      <button className="rounded-lg px-5 py-2.5 font-medium text-sm text-white transition-all" style={{ backgroundColor: '#6bc36b', border: '1px solid #6bc36b' }} onClick={connect} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a9f4a'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6bc36b'}>
-                        Connect Wallet
-                      </button>
+                      <div className="m-auto w-8 h-8 rounded-full animate-spin mb-4"
+                        style={{ borderColor: '#333333', borderTopColor: '#6bc36b', borderWidth: '3px' }}
+                      />
+                      <p>Connecting to wallet...</p>
                     </div>
                   )}
 
