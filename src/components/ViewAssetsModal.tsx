@@ -516,7 +516,7 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                             minWidth: 0
                           }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#131418'}
                           onClick={() => handleCATClick(cat)}
                         >
                           <div style={{
@@ -667,14 +667,14 @@ export const ViewAssetsModal: React.FC<ViewAssetsModalProps> = ({
                             flexDirection: 'column',
                             borderRadius: '8px',
                             opacity: isLoadingMetadata ? 0.7 : 1,
-                            backgroundColor: '#1a1a1a',
+                            backgroundColor: '#131418',
                             transition: 'background-color 0.2s',
                             minWidth: 0,
                             width: '100%',
                             padding: '8px',
                           }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#20212a'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#131418'}
                           onClick={() => handleNFTClick(nft)}
                         >
                           <div style={{
