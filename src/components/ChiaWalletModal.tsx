@@ -864,8 +864,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                       </div>
                     </>
                   ) : (
-                    <div className="text-center px-10 py-5">
-                      <div className="m-auto w-8 h-8 rounded-full animate-spin mb-4"
+                    <div className="flex flex-col justify-center items-center px-10 py-5">
+                      <div className="w-8 h-8 rounded-full animate-spin mb-4"
                         style={{ borderColor: '#333333', borderTopColor: '#6bc36b', borderWidth: '3px' }}
                       />
                       <p>Connecting to wallet...</p>
