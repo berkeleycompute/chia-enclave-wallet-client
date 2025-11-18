@@ -1058,7 +1058,7 @@ export class ChiaCloudWalletClient {
       case 'development':
         return 'https://edgedev.silicon.net/v1';
       case 'production':
-        return 'https://edge.silicon-prod.net/v1';
+        return 'https://edge.silicon.net/v1';
       case 'test':
         return 'https://edgedev.silicon.net/v1';
       default:
