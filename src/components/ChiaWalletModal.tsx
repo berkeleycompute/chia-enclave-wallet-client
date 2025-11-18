@@ -873,7 +873,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   )}
 
                   {/* Footer Section - Inside Modal Body */}
-                  {isConnected && footer && footer}
+                  {footer && footer}
                 </div>
 
                 {/* Disconnect Section - Bottom */}
