@@ -5,6 +5,7 @@
 
 import React from 'react';
 import type { ChiaCloudWalletClient, HydratedCoin } from './ChiaCloudWalletClient';
+import { chiaCloudWalletClient } from './ChiaCloudWalletClient';
 
 export interface SpacescanBalanceResponse {
   status: 'success' | 'error';
@@ -761,7 +762,8 @@ export const getTokenDisplayName = (assetId: string, tokenId?: string): string =
 
 // Default instance with provided API key
 export const defaultSpacescanClient = new SpacescanClient({
-  apiKey: 'esL8oRqzao1qQ6f5kYbB16iQ2C9zdXOl8BNm72Us'
+  apiKey: 'esL8oRqzao1qQ6f5kYbB16iQ2C9zdXOl8BNm72Us',
+  baseUrl: chiaCloudWalletClient.getBaseUrl() || ''
 });
 
 // Hook for using Spacescan XCH balance with debouncing
