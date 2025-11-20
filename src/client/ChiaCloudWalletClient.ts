@@ -1034,7 +1034,6 @@ export class ChiaCloudWalletClient {
       import('./SpacescanClient').then(module => {
         const { SpacescanClient } = module;
         this.spacescanInstance = new SpacescanClient({
-          apiKey: 'esL8oRqzao1qQ6f5kYbB16iQ2C9zdXOl8BNm72Us',
           baseUrl: this.baseUrl,
           walletClient: this
         });
@@ -1159,7 +1158,6 @@ export class ChiaCloudWalletClient {
     if (!this.spacescanInstance) {
       const { SpacescanClient } = await import('./SpacescanClient');
       this.spacescanInstance = new SpacescanClient({
-        apiKey: 'esL8oRqzao1qQ6f5kYbB16iQ2C9zdXOl8BNm72Us',
         baseUrl: this.baseUrl,
         walletClient: this
       });

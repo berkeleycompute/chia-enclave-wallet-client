@@ -161,7 +161,6 @@ export interface SpacescanXCHTransactionResponse {
 }
 
 export interface SpacescanConfig {
-  apiKey: string;
   baseUrl?: string;
   timeout?: number;
   walletClient?: ChiaCloudWalletClient; // Optional wallet client for local coin data
@@ -287,14 +286,12 @@ class DebouncedRequestManager {
 }
 
 export class SpacescanClient {
-  // private apiKey: string;
   private baseUrl: string;
   private timeout: number;
   private requestManager: DebouncedRequestManager;
   private walletClient?: ChiaCloudWalletClient;
 
   constructor(config: SpacescanConfig) {
-    // this.apiKey = config.apiKey;
     this.baseUrl = (config.baseUrl || 'https://edgedev.silicon.net/v1') + '/spacescan';
     this.timeout = config.timeout || 10000; // 10 seconds
     this.requestManager = new DebouncedRequestManager();
