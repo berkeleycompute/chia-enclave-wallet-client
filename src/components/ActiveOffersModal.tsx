@@ -381,7 +381,7 @@ export const ActiveOffersModal = forwardRef<ActiveOffersModalRef, ActiveOffersMo
 
   if (showOfferDetails && selectedOffer) {
     return (
-      <div className="flex flex-col gap-3" style={{ maxHeight: '600px', overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px', margin: '12px 12px' }}>
+      <div className="flex flex-col gap-3" style={{ maxHeight: '600px', overflowY: 'auto', backgroundColor: '#1B1C22', borderRadius: '8px', padding: '14px'}}>
 
         {/* NFT Header Section */}
         <h2 className="text-white text-left text-lg mb-1 break-words">

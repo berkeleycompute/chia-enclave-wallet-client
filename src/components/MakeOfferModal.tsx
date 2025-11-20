@@ -5,7 +5,8 @@ import {
   useWalletConnection,
   useWalletCoins,
   useWalletState,
-  useNFTOffers
+  useNFTOffers,
+  useDexieTokens
 } from '../hooks/useChiaWalletSDK';
 import { injectModalStyles } from './modal-styles';
 import { PiInfo } from 'react-icons/pi';
@@ -52,9 +53,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [nftMetadata, setNftMetadata] = useState<Map<string, any>>(new Map());
   const [loadingMetadata, setLoadingMetadata] = useState<Set<string>>(new Set());
 
-  // wUSDC.b asset ID
-  const WUSDC_ASSET_ID = 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d';
-
   const [selectedNft, setSelectedNft] = useState<HydratedCoin | null>(null);
   const [offerAmount, setOfferAmount] = useState(initialOfferAmount || '');
   const [depositAddress, setDepositAddress] = useState(initialDepositAddress || '');
@@ -63,6 +61,20 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const hasRefreshedOnOpen = useRef(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { tokens, loading: tokensLoading } = useDexieTokens();
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [selectedAssetCode, setSelectedAssetCode] = useState<string>('wUSDC.b');
+  const catTokens = useMemo(() => {
+    return (tokens || []).filter((t) => {
+      const id = (t?.id || '').replace(/^0x/, '');
+      return /^[0-9a-fA-F]{64}$/.test(id);
+    });
+  }, [tokens]);
+  const isValidAssetId = useCallback((id: string | null) => {
+    if (!id) return false;
+    const clean = id.replace(/^0x/, '');
+    return /^[0-9a-fA-F]{64}$/.test(clean);
+  }, []);
 
   // Handle modal opening/closing and initial setup
   useEffect(() => {
@@ -70,6 +82,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setOfferAmount(initialOfferAmount || '');
       setDepositAddress(initialDepositAddress || (address || ''));
       setError(null);
+      // Initialize selected token (prefer wUSDC.b if present, else first valid CAT)
+      if (catTokens && catTokens.length > 0) {
+        const preferred = catTokens.find((t) => (t.code || '').toLowerCase() === 'wusdc.b') || catTokens[0];
+        setSelectedAssetId(preferred.id);
+        setSelectedAssetCode(preferred.code || preferred.name || 'CAT');
+      }
 
       if (initialSelectedNft) {
         setSelectedNft(initialSelectedNft);
@@ -106,6 +124,15 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setDepositAddress(address);
     }
   }, [address, depositAddress]);
+
+  // Ensure token selection is initialized when tokens load
+  useEffect(() => {
+    if (isOpen && !selectedAssetId && catTokens && catTokens.length > 0) {
+      const preferred = catTokens.find((t) => (t.code || '').toLowerCase() === 'wusdc.b') || catTokens[0];
+      setSelectedAssetId(preferred.id);
+      setSelectedAssetCode(preferred.code || preferred.name || 'CAT');
+    }
+  }, [isOpen, catTokens, selectedAssetId]);
 
   // NFT metadata management functions
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -389,7 +416,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         requestedPayment: {
           amount: offerData.amount,
           assetId: offerData.wusdcAssetId,
-          assetName: 'wUSDC.b',
+          assetName: selectedAssetCode || 'CAT',
           depositAddress: offerData.depositAddress
         },
         offerData: {
@@ -531,7 +558,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       const simpleOfferRequest: SimpleMakeUnsignedNFTOfferRequest = {
         requested_payments: {
           cats: [{
-            asset_id: WUSDC_ASSET_ID,
+            asset_id: selectedAssetId || '',
             deposit_address: depositAddress,
             amount: parseFloat(offerAmount)
           }]
@@ -554,7 +581,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         nft: selectedNft,
         amount: parseFloat(offerAmount),
         depositAddress: depositAddress,
-        wusdcAssetId: WUSDC_ASSET_ID,
+        wusdcAssetId: selectedAssetId || '',
         offerString: result.data.signed_offer,
         timestamp: Date.now(),
         isSigned: true,
@@ -710,12 +737,22 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         <div className="grid grid-cols-2 gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-white text-sm font-medium text-left">Requested currency</label>
-            <Selector
-              items={[{ id: 'wusdc', label: 'wUSDC.b' }]}
-              selectedId={'wusdc'}
-              onSelect={() => { }}
-              placeholder="Select currency"
-            />
+            {(() => {
+              const items = (catTokens || []).map((t) => ({ id: t.id, label: t.code || t.name }));
+              const selectedId = selectedAssetId || undefined;
+              return (
+                <Selector
+                  items={items}
+                  selectedId={selectedId}
+                  onSelect={(id) => {
+                    const t = catTokens.find((x) => x.id === id);
+                    setSelectedAssetId(id);
+                    setSelectedAssetCode(t?.code || t?.name || 'CAT');
+                  }}
+                  placeholder={tokensLoading ? 'Loading...' : 'Select currency'}
+                />
+              );
+            })()}
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-white text-sm font-medium text-left">Amount</label>
@@ -726,7 +763,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                 min="0"
                 value={offerAmount}
                 onChange={(e) => setOfferAmount(e.target.value)}
-                placeholder={`0.0 ${WUSDC_ASSET_ID === 'fa4a180ac326e67ea289b869e3448256f6af05721f7cf934cb9901baa6b7a99d' ? 'wUSDC.b' : ''}`}
+                placeholder={`0.0 ${selectedAssetCode || ''}`}
                 className="w-full px-4 py-2 border rounded text-sm focus:outline-none placeholder-gray-300"
                 style={{ backgroundColor: '#1B1C22', borderColor: '#272830', color: '#EEEEF0' }}
                 onFocus={(e) => e.currentTarget.style.borderColor = '#2C64F8'}
@@ -768,7 +805,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
           <button
             type="button"
             onClick={submitOffer}
-            disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey || !selectedNft}
+            disabled={isSubmitting || isCreatingOffer || !offerAmount || !depositAddress || !syntheticPublicKey || !selectedNft || !isValidAssetId(selectedAssetId)}
             className="flex items-center justify-center gap-2 px-5 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed w-3/4"
             style={{ backgroundColor: '#2C64F8', color: '#EEEEF0' }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e56e8'}

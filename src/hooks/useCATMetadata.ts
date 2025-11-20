@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useDexieTokens } from './useChiaWalletSDK';
 
 export interface CATMetadata {
   id: string; // Asset ID
@@ -20,7 +21,6 @@ interface UseCATMetadataResult {
   getCATInfo: (assetId: string) => CATMetadata | null;
 }
 
-const DEXIE_API_URL = 'https://dexie.space/v1/tokens';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Fallback database with most common tokens
@@ -43,76 +43,26 @@ for (const token of FALLBACK_TOKENS) {
 }
 
 // Global cache to share across hook instances
-let globalMetadataCache: CATMetadataMap | null = null;
-let globalCacheTimestamp = 0;
+let globalMetadataCache: { data: CATMetadataMap; timestamp: number } | null = null;
 
 export function useCATMetadata(): UseCATMetadataResult {
-  const [metadata, setMetadata] = useState<CATMetadataMap>(globalMetadataCache || FALLBACK_METADATA);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const fetchingRef = useRef(false);
+  const [metadata, setMetadata] = useState<CATMetadataMap>(globalMetadataCache?.data || FALLBACK_METADATA);
+  const { tokens, loading, error, refresh } = useDexieTokens();
 
-  const fetchMetadata = useCallback(async () => {
-    // Check if cache is still valid
-    const now = Date.now();
-    if (globalMetadataCache && (now - globalCacheTimestamp) < CACHE_DURATION) {
-      setMetadata(globalMetadataCache);
-      return;
+  const buildMetadataMap = useCallback((list: any[]): CATMetadataMap => {
+    const metadataMap: CATMetadataMap = {};
+    for (const token of list || []) {
+      if (token?.id) {
+        metadataMap[token.id] = {
+          id: token.id,
+          code: token.code || 'CAT',
+          name: token.name || 'Unknown CAT',
+          icon: token.icon,
+          denom: token.denom || 1000
+        };
+      }
     }
-
-    // Prevent concurrent fetches
-    if (fetchingRef.current) return;
-    
-    fetchingRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(DEXIE_API_URL);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch CAT metadata: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data.success || !Array.isArray(data.tokens)) {
-        throw new Error('Invalid response format from Dexie API');
-      }
-
-      // Build metadata map indexed by asset ID
-      const metadataMap: CATMetadataMap = {};
-      for (const token of data.tokens) {
-        if (token.id) {
-          metadataMap[token.id] = {
-            id: token.id,
-            code: token.code || 'CAT',
-            name: token.name || 'Unknown CAT',
-            icon: token.icon,
-            denom: token.denom || 1000
-          };
-        }
-      }
-
-      // Update global cache
-      globalMetadataCache = metadataMap;
-      globalCacheTimestamp = Date.now();
-      
-      setMetadata(metadataMap);
-      console.log(`✅ Fetched metadata for ${Object.keys(metadataMap).length} CATs from Dexie`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch CAT metadata';
-      setError(errorMessage);
-      console.error('❌ Error fetching CAT metadata, using fallback:', err);
-      
-      // Use fallback on error
-      if (!globalMetadataCache) {
-        globalMetadataCache = FALLBACK_METADATA;
-        setMetadata(FALLBACK_METADATA);
-      }
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
-    }
+    return metadataMap;
   }, []);
 
   // Get CAT info by asset ID
@@ -120,16 +70,23 @@ export function useCATMetadata(): UseCATMetadataResult {
     return metadata[assetId] || null;
   }, [metadata]);
 
-  // Fetch metadata on mount
+  // Update metadata when tokens arrive or cache is stale
   useEffect(() => {
-    fetchMetadata();
-  }, [fetchMetadata]);
+    const now = Date.now();
+    const cacheStale = !globalMetadataCache || (now - globalMetadataCache.timestamp) > CACHE_DURATION;
+    if (Array.isArray(tokens) && tokens.length > 0 && (cacheStale || metadata === FALLBACK_METADATA)) {
+      const mapped = buildMetadataMap(tokens);
+      globalMetadataCache = { data: mapped, timestamp: now };
+      setMetadata(mapped);
+      console.log(`✅ Loaded ${Object.keys(mapped).length} CATs from backend tokens`);
+    }
+  }, [tokens, buildMetadataMap, metadata]);
 
   return {
     metadata,
     loading,
     error,
-    refresh: fetchMetadata,
+    refresh: async () => { await refresh(); },
     getCATInfo
   };
 }

@@ -675,6 +675,20 @@ export interface UploadFileResponse {
   details: string[];
 }
 
+// Dexie tokens (proxied by backend)
+export interface DexieToken {
+  id: string;
+  code: string;
+  name: string;
+  icon?: string;
+  denom?: number;
+}
+
+export interface DexieTokensResponse {
+  success: boolean;
+  tokens: DexieToken[];
+}
+
 // NFT minting interfaces
 export interface NFTMintMetadata {
   edition_number: number;
@@ -1497,6 +1511,35 @@ export class ChiaCloudWalletClient {
       );
       this.logError(`Network error for file upload to ${endpoint}`, networkError);
       throw networkError;
+    }
+  }
+
+  /**
+   * Fetch supported tokens (proxied Dexie tokens) from backend
+   */
+  async getDexieTokens(): Promise<Result<DexieTokensResponse>> {
+    try {
+      const result = await this.makeRequest<any>('/dexie/tokens', {
+        method: 'GET'
+      }, true); // Require JWT authentication
+      // Normalize possible shapes:
+      // - Direct Dexie shape: { success, tokens }
+      // - Proxied shape: { success, data: { success, tokens } }
+      const tokens: DexieToken[] =
+        (Array.isArray(result?.tokens) ? result.tokens : undefined) ||
+        (Array.isArray(result?.data?.tokens) ? result.data.tokens : undefined) ||
+        (Array.isArray(result?.data?.data?.tokens) ? result.data.data.tokens : undefined) ||
+        [];
+      if (!Array.isArray(tokens)) {
+        throw new Error('Invalid tokens response');
+      }
+      return { success: true, data: { success: true, tokens } };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch Dexie tokens',
+        details: error
+      };
     }
   }
 

@@ -7,7 +7,8 @@ import {
 } from '../client/ChiaWalletSDK';
 import {
   type SendXCHRequest,
-  type SimpleMakeUnsignedNFTOfferRequest
+  type SimpleMakeUnsignedNFTOfferRequest,
+  type DexieToken
 } from '../client/ChiaCloudWalletClient';
 import { UnifiedWalletState } from '../components/types';
 import { UnifiedWalletClient } from '../client/UnifiedWalletClient';
@@ -504,6 +505,44 @@ export const useUnifiedWalletState = (): UnifiedWalletState => {
     balanceState.lastUpdate // Add to detect data freshness changes
   ]);
 };
+
+/**
+ * Fetch Dexie tokens via authenticated backend using the wallet client base URL
+ */
+export function useDexieTokens() {
+  const sdk = useChiaWalletSDK();
+  const [tokens, setTokens] = useState<DexieToken[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchTokens = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await sdk.client.getDexieTokens();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch tokens');
+      }
+      setTokens(result.data.tokens || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch tokens');
+      setTokens([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [sdk]);
+
+  useEffect(() => {
+    fetchTokens();
+  }, [fetchTokens]);
+
+  return {
+    tokens,
+    loading,
+    error,
+    refresh: fetchTokens
+  };
+}
 
 /**
  * Hook for managing Dexie marketplace integration
