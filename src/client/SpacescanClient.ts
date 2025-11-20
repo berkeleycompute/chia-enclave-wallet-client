@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import type { ChiaCloudWalletClient, HydratedCoin } from './ChiaCloudWalletClient';
+import type { ChiaCloudWalletClient } from './ChiaCloudWalletClient';
 
 export interface SpacescanBalanceResponse {
   status: 'success' | 'error';
@@ -520,12 +520,18 @@ export class SpacescanClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-        const url = `${this.baseUrl}/address/nft-transaction/${address}?limit=${limit}&offset=${offset}`;
+        const url = `${this.baseUrl}/address/nft-transactions/${address}?limit=${limit}&offset=${offset}`;
         
+        // Build headers with JWT authorization if available
+        const headers: Record<string, string> = { 'Accept': 'application/json' };
+        const jwt = this.walletClient?.getJwtToken?.();
+        if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+
         const response = await fetch(url, {
           method: 'GET',
           mode: 'cors',
           credentials: 'omit',
+          headers,
           signal: controller.signal
         });
 
@@ -539,15 +545,17 @@ export class SpacescanClient {
           };
         }
 
-        const data = await response.json().catch(() => ({}));
+        // Unwrap possible { success, data } wrapper
+        const raw = await response.json().catch(() => ({}));
+        const payload = raw && raw.success && raw.data ? raw.data : raw;
         
         // Validate response structure
-        if (data.status === 'success') {
+        if (payload.status === 'success') {
           return {
             status: 'success',
-            received_transactions: data.received_transactions || { next_cursor: null, total_count: 0, transactions: [] },
-            send_transactions: data.send_transactions || { next_cursor: null, total_count: 0, transactions: [] },
-            _proxy: data._proxy
+            received_transactions: payload.received_transactions || { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: payload.send_transactions || { next_cursor: null, total_count: 0, transactions: [] },
+            _proxy: payload._proxy
           };
         } else {
           return {
@@ -589,12 +597,18 @@ export class SpacescanClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-        const url = `${this.baseUrl}/address/token-transaction/${address}?limit=${limit}&offset=${offset}`;
+        const url = `${this.baseUrl}/address/token-transactions/${address}?limit=${limit}&offset=${offset}`;
         
+        // Build headers with JWT authorization if available
+        const headers: Record<string, string> = { 'Accept': 'application/json' };
+        const jwt = this.walletClient?.getJwtToken?.();
+        if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+
         const response = await fetch(url, {
           method: 'GET',
           mode: 'cors',
           credentials: 'omit',
+          headers,
           signal: controller.signal
         });
 
@@ -608,15 +622,17 @@ export class SpacescanClient {
           };
         }
 
-        const data = await response.json().catch(() => ({}));
+        // Unwrap possible { success, data } wrapper
+        const raw = await response.json().catch(() => ({}));
+        const payload = raw && raw.success && raw.data ? raw.data : raw;
         
         // Validate response structure
-        if (data.status === 'success') {
+        if (payload.status === 'success') {
           return {
             status: 'success',
-            received_transactions: data.received_transactions || { next_cursor: null, total_count: 0, transactions: [] },
-            send_transactions: data.send_transactions || { next_cursor: null, total_count: 0, transactions: [] },
-            _proxy: data._proxy
+            received_transactions: payload.received_transactions || { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: payload.send_transactions || { next_cursor: null, total_count: 0, transactions: [] },
+            _proxy: payload._proxy
           };
         } else {
           return {
@@ -658,12 +674,18 @@ export class SpacescanClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-        const url = `${this.baseUrl}/address/xch-transaction/${address}?limit=${limit}&offset=${offset}`;
+        const url = `${this.baseUrl}/address/xch-transactions/${address}?limit=${limit}&offset=${offset}`;
         
+        // Build headers with JWT authorization if available
+        const headers: Record<string, string> = { 'Accept': 'application/json' };
+        const jwt = this.walletClient?.getJwtToken?.();
+        if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+
         const response = await fetch(url, {
           method: 'GET',
           mode: 'cors',
           credentials: 'omit',
+          headers,
           signal: controller.signal
         });
 
@@ -677,15 +699,17 @@ export class SpacescanClient {
           };
         }
 
-        const data = await response.json().catch(() => ({}));
+        // Unwrap possible { success, data } wrapper
+        const raw = await response.json().catch(() => ({}));
+        const payload = raw && raw.success && raw.data ? raw.data : raw;
         
         // Validate response structure
-        if (data.status === 'success') {
+        if (payload.status === 'success') {
           return {
             status: 'success',
-            received_transactions: data.received_transactions || { next_cursor: null, total_count: 0, transactions: [] },
-            send_transactions: data.send_transactions || { next_cursor: null, total_count: 0, transactions: [] },
-            _proxy: data._proxy
+            received_transactions: payload.received_transactions || { next_cursor: null, total_count: 0, transactions: [] },
+            send_transactions: payload.send_transactions || { next_cursor: null, total_count: 0, transactions: [] },
+            _proxy: payload._proxy
           };
         } else {
           return {

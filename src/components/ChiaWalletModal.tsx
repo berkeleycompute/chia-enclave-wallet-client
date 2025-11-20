@@ -107,11 +107,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
   const activeOffersModalRef = useRef<ActiveOffersModalRef>(null);
   const nftDetailsModalRef = useRef<NFTDetailsModalRef>(null);
   
-  // State to trigger resize when modal content changes
-  const [contentChangeCounter, setContentChangeCounter] = useState(0);
-  const triggerResize = useCallback(() => {
-    setContentChangeCounter(prev => prev + 1);
-  }, []);
 
   // Calculate balance directly from coins (more accurate)
   const xchAvailableMojos = useMemo(() => {
@@ -140,6 +135,8 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
 
   // Ref for modal container
   const animateHeightRef = useRef<HTMLDivElement>(null);
+  const contentWrapperRef = useRef<HTMLDivElement>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   
   // Animation states for opening/closing
   const [isVisible, setIsVisible] = useState(false);
@@ -266,41 +263,40 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
     }
   }, [isOpen, isVisible]);
 
-  // Animate height changes when dialogs open/close
+  // Dynamically animate container height to match content using ResizeObserver
   useEffect(() => {
-    if (!animateHeightRef.current) return;
+    const container = animateHeightRef.current;
+    const content = contentWrapperRef.current;
+    if (!container || !content || !isVisible) return;
     
-    // Force layout recalculation
-    const updateHeight = () => {
-      if (!animateHeightRef.current) return;
-      
-      // Temporarily remove height to get natural height
-      const currentHeight = animateHeightRef.current.offsetHeight;
-      animateHeightRef.current.style.height = 'auto';
-      const naturalHeight = animateHeightRef.current.scrollHeight;
-      
-      // Set back to current height immediately (no visual change)
-      animateHeightRef.current.style.height = `${currentHeight}px`;
-      
-      // Force reflow
-      animateHeightRef.current.offsetHeight;
-      
-      // Now animate to the natural height
-      requestAnimationFrame(() => {
-        if (animateHeightRef.current) {
-          animateHeightRef.current.style.height = `${naturalHeight}px`;
-        }
-      });
+    const setHeightToContent = () => {
+      const newHeight = content.offsetHeight;
+      // Apply measured height to container; transition on height handles animation
+      container.style.height = `${newHeight}px`;
     };
     
-    // Small delay to ensure content is mounted
-    const timer = setTimeout(updateHeight, 0);
+    // Initial sync (after mount/visibility change)
+    setHeightToContent();
     
-    return () => clearTimeout(timer);
-  }, [dialogs, sendFundsDialog.isOpen, receiveFundsDialog.isOpen, makeOfferDialog.isOpen, 
-      activeOffersDialog.isOpen, nftDetailsDialog.isOpen, transactionsDialog.isOpen, 
-      viewAssetsDialog.isOpen, exportKeyDialog.isOpen, contentChangeCounter, 
-      isConnected, isConnecting, balanceLoading, coinsLoading, error, coinsError]);
+    // Observe content size changes
+    const ro = new ResizeObserver(() => {
+      setHeightToContent();
+    });
+    ro.observe(content);
+    resizeObserverRef.current = ro;
+    
+    // Also react to window resizes which can reflow content
+    const onWindowResize = () => setHeightToContent();
+    window.addEventListener('resize', onWindowResize);
+    
+    return () => {
+      window.removeEventListener('resize', onWindowResize);
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
+    };
+  }, [isVisible]);
 
   // NFT metadata functions (keep as they're specific to this modal)
   const fetchNftMetadata = useCallback(async (metadataUri: string): Promise<any> => {
@@ -620,6 +616,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               transition: 'height 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
+            <div ref={contentWrapperRef}>
             {/* Unified Header for Dialogs */}
             {dialogs && (
               <div className="flex justify-between items-center px-4 py-5">
@@ -629,7 +626,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   onMouseEnter={(e) => e.currentTarget.style.color = 'white'} 
                   onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
                   onClick={() => {
-                    triggerResize();
                     // Check if ActiveOffersModal can handle back internally (e.g., going from details to list)
                     if (activeOffersDialog.isOpen && activeOffersModalRef.current) {
                       const handled = activeOffersModalRef.current.handleBack();
@@ -678,7 +674,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               isOpen={sendFundsDialog.isOpen}
               onClose={sendFundsDialog.close}
               onTransactionSent={handleTransactionSent}
-              onContentChange={triggerResize}
             />
             <ReceiveFundsModal
               isOpen={receiveFundsDialog.isOpen}
@@ -697,7 +692,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                   console.warn('Unable to open NFT details from ViewAssetsModal selection');
                 }
               }}
-              onContentChange={triggerResize}
             />
             <MakeOfferModal
               isOpen={makeOfferDialog.isOpen}
@@ -706,7 +700,6 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                 refreshOffersCount();
               }}
               onRefreshWallet={refreshBalance}
-              onContentChange={triggerResize}
             />
             <ActiveOffersModal
               ref={activeOffersModalRef}
@@ -714,13 +707,10 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               onClose={activeOffersDialog.close}
               onOfferUpdate={() => {
                 console.log('Offers updated');
-                triggerResize();
               }}
               onCreateOffer={() => {
                 makeOfferDialog.open();
-                triggerResize();
               }}
-              onContentChange={triggerResize}
             />
             <NFTDetailsModal
               ref={nftDetailsModalRef}
@@ -728,11 +718,9 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
               onClose={nftDetailsDialog.close}
               nft={nftDetailsDialog.selectedNft}
               showBackToAssets={viewAssetsDialog.isOpen}
-              onContentChange={triggerResize}
             />
             <ExportPrivateKeyModal
               isOpen={exportKeyDialog.isOpen}
-              onContentChange={triggerResize}
             />
             {!dialogs && (
               <>
@@ -891,6 +879,7 @@ export const ChiaWalletModal: React.FC<ChiaWalletModalProps> = ({
                 )}
               </>
             )}
+            </div>
           </div>
         </div>
         </>
