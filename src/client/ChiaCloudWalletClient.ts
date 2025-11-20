@@ -996,6 +996,7 @@ export class ChiaCloudWalletClient {
   private jwtToken?: string;
   private enableLogging: boolean;
   private environment: 'development' | 'production' | 'test';
+  private spacescanInstance: any = null; // Will be initialized on first use
 
   constructor(config: ChiaCloudWalletConfig = {}) {
     this.environment = config.environment || this.detectEnvironment();
@@ -1015,6 +1016,33 @@ export class ChiaCloudWalletClient {
     // Log the final configuration for debugging
     if (this.enableLogging) {
       console.log(`[ChiaCloudWalletClient] Initialized with environment: ${this.environment}, baseUrl: ${this.baseUrl}, disableEnvDetection: ${config.disableEnvironmentDetection}`);
+    }
+    
+    // Initialize SpacescanClient immediately (after this constructor completes)
+    // Use setTimeout to defer initialization until after module load completes
+    setTimeout(() => this.initializeSpacescanClient(), 0);
+  }
+
+  /**
+   * Initialize Spacescan client (called after constructor)
+   */
+  private initializeSpacescanClient(): void {
+    if (this.spacescanInstance) return;
+    
+    try {
+      // Dynamic import to avoid circular dependency at module load time
+      import('./SpacescanClient').then(module => {
+        const { SpacescanClient } = module;
+        this.spacescanInstance = new SpacescanClient({
+          apiKey: 'esL8oRqzao1qQ6f5kYbB16iQ2C9zdXOl8BNm72Us',
+          baseUrl: this.baseUrl,
+          walletClient: this
+        });
+      }).catch(error => {
+        this.logError('Failed to initialize SpacescanClient', error);
+      });
+    } catch (error) {
+      this.logError('Failed to dynamically import SpacescanClient', error);
     }
   }
 
@@ -1104,6 +1132,8 @@ export class ChiaCloudWalletClient {
   setBaseUrl(url: string): void {
     // Remove trailing slash if present for consistency
     this.baseUrl = url.replace(/\/$/, '');
+    // Reset spacescan client to pick up new baseUrl
+    this.spacescanInstance = null;
     this.logInfo(`Base URL updated to: ${this.baseUrl}`);
   }
 
@@ -1122,11 +1152,49 @@ export class ChiaCloudWalletClient {
   }
 
   /**
+   * Get the Spacescan client instance (lazy initialization with dynamic import)
+   * Returns a promise that resolves to the SpacescanClient instance
+   */
+  async getSpacescanClientAsync(): Promise<any> {
+    if (!this.spacescanInstance) {
+      const { SpacescanClient } = await import('./SpacescanClient');
+      this.spacescanInstance = new SpacescanClient({
+        apiKey: 'esL8oRqzao1qQ6f5kYbB16iQ2C9zdXOl8BNm72Us',
+        baseUrl: this.baseUrl,
+        walletClient: this
+      });
+    }
+    return this.spacescanInstance;
+  }
+
+  /**
+   * Get the Spacescan client instance (synchronous)
+   * Returns the cached instance if available, otherwise creates it synchronously
+   * Note: First call may return null briefly if async init is still pending
+   */
+  getSpacescanClient(): any {
+    // If already initialized, return it
+    if (this.spacescanInstance) {
+      return this.spacescanInstance;
+    }
+
+    // Otherwise, trigger async initialization and return null
+    // (caller should handle null or use getSpacescanClientAsync)
+    this.getSpacescanClientAsync().catch(error => {
+      this.logError('Failed to lazy-load SpacescanClient', error);
+    });
+
+    return this.spacescanInstance;
+  }
+
+  /**
    * Set the environment and update base URL accordingly
    */
   setEnvironment(environment: 'development' | 'production' | 'test'): void {
     this.environment = environment;
     this.baseUrl = this.getBaseUrlForEnvironment();
+    // Reset spacescan client to pick up new baseUrl
+    this.spacescanInstance = null;
     this.logInfo(`Environment updated to: ${environment}, Base URL: ${this.baseUrl}`);
   }
 

@@ -162,7 +162,8 @@ const WalletInfo: React.FC<{
     // Get address directly from SDK state (available before full connection)
     const address = walletClient.sdk.walletState.address;
     // Use Spacescan to get balance - works independently of wallet connection
-    const spacescanBalance = useSpacescanBalance(address);
+    // Pass the wallet client to ensure correct environment (production vs dev)
+    const spacescanBalance = useSpacescanBalance(address, 500, walletClient.sdk.client);
 
     if (!address) {
         return (
@@ -358,7 +359,8 @@ const DialogsView: React.FC<{
     // Get address directly from SDK state (available before full connection)
     const address = walletClient.sdk.walletState.address;
     // Get Spacescan balance for this view - works independently of wallet connection
-    const spacescanBalance = useSpacescanBalance(address);
+    // Pass the wallet client to ensure correct environment (production vs dev)
+    const spacescanBalance = useSpacescanBalance(address, 500, walletClient.sdk.client);
 
     const [lastAction, setLastAction] = useState<string>('');
 
@@ -696,7 +698,8 @@ const CoinsView: React.FC<{
     // Get address directly from SDK state (available before full connection)
     const address = walletClient.sdk.walletState.address;
     // Get Spacescan balance for this view - works independently of wallet connection
-    const spacescanBalance = useSpacescanBalance(address);
+    // Pass the wallet client to ensure correct environment (production vs dev)
+    const spacescanBalance = useSpacescanBalance(address, 500, walletClient.sdk.client);
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -951,7 +954,8 @@ const ExampleApp: React.FC = () => {
     // Get address directly from SDK state (available before full connection)
     const address = walletClient.sdk.walletState.address;
     // Get Spacescan balance for header display - works independently of wallet connection
-    const spacescanBalance = useSpacescanBalance(address);
+    // Pass the wallet client to ensure correct environment (production vs dev)
+    const spacescanBalance = useSpacescanBalance(address, 500, walletClient.sdk.client);
 
     const renderCurrentView = () => {
         switch (currentView) {

@@ -5,7 +5,6 @@
 
 import React from 'react';
 import type { ChiaCloudWalletClient, HydratedCoin } from './ChiaCloudWalletClient';
-import { chiaCloudWalletClient } from './ChiaCloudWalletClient';
 
 export interface SpacescanBalanceResponse {
   status: 'success' | 'error';
@@ -296,7 +295,7 @@ export class SpacescanClient {
 
   constructor(config: SpacescanConfig) {
     // this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl || 'https://edgedev.silicon.net/v1/spacescan';
+    this.baseUrl = (config.baseUrl || 'https://edgedev.silicon.net/v1') + '/spacescan';
     this.timeout = config.timeout || 10000; // 10 seconds
     this.requestManager = new DebouncedRequestManager();
     this.walletClient = config.walletClient;
@@ -760,14 +759,8 @@ export const getTokenDisplayName = (assetId: string, tokenId?: string): string =
   return `${assetId.slice(0, 8)}...`;
 };
 
-// Default instance with provided API key
-export const defaultSpacescanClient = new SpacescanClient({
-  apiKey: 'esL8oRqzao1qQ6f5kYbB16iQ2C9zdXOl8BNm72Us',
-  baseUrl: chiaCloudWalletClient.getBaseUrl() || ''
-});
-
 // Hook for using Spacescan XCH balance with debouncing
-export const useSpacescanBalance = (address: string | null, debounceMs: number = 500) => {
+export const useSpacescanBalance = (address: string | null, debounceMs: number = 500, walletClient: any) => {
   const [balance, setBalance] = React.useState<SpacescanBalanceResponse | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -793,7 +786,8 @@ export const useSpacescanBalance = (address: string | null, debounceMs: number =
     setError(null);
 
     try {
-      const result = await defaultSpacescanClient.getXchBalance(debouncedAddress);
+      const client = walletClient.getSpacescanClient();
+      const result = await client.getXchBalance(debouncedAddress);
       setBalance(result);
       setError(null);
     } catch (err) {
@@ -803,7 +797,7 @@ export const useSpacescanBalance = (address: string | null, debounceMs: number =
     } finally {
       setLoading(false);
     }
-  }, [debouncedAddress]);
+  }, [debouncedAddress, walletClient]);
 
   // Fetch balance when debounced address changes
   React.useEffect(() => {
@@ -818,12 +812,12 @@ export const useSpacescanBalance = (address: string | null, debounceMs: number =
     xch: balance?.xch || 0,
     mojo: balance?.mojo || 0,
     formattedBalance: balance?.xch !== undefined ? SpacescanClient.formatXch(balance.xch) : '0.000000',
-    clearCache: () => defaultSpacescanClient.clearCache(debouncedAddress || undefined)
+    clearCache: () => walletClient.getSpacescanClient().clearCache(debouncedAddress || undefined)
   };
 };
 
 // Hook for using Spacescan NFT balance with debouncing
-export const useSpacescanNFTs = (address: string | null, debounceMs: number = 500) => {
+export const useSpacescanNFTs = (address: string | null, debounceMs: number = 500, walletClient: any) => {
   const [nfts, setNfts] = React.useState<SpacescanNFT[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -851,7 +845,8 @@ export const useSpacescanNFTs = (address: string | null, debounceMs: number = 50
     setError(null);
 
     try {
-      const result = await defaultSpacescanClient.getNftBalance(debouncedAddress);
+      const client = walletClient.getSpacescanClient();
+      const result = await client.getNftBalance(debouncedAddress);
       setNfts(result.data || []);
       setCount(result.count || 0);
       setError(null);
@@ -863,7 +858,7 @@ export const useSpacescanNFTs = (address: string | null, debounceMs: number = 50
     } finally {
       setLoading(false);
     }
-  }, [debouncedAddress]);
+  }, [debouncedAddress, walletClient]);
 
   // Fetch NFTs when debounced address changes
   React.useEffect(() => {
@@ -877,12 +872,12 @@ export const useSpacescanNFTs = (address: string | null, debounceMs: number = 50
     count,
     refetch: fetchNFTs,
     hasNFTs: nfts.length > 0,
-    clearCache: () => defaultSpacescanClient.clearCache(debouncedAddress || undefined)
+    clearCache: () => walletClient.getSpacescanClient().clearCache(debouncedAddress || undefined)
   };
 };
 
 // Hook for using Spacescan NFT transactions with debouncing
-export const useSpacescanNFTTransactions = (address: string | null, limit: number = 100, offset: number = 0, debounceMs: number = 500) => {
+export const useSpacescanNFTTransactions = (address: string | null, limit: number = 100, offset: number = 0, debounceMs: number = 500, walletClient: any) => {
   const [receivedTransactions, setReceivedTransactions] = React.useState<SpacescanNFTTransaction[]>([]);
   const [sentTransactions, setSentTransactions] = React.useState<SpacescanNFTTransaction[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -914,7 +909,8 @@ export const useSpacescanNFTTransactions = (address: string | null, limit: numbe
     setError(null);
 
     try {
-      const result = await defaultSpacescanClient.getNftTransactions(debouncedAddress, limit, offset);
+      const client = walletClient.getSpacescanClient();
+      const result = await client.getNftTransactions(debouncedAddress, limit, offset);
       setReceivedTransactions(result.received_transactions?.transactions || []);
       setSentTransactions(result.send_transactions?.transactions || []);
       setReceivedCount(result.received_transactions?.total_count || 0);
@@ -930,7 +926,7 @@ export const useSpacescanNFTTransactions = (address: string | null, limit: numbe
     } finally {
       setLoading(false);
     }
-  }, [debouncedAddress, limit, offset]);
+  }, [debouncedAddress, limit, offset, walletClient]);
 
   // Fetch transactions when parameters change
   React.useEffect(() => {
@@ -953,12 +949,12 @@ export const useSpacescanNFTTransactions = (address: string | null, limit: numbe
     sentCount,
     refetch: fetchTransactions,
     hasTransactions: allTransactions.length > 0,
-    clearCache: () => defaultSpacescanClient.clearCache(debouncedAddress || undefined)
+    clearCache: () => walletClient.getSpacescanClient().clearCache(debouncedAddress || undefined)
   };
 };
 
 // Hook for using Spacescan token transactions with debouncing
-export const useSpacescanTokenTransactions = (address: string | null, limit: number = 100, offset: number = 0, debounceMs: number = 500) => {
+export const useSpacescanTokenTransactions = (address: string | null, limit: number = 100, offset: number = 0, debounceMs: number = 500, walletClient: any) => {
   const [receivedTransactions, setReceivedTransactions] = React.useState<SpacescanTokenTransaction[]>([]);
   const [sentTransactions, setSentTransactions] = React.useState<SpacescanTokenTransaction[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -990,7 +986,8 @@ export const useSpacescanTokenTransactions = (address: string | null, limit: num
     setError(null);
 
     try {
-      const result = await defaultSpacescanClient.getTokenTransactions(debouncedAddress, limit, offset);
+      const client = walletClient.getSpacescanClient();
+      const result = await client.getTokenTransactions(debouncedAddress, limit, offset);
       setReceivedTransactions(result.received_transactions?.transactions || []);
       setSentTransactions(result.send_transactions?.transactions || []);
       setReceivedCount(result.received_transactions?.total_count || 0);
@@ -1006,7 +1003,7 @@ export const useSpacescanTokenTransactions = (address: string | null, limit: num
     } finally {
       setLoading(false);
     }
-  }, [debouncedAddress, limit, offset]);
+  }, [debouncedAddress, limit, offset, walletClient]);
 
   // Fetch transactions when parameters change
   React.useEffect(() => {
@@ -1029,12 +1026,12 @@ export const useSpacescanTokenTransactions = (address: string | null, limit: num
     sentCount,
     refetch: fetchTransactions,
     hasTransactions: allTransactions.length > 0,
-    clearCache: () => defaultSpacescanClient.clearCache(debouncedAddress || undefined)
+    clearCache: () => walletClient.getSpacescanClient().clearCache(debouncedAddress || undefined)
   };
 };
 
 // Hook for using Spacescan XCH transactions with debouncing
-export const useSpacescanXCHTransactions = (address: string | null, limit: number = 100, offset: number = 0, debounceMs: number = 500) => {
+export const useSpacescanXCHTransactions = (address: string | null, limit: number = 100, offset: number = 0, debounceMs: number = 500, walletClient: any) => {
   const [receivedTransactions, setReceivedTransactions] = React.useState<SpacescanTransaction[]>([]);
   const [sentTransactions, setSentTransactions] = React.useState<SpacescanTransaction[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -1066,7 +1063,8 @@ export const useSpacescanXCHTransactions = (address: string | null, limit: numbe
     setError(null);
 
     try {
-      const result = await defaultSpacescanClient.getXchTransactions(debouncedAddress, limit, offset);
+      const client = walletClient.getSpacescanClient();
+      const result = await client.getXchTransactions(debouncedAddress, limit, offset);
       setReceivedTransactions(result.received_transactions?.transactions || []);
       setSentTransactions(result.send_transactions?.transactions || []);
       setReceivedCount(result.received_transactions?.total_count || 0);
@@ -1082,7 +1080,7 @@ export const useSpacescanXCHTransactions = (address: string | null, limit: numbe
     } finally {
       setLoading(false);
     }
-  }, [debouncedAddress, limit, offset]);
+  }, [debouncedAddress, limit, offset, walletClient]);
 
   // Fetch transactions when parameters change
   React.useEffect(() => {
@@ -1105,27 +1103,28 @@ export const useSpacescanXCHTransactions = (address: string | null, limit: numbe
     sentCount,
     refetch: fetchTransactions,
     hasTransactions: allTransactions.length > 0,
-    clearCache: () => defaultSpacescanClient.clearCache(debouncedAddress || undefined)
+    clearCache: () => walletClient.getSpacescanClient().clearCache(debouncedAddress || undefined)
   };
 };
 
 // Hook for managing Spacescan cache
-export const useSpacescanCache = () => {
-  const [cacheStats, setCacheStats] = React.useState(defaultSpacescanClient.getCacheStats());
+export const useSpacescanCache = (walletClient: any) => {
+  const client = walletClient.getSpacescanClient();
+  const [cacheStats, setCacheStats] = React.useState(client.getCacheStats());
 
   const refreshStats = React.useCallback(() => {
-    setCacheStats(defaultSpacescanClient.getCacheStats());
-  }, []);
+    setCacheStats(client.getCacheStats());
+  }, [client]);
 
   const clearAllCache = React.useCallback(() => {
-    defaultSpacescanClient.clearCache();
+    client.clearCache();
     refreshStats();
-  }, [refreshStats]);
+  }, [client, refreshStats]);
 
   const clearAddressCache = React.useCallback((address: string) => {
-    defaultSpacescanClient.clearCache(address);
+    client.clearCache(address);
     refreshStats();
-  }, [refreshStats]);
+  }, [client, refreshStats]);
 
   // Auto-refresh stats every 5 seconds when component is mounted
   React.useEffect(() => {

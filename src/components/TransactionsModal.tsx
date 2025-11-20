@@ -1,6 +1,6 @@
 import React from 'react';
 import { PiArrowSquareOut } from 'react-icons/pi';
-import { useWalletConnection } from '../hooks/useChiaWalletSDK';
+import { useWalletConnection, useRawSDK } from '../hooks/useChiaWalletSDK';
 import {
   useSpacescanXCHTransactions,
   useSpacescanNFTTransactions,
@@ -16,10 +16,12 @@ export const TransactionsModal: React.FC<TransactionsModalProps> = ({
   isOpen,
 }) => {
   const { isConnected, address } = useWalletConnection();
-
-  const xchTx = useSpacescanXCHTransactions(address, 100, 0);
-  const nftTx = useSpacescanNFTTransactions(address, 100, 0);
-  const tokenTx = useSpacescanTokenTransactions(address, 100, 0);
+  const sdk = useRawSDK();
+  
+  // Pass wallet client to Spacescan hooks to ensure correct environment (production vs dev)
+  const xchTx = useSpacescanXCHTransactions(address, 100, 0, 500, sdk?.client);
+  const nftTx = useSpacescanNFTTransactions(address, 100, 0, 500, sdk?.client);
+  const tokenTx = useSpacescanTokenTransactions(address, 100, 0, 500, sdk?.client);
 
   const allTransactions = React.useMemo(() => {
     return [
